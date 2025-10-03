@@ -11,7 +11,6 @@ from core.notification.controller.notificationcontroller import notification_rou
 from core.payments.controller.billcontroller import bill_routes
 from core.payments.controller.invoicecontroller import invoice_routes
 from core.payments.controller.paymentcontroller import payment_routes
-from core.agent.controller.agentcontroller import agent_routes
 
 from dotenv import load_dotenv
 import os
@@ -29,7 +28,7 @@ from loguru import logger
 app = FastAPI( 
     title=settings.SERVICE_NAME,
     version="1.0",
-    description="""**LambdarCore API** An ML focused app infrastructure deployed with python.
+    description="""**Lebe Core API** An AI focused app infrastructure deployed with python.
     
     Default Endpoints
     
@@ -40,8 +39,8 @@ app = FastAPI(
     """,
     contact={
         "name": "API Support",
-        "url": "http://support@lambdarcorp.com",
-        "email": "mail@lambdarcorp.com",
+        "url": "http://support@lebe.com",
+        "email": "mail@lebe.com",
     },
     license_info={
         "name": "MIT",
@@ -85,7 +84,6 @@ app.include_router(notification_routes, prefix="/api/v1/notification", tags=["No
 app.include_router(payment_routes, prefix="/api/v1/payment", tags=["Payment Routes"])
 app.include_router(bill_routes, prefix="/api/v1/bill", tags=["Billing Routes"])
 app.include_router(invoice_routes, prefix="/api/v1/invoice", tags=["Invoice Routes"])
-app.include_router(agent_routes, prefix="/api/v1/agent", tags=["Agent Routes"])
 
 # AuthJWT Configuration
 class JWTSettings(BaseSettings):

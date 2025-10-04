@@ -94,30 +94,3 @@ async def reset_password_no_auth(
     auth_service = AuthService(db)
     return auth_service.reset_password_no_auth(request)
 
-@auth_routes.post("/refresh")
-async def refresh_token(
-    refresh_token: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    auth_service = AuthService(db)
-    return auth_service.refresh_tokens(refresh_token)
-
-@auth_routes.get("/validate")
-async def validate_session(
-    authjwt: AuthJWT = Depends(validate_token)
-):
-    current_user_email = authjwt.get_jwt_subject()
-    
-    return {"email": current_user_email, "valid": True}
-
-@auth_routes.post("/signout-all")
-async def signout_all_sessions(
-    authjwt: AuthJWT = Depends(validate_token),
-    db: Session = Depends(get_db)
-):
-        token = authjwt._token
-        
-        auth_service = AuthService(db)
-        
-        auth_service.signout_all(token)
-        return {"message": "Logged out from all devices"}

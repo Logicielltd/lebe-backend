@@ -13,27 +13,26 @@ class Settings(BaseSettings):
     DB_USER: str = os.environ.get('DB_USER')
     DB_PASSWORD: str = os.environ.get('DB_PASSWORD')
     DB_DATABASE: str = os.environ.get('DB_DATABASE')
-
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 0
     DB_ECHO: bool = False
 
-    SECRET_KEY: str = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-    ALGORITHM: str = "HS256"
-    KID: str = "p04355e094faa6ca2dfgc8w5666b7a9563b93f7099f6f0f4caskdghdjakdbfgsha"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_MINUTES: int = 360
-    REDIS_HOST: str = 'redis-1'
-    REDIS_PORT: str = 6379
-    REDIS_PASSWORD: str = 'redisPword'
-    RABBIT_MQ_URL: str = 'amqp://lebe:admin321@rabbitmq/'
-    RABBIT_MQ_ROUTING_KEY: str = ''
-    RABBIT_MQ_AUDIT_QUEUE: str = 'audit_queue'
-    SMS_MQ_QUEUE: str = 'sms_queue'
-    EMAIL_MQ_QUEUE: str = 'email_queue'
-    BASE_FRONTEND_URL: str = 'https://lebeapp.com'
-    BATCH_CUSTOMER_UPLOAD_QUEUE: str = 'batch_customer_upload_queue'
-    COMPANY_QUEUE: str = 'company_creation_queue'
+    SECRET_KEY: str = os.environ.get('SECRET_KEY')
+    ALGORITHM: str = os.environ.get('ALGORITHM')
+    KID: str = os.environ.get('KID')
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES')
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = os.environ.get('REFRESH_TOKEN_EXPIRE_MINUTES')
+    REDIS_HOST: str = os.environ.get('REDIS_HOST')
+    REDIS_PORT: str = os.environ.get('REDIS_PORT')
+    REDIS_PASSWORD: str = os.environ.get('REDIS_PASSWORD')
+    RABBIT_MQ_URL: str = os.environ.get('RABBIT_MQ_URL')
+    RABBIT_MQ_ROUTING_KEY: str = os.environ.get('RABBIT_MQ_ROUTING_KEY')
+    RABBIT_MQ_AUDIT_QUEUE: str = os.environ.get('RABBIT_MQ_AUDIT_QUEUE')
+    SMS_MQ_QUEUE: str = os.environ.get('SMS_MQ_QUEUE')
+    EMAIL_MQ_QUEUE: str = os.environ.get('EMAIL_MQ_QUEUE')
+    BASE_FRONTEND_URL: str = os.environ.get('BASE_FRONTEND_URL')
+    BATCH_CUSTOMER_UPLOAD_QUEUE: str = os.environ.get('BATCH_CUSTOMER_UPLOAD_QUEUE')
+    COMPANY_QUEUE: str = os.environ.get('COMPANY_QUEUE')
 
 
     @property

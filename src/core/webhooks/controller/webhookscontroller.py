@@ -36,6 +36,8 @@ def start_dialog(
 
     user_in_db_status = auth_service.validate_user(dialog_payload.phone)
 
+    
+
     return nlp_engine.respond(
         user_in_db_status= user_in_db_status,
         data=dialog_payload.data

@@ -66,7 +66,7 @@ class AuthService:
             profile_picture=request.profile_picture,
             bio=request.bio,
             email=request.email,
-            hashed_password=self.hash_password(request.password),
+            hashed_password=self.hash_password(request.pin),
             created_at=datetime.now(timezone.utc),
         )
 
@@ -80,6 +80,7 @@ class AuthService:
         }
 
     def validate_user(self, phone: str):
+        
         db_user = self.db.query(User).filter(User.phone == phone).first()
 
         # return True if user exists, else False

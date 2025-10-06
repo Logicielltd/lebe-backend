@@ -24,14 +24,12 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(20), nullable=False, unique=True, primary_key=True)
     username: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    hashed_pin: Mapped[str] = mapped_column(String, nullable=False)
     first_name: Mapped[str] = mapped_column(String, nullable=False)
     last_name: Mapped[str] = mapped_column(String, nullable=False)
     phone: Mapped[Optional[str]] = mapped_column(String)
     
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    profile_picture: Mapped[Optional[str]] = mapped_column(String)
-    bio: Mapped[Optional[str]] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     
     status: Mapped[UserStatus] = mapped_column(String, nullable=False, default=UserStatus.ACTIVE)

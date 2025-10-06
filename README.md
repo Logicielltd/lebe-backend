@@ -11,8 +11,8 @@ This project is a project aimed at [brief project description]. This README prov
 
 1. **Clone the repository:**
     ```sh
-    git clone https://github.com/yourusername/lambdar_b_e.git
-    cd brainedbase
+    git clone git clone git@bitbucket.org:LogicielEngineer/lebe-backend.git
+    cd lebe-backend
     ```
 
 2. **Create a virtual environment:**
@@ -33,7 +33,7 @@ This project is a project aimed at [brief project description]. This README prov
 
 4. **Install the required dependencies:**
     ```sh
-    pip install -r requirements.txt
+    pip install -r src/requirements.txt
     ```
 
 5. **Run the application:**

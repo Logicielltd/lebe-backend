@@ -12,8 +12,6 @@ from core.payments.controller.billcontroller import bill_routes
 from core.payments.controller.invoicecontroller import invoice_routes
 from core.payments.controller.paymentcontroller import payment_routes
 
-from dotenv import load_dotenv
-import os
 from utilities.dbconfig import Base, engine
 from config import settings
 from utilities.exceptions import DatabaseValidationError
@@ -47,9 +45,9 @@ app = FastAPI(
     },
 )
 
-# print("Creating tables...")
-# Base.metadata.create_all(bind=engine)
-# print("Tables created successfully.")
+print("Creating tables...")
+Base.metadata.create_all(bind=engine)
+print("Tables created successfully.")
 
 # Add middleware for CORS
 app.add_middleware(

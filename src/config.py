@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     BASE_FRONTEND_URL: str = os.environ.get('BASE_FRONTEND_URL')
     BATCH_CUSTOMER_UPLOAD_QUEUE: str = os.environ.get('BATCH_CUSTOMER_UPLOAD_QUEUE')
     COMPANY_QUEUE: str = os.environ.get('COMPANY_QUEUE')
+    
+    # OTP Configuration
+    OTP_EXPIRE_MINUTES: int = int(os.environ.get('OTP_EXPIRE_MINUTES', 5))
 
 
     @property

@@ -3,6 +3,7 @@ from typing import Optional, List
 from sqlalchemy.orm import Session
 from core.subscription.model.subscription_plan import SubscriptionPlan
 from core.subscription.model.user_subscription import UserSubscription, SubscriptionStatus
+from core.user.model.User import User
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,33 @@ class SubscriptionService:
         return self.db.query(UserSubscription).filter(
             UserSubscription.user_id == user_id
         ).order_by(UserSubscription.created_at.desc()).all()
+
+    def subscribe_user_by_phone(self, phone: str, plan_id: int, payment_reference: str = None) -> dict:
+        """Subscribe user to a plan using phone number"""
+        try:
+            # Find user by phone number
+            user = self.db.query(User).filter(User.phone == phone).first()
+            if not user:
+                return {
+                    "success": False,
+                    "message": "User not found with this phone number"
+                }
+            
+            # Check if user account is enabled (verified)
+            if not user.enabled:
+                return {
+                    "success": False,
+                    "message": "User account is not verified. Please verify your phone number first."
+                }
+            
+            return self.subscribe_user(user.id, plan_id, payment_reference)
+        
+        except Exception as e:
+            logger.error(f"Error subscribing user with phone {phone} to plan {plan_id}: {str(e)}")
+            return {
+                "success": False,
+                "message": "Failed to subscribe user"
+            }
 
     def subscribe_user(self, user_id: str, plan_id: int, payment_reference: str = None) -> dict:
         """Subscribe user to a plan"""
@@ -89,6 +117,33 @@ class SubscriptionService:
             return {
                 "success": False,
                 "message": "Failed to create subscription"
+            }
+
+    def upgrade_subscription_by_phone(self, phone: str, new_plan_id: int, payment_reference: str = None) -> dict:
+        """Upgrade user's subscription using phone number"""
+        try:
+            # Find user by phone number
+            user = self.db.query(User).filter(User.phone == phone).first()
+            if not user:
+                return {
+                    "success": False,
+                    "message": "User not found with this phone number"
+                }
+            
+            # Check if user account is enabled (verified)
+            if not user.enabled:
+                return {
+                    "success": False,
+                    "message": "User account is not verified. Please verify your phone number first."
+                }
+            
+            return self.upgrade_subscription(user.id, new_plan_id, payment_reference)
+        
+        except Exception as e:
+            logger.error(f"Error upgrading subscription for user with phone {phone}: {str(e)}")
+            return {
+                "success": False,
+                "message": "Failed to upgrade subscription"
             }
 
     def upgrade_subscription(self, user_id: str, new_plan_id: int, payment_reference: str = None) -> dict:
@@ -160,6 +215,26 @@ class SubscriptionService:
                 "message": "Failed to upgrade subscription"
             }
 
+    def cancel_subscription_by_phone(self, phone: str, reason: str = None) -> dict:
+        """Cancel user's subscription using phone number"""
+        try:
+            # Find user by phone number
+            user = self.db.query(User).filter(User.phone == phone).first()
+            if not user:
+                return {
+                    "success": False,
+                    "message": "User not found with this phone number"
+                }
+            
+            return self.cancel_subscription(user.id, reason)
+        
+        except Exception as e:
+            logger.error(f"Error cancelling subscription for user with phone {phone}: {str(e)}")
+            return {
+                "success": False,
+                "message": "Failed to cancel subscription"
+            }
+
     def cancel_subscription(self, user_id: str, reason: str = None) -> dict:
         """Cancel user's active subscription"""
         try:
@@ -194,6 +269,77 @@ class SubscriptionService:
                 "message": "Failed to cancel subscription"
             }
 
+    def create_subscription_plan(self, name: str, price: float, billing_period: str, billing_period_count: int, features: str, description: str = None, is_active: bool = True) -> dict:
+        """Create a new subscription plan"""
+        try:
+            # Check if plan name already exists
+            existing_plan = self.db.query(SubscriptionPlan).filter(SubscriptionPlan.name == name).first()
+            if existing_plan:
+                return {
+                    "success": False,
+                    "message": f"Subscription plan with name '{name}' already exists"
+                }
+            
+            # Create new plan
+            new_plan = SubscriptionPlan(
+                name=name,
+                price=price,
+                billing_period=billing_period,
+                billing_period_count=billing_period_count,
+                features=features,
+                description=description,
+                is_active=is_active,
+                created_at=datetime.now(timezone.utc)
+            )
+            
+            self.db.add(new_plan)
+            self.db.commit()
+            self.db.refresh(new_plan)
+            
+            logger.info(f"Created subscription plan: {new_plan.name} (ID: {new_plan.id})")
+            
+            return {
+                "success": True,
+                "message": "Subscription plan created successfully",
+                "plan": new_plan
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating subscription plan '{name}': {str(e)}")
+            self.db.rollback()
+            return {
+                "success": False,
+                "message": "Failed to create subscription plan"
+            }
+
+    def check_user_has_feature_by_phone(self, phone: str, feature: str) -> dict:
+        """Check if user has access to specific feature using phone number"""
+        try:
+            # Find user by phone number
+            user = self.db.query(User).filter(User.phone == phone).first()
+            if not user:
+                return {
+                    "success": False,
+                    "message": "User not found with this phone number",
+                    "has_access": False
+                }
+            
+            has_access = self.check_user_has_feature(user.id, feature)
+            return {
+                "success": True,
+                "phone": phone,
+                "feature": feature,
+                "has_access": has_access
+            }
+        
+        except Exception as e:
+            logger.error(f"Error checking feature access for user with phone {phone}: {str(e)}")
+            return {
+                "success": False,
+                "message": "Failed to check feature access",
+                "has_access": False
+            }
+
     def check_user_has_feature(self, user_id: str, feature: str) -> bool:
         """Check if user's subscription includes a specific feature"""
         subscription = self.get_user_active_subscription(user_id)
@@ -203,6 +349,38 @@ class SubscriptionService:
         # Simple string check in features (you can make this more sophisticated)
         return feature.lower() in subscription.plan.features.lower()
 
+    def get_user_subscription_status_by_phone(self, phone: str) -> dict:
+        """Get user's subscription status using phone number"""
+        try:
+            # Find user by phone number
+            user = self.db.query(User).filter(User.phone == phone).first()
+            if not user:
+                return {
+                    "has_active_subscription": False,
+                    "subscription_id": None,
+                    "plan_name": None,
+                    "features": None,
+                    "amount_paid": None,
+                    "expires_at": None,
+                    "days_remaining": 0,
+                    "status": "NO_USER"
+                }
+            
+            return self.get_user_subscription_status(user.id)
+        
+        except Exception as e:
+            logger.error(f"Error getting subscription status for user with phone {phone}: {str(e)}")
+            return {
+                "has_active_subscription": False,
+                "subscription_id": None,
+                "plan_name": None,
+                "features": None,
+                "amount_paid": None,
+                "expires_at": None,
+                "days_remaining": 0,
+                "status": "ERROR"
+            }
+
     def get_user_subscription_status(self, user_id: str) -> dict:
         """Get comprehensive subscription status for user"""
         subscription = self.get_user_active_subscription(user_id)
@@ -210,8 +388,10 @@ class SubscriptionService:
         if not subscription:
             return {
                 "has_active_subscription": False,
+                "subscription_id": None,
                 "plan_name": None,
-                "features": [],
+                "features": None,
+                "amount_paid": None,
                 "expires_at": None,
                 "days_remaining": 0,
                 "status": "NO_SUBSCRIPTION"
@@ -228,53 +408,6 @@ class SubscriptionService:
             "status": subscription.status.value
         }
 
-    def create_subscription_plan(self, name: str, price: float, features: str, description: str = None, is_active: bool = True) -> dict:
-        """Create a new subscription plan"""
-        try:
-            # Check if plan with same name already exists
-            existing_plan = self.db.query(SubscriptionPlan).filter(SubscriptionPlan.name == name).first()
-            if existing_plan:
-                return {
-                    "success": False,
-                    "message": f"Subscription plan with name '{name}' already exists"
-                }
-
-            # Create new plan
-            new_plan = SubscriptionPlan(
-                name=name,
-                price=price,
-                features=features,
-                description=description,
-                is_active=is_active
-            )
-
-            self.db.add(new_plan)
-            self.db.commit()
-            self.db.refresh(new_plan)
-
-            logger.info(f"Created new subscription plan: {name}")
-
-            return {
-                "success": True,
-                "message": "Subscription plan created successfully",
-                "plan_id": new_plan.id,
-                "plan": {
-                    "id": new_plan.id,
-                    "name": new_plan.name,
-                    "price": new_plan.price,
-                    "features": new_plan.features,
-                    "description": new_plan.description,
-                    "is_active": new_plan.is_active
-                }
-            }
-
-        except Exception as e:
-            logger.error(f"Error creating subscription plan: {str(e)}")
-            self.db.rollback()
-            return {
-                "success": False,
-                "message": "Failed to create subscription plan"
-            }
 
     def update_subscription_plan(self, plan_id: int, **updates) -> dict:
         """Update an existing subscription plan"""

@@ -33,6 +33,12 @@ class SubscriptionStatusResponse(BaseModel):
     status: str
 
 
+class PlanCreateResponse(BaseModel):
+    success: bool
+    message: str
+    plan: Optional[PlanResponse] = None
+
+
 class PlansListResponse(BaseModel):
     success: bool
     plans: List[PlanResponse]

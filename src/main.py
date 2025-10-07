@@ -18,6 +18,7 @@ from utilities.dbconfig import Base, engine
 from config import settings
 from utilities.exceptions import DatabaseValidationError
 import exceptions
+from fastapi.exceptions import RequestValidationError
 from core.middleware.logmiddleware import LoggingMiddleware
 from core.auditlogging.service.logservice import logging_service
 from config import settings
@@ -73,6 +74,7 @@ app.add_middleware(
 # )
 
 app.add_exception_handler(DatabaseValidationError, exceptions.database_validation_exception_handler)
+app.add_exception_handler(RequestValidationError, exceptions.validation_exception_handler)
 
 # Register the routes
 app.include_router(base_routes, prefix="/api/v1", tags=["Base Routes"])

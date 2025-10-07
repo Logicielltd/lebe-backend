@@ -11,7 +11,8 @@ from core.subscription.dto.response.subscription_response import (
     SubscriptionResponse, 
     SubscriptionStatusResponse, 
     PlansListResponse,
-    PlanResponse
+    PlanResponse,
+    PlanCreateResponse
 )
 
 subscription_routes = APIRouter()
@@ -52,13 +53,12 @@ def get_subscription_plans(db: Session = Depends(get_db)):
 @subscription_routes.post("/subscribe", response_model=SubscriptionResponse)
 def subscribe_to_plan(
     request: SubscribeRequest,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db)
 ):
-    """Subscribe user to a subscription plan"""
+    """Subscribe user to a subscription plan using phone number"""
     subscription_service = SubscriptionService(db)
-    result = subscription_service.subscribe_user(
-        user_id=current_user_id,
+    result = subscription_service.subscribe_user_by_phone(
+        phone=request.phone,
         plan_id=request.plan_id,
         payment_reference=request.payment_reference
     )
@@ -75,13 +75,12 @@ def subscribe_to_plan(
 @subscription_routes.post("/upgrade", response_model=SubscriptionResponse)
 def upgrade_subscription(
     request: UpgradeRequest,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db)
 ):
-    """Upgrade user's current subscription to a higher plan"""
+    """Upgrade user's current subscription to a higher plan using phone number"""
     subscription_service = SubscriptionService(db)
-    result = subscription_service.upgrade_subscription(
-        user_id=current_user_id,
+    result = subscription_service.upgrade_subscription_by_phone(
+        phone=request.phone,
         new_plan_id=request.new_plan_id,
         payment_reference=request.payment_reference
     )
@@ -98,13 +97,12 @@ def upgrade_subscription(
 @subscription_routes.post("/cancel", response_model=SubscriptionResponse)
 def cancel_subscription(
     request: CancelRequest,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    db: Session = Depends(get_db)
 ):
-    """Cancel user's current subscription"""
+    """Cancel user's current subscription using phone number"""
     subscription_service = SubscriptionService(db)
-    result = subscription_service.cancel_subscription(
-        user_id=current_user_id,
+    result = subscription_service.cancel_subscription_by_phone(
+        phone=request.phone,
         reason=request.reason
     )
     
@@ -117,37 +115,31 @@ def cancel_subscription(
     return SubscriptionResponse(**result)
 
 
-@subscription_routes.get("/status", response_model=SubscriptionStatusResponse)
+@subscription_routes.get("/status/{phone}", response_model=SubscriptionStatusResponse)
 def get_subscription_status(
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    phone: str,
+    db: Session = Depends(get_db)
 ):
-    """Get user's current subscription status"""
+    """Get user's current subscription status using phone number"""
     subscription_service = SubscriptionService(db)
-    result = subscription_service.get_user_subscription_status(current_user_id)
+    result = subscription_service.get_user_subscription_status_by_phone(phone)
     
     return SubscriptionStatusResponse(**result)
 
 
-@subscription_routes.get("/check-feature/{feature}")
+@subscription_routes.get("/check-feature/{feature}/{phone}")
 def check_user_feature(
     feature: str,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
+    phone: str,
+    db: Session = Depends(get_db)
 ):
-    """Check if user has access to a specific feature"""
+    """Check if user has access to a specific feature using phone number"""
     subscription_service = SubscriptionService(db)
-    has_feature = subscription_service.check_user_has_feature(current_user_id, feature)
-    
-    return {
-        "user_id": current_user_id,
-        "feature": feature,
-        "has_access": has_feature
-    }
+    return subscription_service.check_user_has_feature_by_phone(phone, feature)
 
 
 # ADMIN ENDPOINTS
-@subscription_routes.post("/admin/plans", response_model=SubscriptionResponse)
+@subscription_routes.post("/admin/plans", response_model=PlanCreateResponse)
 def create_subscription_plan(
     request: CreatePlanRequest,
     db: Session = Depends(get_db)
@@ -158,6 +150,8 @@ def create_subscription_plan(
     result = subscription_service.create_subscription_plan(
         name=request.name,
         price=request.price,
+        billing_period=request.billing_period,
+        billing_period_count=request.billing_period_count,
         features=request.features,
         description=request.description,
         is_active=request.is_active
@@ -169,17 +163,11 @@ def create_subscription_plan(
             detail=result["message"]
         )
     
-    return SubscriptionResponse(**result)
-
-
-@subscription_routes.get("/admin/plans", response_model=PlansListResponse)
-def get_all_plans_admin(db: Session = Depends(get_db)):
-    """Get all subscription plans including inactive ones (Admin only)"""
-    subscription_service = SubscriptionService(db)
-    plans = subscription_service.get_all_plans_admin()
-    
-    plan_responses = [
-        PlanResponse(
+    plan = result["plan"]
+    return PlanCreateResponse(
+        success=True,
+        message=result["message"],
+        plan=PlanResponse(
             id=plan.id,
             name=plan.name,
             price=plan.price,
@@ -187,14 +175,8 @@ def get_all_plans_admin(db: Session = Depends(get_db)):
             description=plan.description,
             is_active=plan.is_active
         )
-        for plan in plans
-    ]
-    
-    return PlansListResponse(
-        success=True,
-        plans=plan_responses,
-        total_count=len(plan_responses)
     )
+
 
 
 @subscription_routes.put("/admin/plans/{plan_id}", response_model=SubscriptionResponse)

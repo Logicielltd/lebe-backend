@@ -63,8 +63,10 @@ class AuthService:
             first_name=request.first_name,
             last_name=request.last_name,
             phone=request.phone,
+            profile_picture=request.profile_picture,
+            bio=request.bio,
             email=request.email,
-            hashed_pin=self.hash_password(request.pin),
+            hashed_password=self.hash_password(request.pin),
             created_at=datetime.now(timezone.utc),
         )
 

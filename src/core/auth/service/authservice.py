@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 class AuthService:
     def __init__(self, db: Session):
         self.db = db

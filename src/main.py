@@ -1,5 +1,4 @@
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
 from fastapi_jwt_auth import AuthJWT
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseSettings
@@ -72,7 +71,6 @@ app.add_middleware(
 # )
 
 app.add_exception_handler(DatabaseValidationError, exceptions.database_validation_exception_handler)
-app.add_exception_handler(RequestValidationError, exceptions.validation_exception_handler)
 
 # Register the routes
 app.include_router(base_routes, prefix="/api/v1", tags=["Base Routes"])

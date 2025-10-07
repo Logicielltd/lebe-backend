@@ -9,7 +9,6 @@ from core.auth.dto.request.user_create import UserCreateRequest
 from core.auth.dto.request.userlogin import UserLoginRequest
 from core.auth.dto.request.resetpassword import ResetPasswordRequest
 from core.auth.dto.request.resetpassnoauth import ResetPassNoAuth
-from core.auth.dto.request.otp_verify import OTPVerifyRequest
 from core.auth.service.authservice import AuthService
 from core.exceptions.AuthException import InvalidCredentialsError
 from core.exceptions.UserException import UserAlreadyExistsError
@@ -19,14 +18,13 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-
 def validate_token(authjwt: AuthJWT = Depends()):
     try:
         authjwt.jwt_required()
         return authjwt
     except jwt.ExpiredSignatureError:
         raise HTTPException(
-            status_code=401,
+            status_code=401, 
             detail="Token expired. Please log in again."
         )
     except MissingTokenError:
@@ -40,18 +38,15 @@ def validate_token(authjwt: AuthJWT = Depends()):
             status_code=401,
             detail=f"Invalid token: {str(e)}"
         )
-
-
+    
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
-
+    
 auth_routes = APIRouter()
-
 
 @auth_routes.post("/signup")
 def signup(request: UserCreateRequest, db: Session = Depends(get_db)):
@@ -66,14 +61,13 @@ def signin(user: UserLoginRequest, db: Session = Depends(get_db), authjwt: AuthJ
 
     return auth_service.signin(user)
 
-
+        
 @auth_routes.post("/signout")
 def signout(authjwt: AuthJWT = Depends(validate_token), db: Session = Depends(get_db)):
-    token = authjwt._token
-    auth_service = AuthService(db)
-
-    return auth_service.signout(token)
-
+        token = authjwt._token
+        auth_service = AuthService(db)
+        
+        return auth_service.signout(token)
 
 @auth_routes.post("/verify-account")
 async def verify_account(
@@ -82,7 +76,6 @@ async def verify_account(
 ):
     auth_service = AuthService(db)
     return auth_service.verify_account(email)
-
 
 @auth_routes.post("/reset-password")
 async def reset_password(
@@ -93,7 +86,6 @@ async def reset_password(
     auth_service = AuthService(db)
     return auth_service.reset_password(request)
 
-
 @auth_routes.post("/no-auth/reset-password")
 async def reset_password_no_auth(
     request: ResetPassNoAuth,
@@ -102,9 +94,3 @@ async def reset_password_no_auth(
     auth_service = AuthService(db)
     return auth_service.reset_password_no_auth(request)
 
-
-@auth_routes.post("/verify-otp")
-def verify_otp(request: OTPVerifyRequest, db: Session = Depends(get_db)):
-    """Verify OTP and enable user account"""
-    auth_service = AuthService(db)
-    return auth_service.verify_and_enable_user(request.phone, request.otp)

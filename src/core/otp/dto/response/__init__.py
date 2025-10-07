@@ -1,1 +1,0 @@
-# OTP response DTOs

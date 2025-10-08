@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = os.environ.get('SECRET_KEY')
     ALGORITHM: str = os.environ.get('ALGORITHM')
     KID: str = os.environ.get('KID')
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = os.environ.get('ACCESS_TOKEN_EXPIRE_MINUTES')
-    REFRESH_TOKEN_EXPIRE_MINUTES: int = os.environ.get('REFRESH_TOKEN_EXPIRE_MINUTES')
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 360
     REDIS_HOST: str = os.environ.get('REDIS_HOST')
     REDIS_PORT: str = os.environ.get('REDIS_PORT')
     REDIS_PASSWORD: str = os.environ.get('REDIS_PASSWORD')

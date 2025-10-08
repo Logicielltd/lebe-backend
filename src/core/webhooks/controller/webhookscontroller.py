@@ -10,6 +10,7 @@ from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
 import logging
 from core.user.model.User import User
+from core.nlu.main import LebeNLUSystem
 
 # DTO Models
 from core.notification.dto.response.message_response import MessageResponse
@@ -33,12 +34,12 @@ def start_dialog(
     db: Session = Depends(get_db)
 ):
     auth_service = AuthService(db)
-
-    user_in_db_status = auth_service.validate_user(dialog_payload.phone)
-
+    nlu_system = LebeNLUSystem()
     
+    # Simulate User Onboarding
+    nlu_system.initialize_user("user123", "1234")
 
-    return nlp_engine.respond(
-        user_in_db_status= user_in_db_status,
-        data=dialog_payload.data
-    )
+    # Process the message and wrap in LebeResponse
+    response_message = nlu_system.process_message(dialog_payload.phone, dialog_payload.message)
+    
+    return LebeResponse(message=response_message)

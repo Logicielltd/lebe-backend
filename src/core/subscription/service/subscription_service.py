@@ -405,7 +405,7 @@ class SubscriptionService:
             "amount_paid": subscription.amount_paid,
             "expires_at": subscription.expires_at.isoformat(),
             "days_remaining": subscription.days_remaining,
-            "status": subscription.status.value
+            "status": subscription.status
         }
 
 

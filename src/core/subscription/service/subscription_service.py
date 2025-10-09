@@ -50,11 +50,11 @@ class SubscriptionService:
                 }
             
             # Check if user account is enabled (verified)
-            if not user.enabled:
-                return {
-                    "success": False,
-                    "message": "User account is not verified. Please verify your phone number first."
-                }
+            # if not user.enabled:
+            #     return {
+            #         "success": False,
+            #         "message": "User account is not verified. Please verify your phone number first."
+            #     }
             
             return self.subscribe_user(user.id, plan_id, payment_reference)
         

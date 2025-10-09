@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 import logging
 from core.user.model.User import User
 from core.nlu.main import LebeNLUSystem
+from core.subscription.service.subscription_service import SubscriptionService
 
 # DTO Models
 from core.notification.dto.response.message_response import MessageResponse
@@ -33,13 +34,16 @@ def start_dialog(
     dialog_payload: DialogRequest,
     db: Session = Depends(get_db)
 ):
-    auth_service = AuthService(db)
-    nlu_system = LebeNLUSystem()
-    
-    # Simulate User Onboarding
-    nlu_system.initialize_user("user123", "1234")
 
-    # Process the message and wrap in LebeResponse
-    response_message = nlu_system.process_message(dialog_payload.phone, dialog_payload.message)
+    nlu_system = LebeNLUSystem()
+
+    subscription_service = SubscriptionService(db)
+
+    result = subscription_service.get_user_subscription_status_by_phone(dialog_payload.phone)
+
+    
+    nlu_system.initialize_user(dialog_payload.phone, "00000")
+    
+    response_message = nlu_system.process_message(dialog_payload.phone, dialog_payload.message , result["has_active_subscription"])
     
     return LebeResponse(message=response_message)

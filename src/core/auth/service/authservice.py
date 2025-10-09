@@ -31,9 +31,9 @@ class AuthService:
         """Hash a plain-text password."""
         return pwd_context.hash(password)
 
-    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+    def verify_password(self, plain_password: str, hashed_pin: str) -> bool:
         """Verify a plain-text password against a hashed one."""
-        return pwd_context.verify(plain_password, hashed_password)
+        return pwd_context.verify(plain_password, hashed_pin)
 
     def generate_user_id(self):
         """Generate a random user ID with alphanumeric characters."""

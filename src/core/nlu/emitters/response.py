@@ -8,6 +8,9 @@ class ResponseFormatter:
         if message_type == "greeting":
             return "💳 Hello! I'm Lebe, your financial assistant. How can I help you today? I can help you send money, buy airtime, pay bills, and more!"
         
+        elif message_type == "need_subscription":
+            return "🎉 Welcome to Lebe! Let's get you set up. Please provide your first name, last name, phone number, email, and a 5-digit PIN to secure your account."
+        
         elif message_type == "missing_slots":
             return f"💬 {kwargs.get('message', 'I need a few more details to help you:')} {kwargs.get('prompt', '')}"
         

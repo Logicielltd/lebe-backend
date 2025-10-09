@@ -72,7 +72,7 @@ class User(Base):
     # For security/authentication purposes
     @property
     def password(self):
-        return self.hashed_password
+        return self.hashed_pin
 
     @property
     def is_active(self):

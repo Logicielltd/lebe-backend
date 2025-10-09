@@ -23,6 +23,11 @@ INTENTS = {
         "slots": [],
         "required_slots": []
     },
+    "create_new_account": {
+        "description": "Handle new account creation",
+        "slots": ["first_name", "last_name", "phone", "email", "pin"],
+        "required_slots": ["first_name", "last_name", "phone", "email", "pin"]
+    },
     "send_money": {
         "description": "Send money to another person",
         "slots": ["recipient", "amount", "network", "reason"],

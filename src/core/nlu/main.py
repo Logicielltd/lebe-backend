@@ -1,11 +1,14 @@
 import openai
 from typing import Dict, Any, Optional
 from datetime import datetime
+from core.auth.service.authservice import AuthService
 from core.nlu.service.intents import IntentDetector
 from core.nlu.service.slot_manager import SlotManager
 from core.nlu.service.conversation_manager import ConversationManager
 from core.nlu.service.security import SecurityManager
 from core.nlu.emitters.response import ResponseFormatter
+from utilities.dbconfig import SessionLocal
+from core.auth.dto.request.user_create import UserCreateRequest
 
 class LebeNLUSystem:
     def __init__(self):
@@ -15,7 +18,7 @@ class LebeNLUSystem:
         self.security_manager = SecurityManager()
         self.response_formatter = ResponseFormatter()
     
-    def process_message(self, user_id: str, user_message: str) -> str:
+    def process_message(self, user_id: str, user_message: str, user_subscription_status: str) -> str:
         """Main method to process user messages"""
         
         # Get conversation state
@@ -37,20 +40,34 @@ class LebeNLUSystem:
         validated_slots = self.slot_manager.validate_slots(intent, extracted_slots)
         state.collected_slots.update(validated_slots)
         state.current_intent = intent
+
+        # CHECK SUBSCRIPTION STATUS EARLY
+        print (f"User Subscription Status: {user_subscription_status}")
+        if not user_subscription_status and intent != "create_new_account":
+            # User needs subscription but isn't trying to create account
+            response = self.response_formatter.format_response(
+                "subscription_required", 
+                "need_subscription",
+                current_intent=intent  # Pass the original intent for context
+            )
+            self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+            return response
         
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
         
-        if current_missing:
+        
+        if intent in ["greeting"]:
+            # Handle simple intents directly
+            response = self.response_formatter.format_response(intent, "greeting")
+
+        elif current_missing:
             # Ask for missing slots
             prompt = self.slot_manager.generate_slot_prompt(intent, current_missing)
             response = self.response_formatter.format_response(
                 intent, "missing_slots", prompt=prompt
             )
-
-        elif intent in ["greeting"]:
-            # Handle simple intents directly
-            response = self.response_formatter.format_response(intent, "greeting")
+ 
         else:
             # All slots collected, request PIN if needed
             if self.security_manager.is_pin_required(intent):
@@ -95,9 +112,6 @@ class LebeNLUSystem:
     def _execute_action(self, user_id: str, intent: str, slots: Dict) -> str:
         """Execute the actual financial action"""
         try:
-            # This is where you would integrate with your actual financial services
-            # For now, we'll simulate successful execution
-            
             payload = {
                 "user_id": user_id,
                 "intent": intent,
@@ -105,10 +119,32 @@ class LebeNLUSystem:
                 "timestamp": datetime.now().isoformat()
             }
             
-            # Send to your financial service (simulated)
-            # financial_service.process(payload)
+            def get_db():
+                db = SessionLocal()
+                try:
+                    yield db
+                finally:
+                    db.close()
+
+            # print slot values for debugging
+            print(f"Executing action for intent: {intent} with slots: {slots}")
+            
+            if intent == "create_new_account":
+                auth_service = AuthService(next(get_db()))
+                
+                user_request = UserCreateRequest(
+                    username=slots.get("username", f"user_{user_id}"),
+                    first_name=slots.get("first_name", ""),
+                    last_name=slots.get("last_name", ""),
+                    phone=slots.get("phone", ""),
+                    email=slots.get("email", f"user_{user_id}@example.com"),
+                    pin=slots.get("pin", "0000") 
+                )
+                
+                auth_service.create_user(user_request)
             
             success_messages = {
+                "create_new_account": "Your account has been created successfully!",
                 "send_money": f"Successfully sent GHS {slots.get('amount')} to {slots.get('recipient')}",
                 "buy_airtime": f"Airtime of GHS {slots.get('amount')} purchased for {slots.get('phone_number')}",
                 "buy_data": f"Data bundle {slots.get('data_plan')} activated for {slots.get('phone_number')}",

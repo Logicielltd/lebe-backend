@@ -5,7 +5,7 @@ import os
 
 class Settings(BaseSettings):
     SERVICE_NAME: str = "Lebe Backend"
-    DEBUG: bool = False
+    DEBUG: bool = True
 
     DB_DRIVER: str = "postgresql+asyncpg"
     DB_HOST: str = os.environ.get('DB_HOST')

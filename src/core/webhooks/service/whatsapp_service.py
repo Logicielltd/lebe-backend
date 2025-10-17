@@ -90,7 +90,7 @@ class WhatsAppService:
             "type": "template",
             "template": {
                 "name": "registration_form",
-                "language": {"code": "en_US"}
+                "language": {"code": "en"}
             }
         }
 

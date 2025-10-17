@@ -15,6 +15,7 @@ from core.user.model.User import User
 from core.nlu.main import LebeNLUSystem
 from core.subscription.service.subscription_service import SubscriptionService
 from core.webhooks.service.whatsapp_service import WhatsAppService
+from utilities.phone_utils import normalize_ghana_phone_number
 
 # DTO Models
 from core.notification.dto.response.message_response import MessageResponse
@@ -297,20 +298,37 @@ def handle_interactive_message(message: dict, phone: str, phone_number_id: str, 
         # Parse the registration form data
         registration_data = json.loads(response_json)
 
+        # Log the complete registration data
+        logger.info(f"Registration data received: {json.dumps(registration_data, indent=2)}")
+
+        # Normalize phone number if present in registration data
+        if "phone" in registration_data:
+            original_phone = registration_data["phone"]
+            normalized_phone = normalize_ghana_phone_number(original_phone)
+            registration_data["phone"] = normalized_phone
+            logger.info(f"Phone normalization: {original_phone} -> {normalized_phone}")
+
+        # Normalize WhatsApp phone (wa_id) for consistency
+        normalized_wa_id = normalize_ghana_phone_number(phone)
+        logger.info(f"WhatsApp ID normalized: {phone} -> {normalized_wa_id}")
+
         # TODO: Process registration data
         # Example: registration_data might contain:
         # {
         #   "name": "John Doe",
         #   "email": "john@example.com",
+        #   "phone": "0550748724",  # Will be normalized to 233550748724
         #   "school": "University of Ghana",
         #   ...
         # }
 
         # Save user to database
         # new_user = User(
-        #     phone=phone,
+        #     phone=normalized_wa_id,  # Use normalized WhatsApp ID
         #     name=registration_data.get("name"),
         #     email=registration_data.get("email"),
+        #     # If form has a separate phone field, use the normalized version:
+        #     # contact_phone=registration_data.get("phone"),  # Already normalized above
         #     ...
         # )
         # db.add(new_user)

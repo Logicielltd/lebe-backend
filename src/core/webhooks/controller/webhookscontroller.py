@@ -301,46 +301,96 @@ def handle_interactive_message(message: dict, phone: str, phone_number_id: str, 
         # Log the complete registration data
         logger.info(f"Registration data received: {json.dumps(registration_data, indent=2)}")
 
-        # Normalize phone number if present in registration data
-        if "phone" in registration_data:
-            original_phone = registration_data["phone"]
-            normalized_phone = normalize_ghana_phone_number(original_phone)
-            registration_data["phone"] = normalized_phone
-            logger.info(f"Phone normalization: {original_phone} -> {normalized_phone}")
+        try:
+            # Extract registration fields from Flow response
+            first_name = registration_data.get("screen_0_First_Name__0", "").strip()
+            last_name = registration_data.get("screen_0_Last_Name__1", "").strip()
+            user_phone = registration_data.get("screen_0_Phone_Number__2", "").strip()
+            email = registration_data.get("screen_0_Email_3", "").strip()
+            pin = registration_data.get("screen_0_PIN_4", "").strip()
 
-        # Normalize WhatsApp phone (wa_id) for consistency
-        normalized_wa_id = normalize_ghana_phone_number(phone)
-        logger.info(f"WhatsApp ID normalized: {phone} -> {normalized_wa_id}")
+            # Validate required fields
+            if not all([first_name, last_name, user_phone, email, pin]):
+                logger.error("Missing required fields in registration data")
+                whatsapp_service = WhatsAppService()
+                whatsapp_service.send_message(
+                    phone_number_id=phone_number_id,
+                    recipient_phone=phone,
+                    message_text="Registration failed. Please ensure all fields are filled correctly."
+                )
+                return {"status": "error", "message": "Missing required fields"}
 
-        # TODO: Process registration data
-        # Example: registration_data might contain:
-        # {
-        #   "name": "John Doe",
-        #   "email": "john@example.com",
-        #   "phone": "0550748724",  # Will be normalized to 233550748724
-        #   "school": "University of Ghana",
-        #   ...
-        # }
+            # Normalize phone numbers
+            normalized_user_phone = normalize_ghana_phone_number(user_phone)
+            normalized_wa_id = normalize_ghana_phone_number(phone)
 
-        # Save user to database
-        # new_user = User(
-        #     phone=normalized_wa_id,  # Use normalized WhatsApp ID
-        #     name=registration_data.get("name"),
-        #     email=registration_data.get("email"),
-        #     # If form has a separate phone field, use the normalized version:
-        #     # contact_phone=registration_data.get("phone"),  # Already normalized above
-        #     ...
-        # )
-        # db.add(new_user)
-        # db.commit()
+            logger.info(f"Phone normalization - Form: {user_phone} -> {normalized_user_phone}")
+            logger.info(f"Phone normalization - WhatsApp: {phone} -> {normalized_wa_id}")
 
-        # Send confirmation message
-        whatsapp_service = WhatsAppService()
-        whatsapp_service.send_message(
-            phone_number_id=phone_number_id,
-            recipient_phone=phone,
-            message_text=f"Thank you for registering! 🎉"
-        )
+            # Check if user already exists
+            existing_user = db.query(User).filter(
+                (User.phone == normalized_wa_id) | (User.email == email)
+            ).first()
+
+            if existing_user:
+                logger.warning(f"User already exists: {email} or {normalized_wa_id}")
+                whatsapp_service = WhatsAppService()
+                whatsapp_service.send_message(
+                    phone_number_id=phone_number_id,
+                    recipient_phone=phone,
+                    message_text="This phone number or email is already registered. Please sign in instead."
+                )
+                return {"status": "error", "message": "User already exists"}
+
+            # Create user using AuthService
+            auth_service = AuthService(db)
+
+            # Generate unique user ID
+            user_id = auth_service.generate_user_id()
+
+            # Hash the PIN
+            hashed_pin = auth_service.hash_password(pin)
+
+            # Create new user
+            new_user = User(
+                id=user_id,
+                username=email,  # Use email as username
+                first_name=first_name,
+                last_name=last_name,
+                phone=normalized_wa_id,  # Use WhatsApp ID as primary phone
+                email=email,
+                hashed_pin=hashed_pin,
+                enabled=True,  # Enable immediately for WhatsApp users
+                created_at=datetime.now()
+            )
+
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+
+            logger.info(f"User registered successfully: {user_id} - {email}")
+
+            # Send confirmation message
+            whatsapp_service = WhatsAppService()
+            whatsapp_service.send_message(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_text=f"🎉 Welcome {first_name}! Your registration is complete. You can now start using Lebe."
+            )
+
+        except Exception as e:
+            logger.error(f"Error processing registration: {e}", exc_info=True)
+            db.rollback()
+
+            # Send error message to user
+            whatsapp_service = WhatsAppService()
+            whatsapp_service.send_message(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_text="Sorry, registration failed. Please try again later."
+            )
+
+            return {"status": "error", "message": f"Registration failed: {str(e)}"}
 
         return {"status": "success", "message": "Flow response processed"}
 

@@ -92,37 +92,58 @@ def start_dialog(
                 detail=f"Unsupported message type: {message.type}"
             )
 
-        # Initialize NLU system and subscription service
-        nlu_system = LebeNLUSystem()
-        subscription_service = SubscriptionService(db)
-
-        # Get user subscription status
-        result = subscription_service.get_user_subscription_status_by_phone(phone)
-
-        # Initialize user and process message
-        nlu_system.initialize_user(phone, "00000")
-        response_message = nlu_system.process_message(
-            phone,
-            message_text,
-            result["has_active_subscription"]
-        )
-
-        logger.info(f"Generated response: {response_message}")
-
-        # Send the response back to the user via WhatsApp
+        # Check if user exists in database
+        existing_user = db.query(User).filter(User.phone == phone).first()
         whatsapp_service = WhatsAppService()
-        message_sent = whatsapp_service.send_message(
-            phone_number_id=phone_number_id,
-            recipient_phone=phone,
-            message_text=response_message
-        )
 
-        if not message_sent:
-            logger.error("Failed to send WhatsApp message")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send WhatsApp message"
+        if not existing_user:
+            # New user - send registration template
+            logger.info(f"New user detected: {phone}. Sending registration template.")
+            message_sent = whatsapp_service.send_registration_template(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone
             )
+
+            if not message_sent:
+                logger.error("Failed to send WhatsApp registration template")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to send WhatsApp registration template"
+                )
+        else:
+            # Existing user - process message through NLU and send text response
+            logger.info(f"Existing user detected: {phone}. Processing message through NLU.")
+
+            # Initialize NLU system and subscription service
+            nlu_system = LebeNLUSystem()
+            subscription_service = SubscriptionService(db)
+
+            # Get user subscription status
+            result = subscription_service.get_user_subscription_status_by_phone(phone)
+
+            # Initialize user and process message
+            nlu_system.initialize_user(phone, "00000")
+            response_message = nlu_system.process_message(
+                phone,
+                message_text,
+                result["has_active_subscription"]
+            )
+
+            logger.info(f"Generated response: {response_message}")
+
+            # Send the response back to the user via WhatsApp
+            message_sent = whatsapp_service.send_message(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_text=response_message
+            )
+
+            if not message_sent:
+                logger.error("Failed to send WhatsApp message")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to send WhatsApp message"
+                )
 
         # Return success response to Meta
         return {"status": "success", "message": "Message processed and sent"}

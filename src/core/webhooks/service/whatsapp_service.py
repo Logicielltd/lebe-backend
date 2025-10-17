@@ -95,9 +95,17 @@ class WhatsAppService:
                 "language": {"code": "en"},
                 "components": [
                     {
-                        "type": "body",
-                        "sub_type": "form",   # 👈 required for forms
-                        "parameters": []
+                        "type": "button",
+                        "sub_type": "flow",
+                        "index": "0",
+                        "parameters": [
+                            {
+                                "type": "action",
+                                "action": {
+                                    "flow_token": "1151913393050063"
+                                }
+                            }
+                        ]
                     }
                 ]
             }

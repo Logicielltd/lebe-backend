@@ -9,6 +9,7 @@ from core.webhooks.dto.request.dialogrequest import DialogRequest
 from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
 import logging
+import os
 from core.user.model.User import User
 from core.nlu.main import LebeNLUSystem
 from core.subscription.service.subscription_service import SubscriptionService
@@ -28,6 +29,28 @@ from core.user.controller.usercontroller import validate_token, get_db
 
 # Controller (Router)
 webhooks_routes = APIRouter()
+
+@webhooks_routes.get("/start-dialog")
+def verify_webhook(
+    mode: Optional[str] = Query(None, alias="hub.mode"),
+    challenge: Optional[str] = Query(None, alias="hub.challenge"),
+    verify_token: Optional[str] = Query(None, alias="hub.verify_token")
+):
+    """
+    Webhook verification endpoint for Meta (Facebook/WhatsApp) webhooks.
+    Meta will send a GET request with hub.mode, hub.challenge, and hub.verify_token.
+    """
+    expected_verify_token = os.getenv("VERIFY_TOKEN")
+
+    if mode == "subscribe" and verify_token == expected_verify_token:
+        logger.info("WEBHOOK VERIFIED")
+        return int(challenge)
+    else:
+        logger.warning("Webhook verification failed")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Verification failed"
+        )
 
 @webhooks_routes.post("/start-dialog", response_model=LebeResponse)
 def start_dialog(

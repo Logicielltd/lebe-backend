@@ -5,6 +5,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+
 class WhatsAppService:
     """Service for sending messages via Meta's WhatsApp Cloud API"""
 
@@ -53,7 +54,8 @@ class WhatsAppService:
             response = requests.post(url, headers=headers, json=payload)
             response.raise_for_status()
 
-            logger.info(f"WhatsApp message sent successfully: {response.json()}")
+            logger.info(
+                f"WhatsApp message sent successfully: {response.json()}")
             return True
 
         except requests.exceptions.RequestException as e:
@@ -90,16 +92,25 @@ class WhatsAppService:
             "type": "template",
             "template": {
                 "name": "registration_form",
-                "language": {"code": "en"}
+                "language": {"code": "en"},
+                "components": [
+                    {
+                        "type": "body",
+                        "sub_type": "form",   # 👈 required for forms
+                        "parameters": []
+                    }
+                ]
             }
         }
 
         try:
-            logger.info(f"Sending WhatsApp registration template to {recipient_phone}")
+            logger.info(
+                f"Sending WhatsApp registration template to {recipient_phone}")
             response = requests.post(url, headers=headers, json=payload)
             response.raise_for_status()
 
-            logger.info(f"WhatsApp template sent successfully: {response.json()}")
+            logger.info(
+                f"WhatsApp template sent successfully: {response.json()}")
             return True
 
         except requests.exceptions.RequestException as e:

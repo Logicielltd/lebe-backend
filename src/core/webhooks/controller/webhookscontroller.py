@@ -13,6 +13,7 @@ import os
 from core.user.model.User import User
 from core.nlu.main import LebeNLUSystem
 from core.subscription.service.subscription_service import SubscriptionService
+from core.webhooks.service.whatsapp_service import WhatsAppService
 
 # DTO Models
 from core.notification.dto.response.message_response import MessageResponse
@@ -52,14 +53,15 @@ def verify_webhook(
             detail="Verification failed"
         )
 
-@webhooks_routes.post("/start-dialog", response_model=LebeResponse)
+@webhooks_routes.post("/start-dialog")
 def start_dialog(
     dialog_payload: DialogRequest,
     db: Session = Depends(get_db)
 ):
     """
     Handles incoming WhatsApp messages from Meta webhook.
-    Extracts the user's phone number and message, then processes it through the NLU system.
+    Extracts the user's phone number and message, processes it through the NLU system,
+    and sends the response back to the user via WhatsApp Cloud API.
     """
     # Log the incoming webhook payload
     logger.info(f"Received webhook payload: {dialog_payload.json(indent=2)}")
@@ -69,6 +71,10 @@ def start_dialog(
         entry = dialog_payload.entry[0]
         change = entry.changes[0]
         value = change.value
+
+        # Get phone number ID from metadata (needed to send messages)
+        phone_number_id = value.metadata.phone_number_id
+        logger.info(f"Phone number ID: {phone_number_id}")
 
         # Get phone number from contacts
         phone = value.contacts[0].wa_id
@@ -102,7 +108,24 @@ def start_dialog(
         )
 
         logger.info(f"Generated response: {response_message}")
-        return LebeResponse(message=response_message)
+
+        # Send the response back to the user via WhatsApp
+        whatsapp_service = WhatsAppService()
+        message_sent = whatsapp_service.send_message(
+            phone_number_id=phone_number_id,
+            recipient_phone=phone,
+            message_text=response_message
+        )
+
+        if not message_sent:
+            logger.error("Failed to send WhatsApp message")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send WhatsApp message"
+            )
+
+        # Return success response to Meta
+        return {"status": "success", "message": "Message processed and sent"}
 
     except IndexError as e:
         logger.error(f"Error parsing webhook payload: {e}")

@@ -62,7 +62,7 @@ def start_dialog(
     Extracts the user's phone number and message, then processes it through the NLU system.
     """
     # Log the incoming webhook payload
-    logger.info(f"Received webhook payload: {dialog_payload.model_dump_json(indent=2)}")
+    logger.info(f"Received webhook payload: {dialog_payload.json(indent=2)}")
 
     try:
         # Extract the phone number (wa_id) and message from the nested structure

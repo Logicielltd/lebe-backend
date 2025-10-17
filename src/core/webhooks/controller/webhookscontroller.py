@@ -57,16 +57,62 @@ def start_dialog(
     dialog_payload: DialogRequest,
     db: Session = Depends(get_db)
 ):
+    """
+    Handles incoming WhatsApp messages from Meta webhook.
+    Extracts the user's phone number and message, then processes it through the NLU system.
+    """
+    # Log the incoming webhook payload
+    logger.info(f"Received webhook payload: {dialog_payload.model_dump_json(indent=2)}")
 
-    nlu_system = LebeNLUSystem()
+    try:
+        # Extract the phone number (wa_id) and message from the nested structure
+        entry = dialog_payload.entry[0]
+        change = entry.changes[0]
+        value = change.value
 
-    subscription_service = SubscriptionService(db)
+        # Get phone number from contacts
+        phone = value.contacts[0].wa_id
+        logger.info(f"Extracted phone number: {phone}")
 
-    result = subscription_service.get_user_subscription_status_by_phone(dialog_payload.phone)
+        # Get message text
+        message = value.messages[0]
+        if message.type == "text" and message.text:
+            message_text = message.text.body
+            logger.info(f"Extracted message: {message_text}")
+        else:
+            logger.warning(f"Unsupported message type: {message.type}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported message type: {message.type}"
+            )
 
-    
-    nlu_system.initialize_user(dialog_payload.phone, "00000")
-    
-    response_message = nlu_system.process_message(dialog_payload.phone, dialog_payload.message , result["has_active_subscription"])
-    
-    return LebeResponse(message=response_message)
+        # Initialize NLU system and subscription service
+        nlu_system = LebeNLUSystem()
+        subscription_service = SubscriptionService(db)
+
+        # Get user subscription status
+        result = subscription_service.get_user_subscription_status_by_phone(phone)
+
+        # Initialize user and process message
+        nlu_system.initialize_user(phone, "00000")
+        response_message = nlu_system.process_message(
+            phone,
+            message_text,
+            result["has_active_subscription"]
+        )
+
+        logger.info(f"Generated response: {response_message}")
+        return LebeResponse(message=response_message)
+
+    except IndexError as e:
+        logger.error(f"Error parsing webhook payload: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid webhook payload structure"
+        )
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )

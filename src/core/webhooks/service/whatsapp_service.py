@@ -71,21 +71,17 @@ class WhatsAppService:
     ) -> bool:
         """
         Send registration template via WhatsApp Cloud API
-
         Args:
             phone_number_id: The phone number ID from Meta webhook metadata
             recipient_phone: The recipient's WhatsApp ID (phone number)
-
         Returns:
             bool: True if template sent successfully, False otherwise
         """
         url = f"{self.base_url}/{phone_number_id}/messages"
-
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
-
         payload = {
             "messaging_product": "whatsapp",
             "to": recipient_phone,
@@ -110,17 +106,20 @@ class WhatsAppService:
                 ]
             }
         }
-
         try:
+            # Log API key info for debugging
+            logger.info(f"API Key (first 30 chars): {self.api_key[:30]}...")
+            logger.info(f"API Key length: {len(self.api_key)}")
+            logger.info(f"Base URL: {self.base_url}")
+            logger.info(f"Full URL: {url}")
             logger.info(
                 f"Sending WhatsApp registration template to {recipient_phone}")
+
             response = requests.post(url, headers=headers, json=payload)
             response.raise_for_status()
-
             logger.info(
                 f"WhatsApp template sent successfully: {response.json()}")
             return True
-
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to send WhatsApp template: {e}")
             if hasattr(e, 'response') and e.response is not None:

@@ -9,7 +9,7 @@ class SecurityManager:
     
     def set_user_pin(self, user_id: str, pin: str) -> bool:
         """Set user PIN (during onboarding)"""
-        if len(pin) == 4 and pin.isdigit():
+        if len(pin) == 5 and pin.isdigit():
             self.user_pins[user_id] = self._hash_pin(pin)
             return True
         return False

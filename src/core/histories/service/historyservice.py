@@ -1,8 +1,8 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
-from core.history.history import History
-from core.history.dto.historyresponsedto import HistoryResponseDTO, HistorySummaryDTO
+from core.histories.model.history import History
+from core.histories.dto.response.historyresponse import HistoryResponseDTO, HistorySummaryDTO
 import uuid
 from datetime import datetime, timedelta
 
@@ -36,7 +36,7 @@ class HistoryService:
             category=category,
             status=status,
             description=description,
-            metadata=metadata or {}
+            transaction_metadata=metadata or {}
         )
         
         self.db.add(history)

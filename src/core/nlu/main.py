@@ -43,16 +43,16 @@ class LebeNLUSystem:
         state.current_intent = intent
 
         # CHECK SUBSCRIPTION STATUS EARLY
-        print (f"User Subscription Status: {user_subscription_status}")
-        if not user_subscription_status and intent != "create_new_account":
-            # User needs subscription but isn't trying to create account
-            response = self.response_formatter.format_response(
-                "subscription_required", 
-                "need_subscription",
-                current_intent=intent  # Pass the original intent for context
-            )
-            self.conversation_manager.update_conversation_history(user_id, "assistant", response)
-            return response
+        # print (f"User Subscription Status: {user_subscription_status}")
+        # if not user_subscription_status and intent != "create_new_account":
+        #     # User needs subscription but isn't trying to create account
+        #     response = self.response_formatter.format_response(
+        #         "subscription_required", 
+        #         "need_subscription",
+        #         current_intent=intent  # Pass the original intent for context
+        #     )
+        #     self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+        #     return response
         
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)

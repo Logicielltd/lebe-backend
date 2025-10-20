@@ -21,7 +21,7 @@ class History(Base):
     category = Column(String, nullable=True)  # For budgets, expenses
     status = Column(String, default="completed")  # "completed", "failed", "pending"
     description = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)  # Additional transaction data
+    transaction_metadata = Column(JSON, nullable=True)  # Additional transaction data
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -39,7 +39,7 @@ class History(Base):
             "category": self.category,
             "status": self.status,
             "description": self.description,
-            "metadata": self.metadata,
+            "metadata": self.transaction_metadata,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat()
         }

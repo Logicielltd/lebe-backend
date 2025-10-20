@@ -20,7 +20,7 @@ from config import settings
 from utilities.exceptions import DatabaseValidationError
 import exceptions
 from fastapi.exceptions import RequestValidationError
-from core.middleware.logmiddleware import LoggingMiddleware
+# from core.middleware.logmiddleware import LoggingMiddleware
 from core.auditlogging.service.logservice import logging_service
 from config import settings
 import logging
@@ -49,9 +49,9 @@ app = FastAPI(
     },
 )
 
-# print("Creating tables...")
-# Base.metadata.create_all(bind=engine)
-# print("Tables created successfully.")
+print("Creating tables...")
+Base.metadata.create_all(bind=engine)
+print("Tables created successfully.")
 
 # Add middleware for CORS
 app.add_middleware(

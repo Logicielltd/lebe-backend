@@ -1,3 +1,4 @@
+from core.histories.service.historyservice import HistoryService
 import openai
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -128,21 +129,44 @@ class LebeNLUSystem:
 
             # print slot values for debugging
             print(f"Executing action for intent: {intent} with slots: {slots}")
+
+            # All other services and functions would be called and returned here
+
+            # Save every financial transaction to the database
             
-            if intent == "create_new_account":
-                auth_service = AuthService(next(get_db()))
-                
-                user_request = UserCreateRequest(
-                    username=slots.get("username", f"user_{user_id}"),
-                    first_name=slots.get("first_name", ""),
-                    last_name=slots.get("last_name", ""),
-                    phone=slots.get("phone", ""),
-                    email=slots.get("email", f"user_{user_id}@example.com"),
-                    pin=slots.get("pin", "0000") 
-                )
-                
-                auth_service.create_user(user_request)
+            transaction_mapping = {
+                "send_money": ("debit", slots.get('amount'), slots.get('recipient')),
+                "buy_airtime": ("debit", slots.get('amount'), None),
+                "buy_data": ("debit", slots.get('amount'), None),
+                "pay_bill": ("debit", slots.get('amount'), slots.get('bill_type')),
+                "get_loan": ("credit", slots.get('loan_amount'), "Loan Provider"),
+                "set_budget": ("budget_set", None, slots.get('category'))
+            }
             
+            transaction_type, amount, recipient = transaction_mapping.get(intent, (None, None, None))
+            
+            # Create history record for financial transactions
+            if transaction_type:
+                db = next(get_db())
+                try:
+                    history_service = HistoryService(db)
+                    history_service.create_history(
+                        user_id=user_id,
+                        intent=intent,
+                        transaction_type=transaction_type,
+                        amount=amount,
+                        recipient=recipient,
+                        phone_number=slots.get('phone_number'),
+                        data_plan=slots.get('data_plan'),
+                        category=slots.get('category'),
+                        description=success_messages.get(intent),
+                        metadata={"slots": slots}
+                    )
+                finally:
+                    db.close()
+                    
+            # Prepare success messages based on intent
+
             success_messages = {
                 "create_new_account": "Your account has been created successfully!",
                 "send_money": f"Successfully sent GHS {slots.get('amount')} to {slots.get('recipient')}",

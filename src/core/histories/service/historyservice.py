@@ -42,8 +42,8 @@ class HistoryService:
         self.db.add(history)
         self.db.commit()
         self.db.refresh(history)
-        
-        return HistoryResponseDTO.from_orm(history)
+
+        return HistoryResponseDTO.model_validate(history)
     
     def get_user_histories(self, 
                           user_id: str,
@@ -71,7 +71,7 @@ class HistoryService:
         offset = (page - 1) * page_size
         histories = query.order_by(desc(History.created_at)).offset(offset).limit(page_size).all()
         
-        return [HistoryResponseDTO.from_orm(history) for history in histories]
+        return [HistoryResponseDTO.model_validate(history) for history in histories]
     
     def get_history_by_id(self, history_id: str, user_id: str) -> Optional[HistoryResponseDTO]:
         """Get a specific transaction history by ID"""
@@ -80,7 +80,7 @@ class HistoryService:
             History.user_id == user_id
         ).first()
         
-        return HistoryResponseDTO.from_orm(history) if history else None
+        return HistoryResponseDTO.model_validate(history) if history else None
     
     def get_transaction_summary(self, user_id: str, days: int = 30) -> HistorySummaryDTO:
         """Get transaction summary for a user"""
@@ -115,7 +115,7 @@ class HistoryService:
             total_transactions=total_query.total_count,
             total_amount=float(total_query.total_amount),
             transaction_types={item.transaction_type: item.count for item in type_counts_query},
-            recent_transactions=[HistoryResponseDTO.from_orm(tx) for tx in recent_transactions]
+            recent_transactions=[HistoryResponseDTO.model_validate(tx) for tx in recent_transactions]
         )
     
     def get_spending_by_category(self, user_id: str, days: int = 30) -> Dict[str, float]:

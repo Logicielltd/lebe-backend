@@ -263,8 +263,10 @@ class PaymentService:
         trans_type = transaction_type_map.get(intent, "CTM")  # Default to CTM
 
         # Build base request (all transaction types need these)
+        # Ensure amount_paid is a Decimal before formatting
+        amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
         request_data = {
-            "amount": str(payment.amount_paid).quantize(Decimal('0.00')),
+            "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": payment.phone_number,
             "exttrid": payment.transaction_id,  # Keep as string, not int
             "nw": payment.network.value,

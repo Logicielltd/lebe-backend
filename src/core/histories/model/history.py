@@ -1,10 +1,8 @@
 from sqlalchemy import Column, String, DateTime, Text, Float, JSON
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
 import uuid
 from datetime import datetime
-
-Base = declarative_base()
+from utilities.dbconfig import Base
 
 class History(Base):
     __tablename__ = "histories"

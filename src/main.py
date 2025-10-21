@@ -49,9 +49,10 @@ app = FastAPI(
     },
 )
 
-print("Creating tables...")
+# Initialize database tables
+print("Initializing database tables...")
 Base.metadata.create_all(bind=engine)
-print("Tables created successfully.")
+print("Database tables initialized successfully.")
 
 # Add middleware for CORS
 app.add_middleware(

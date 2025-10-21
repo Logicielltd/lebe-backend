@@ -43,8 +43,24 @@ class PaymentService:
         logger.info(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amountPaid}")
         print(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amountPaid}")
 
+        # Map PaymentDto (camelCase) to Payment model (snake_case)
+        payment_data = {
+            'bill_id': payment_dto.billId or 0,
+            'response_id': payment_dto.responseId,
+            'amount_paid': payment_dto.amountPaid or 0,
+            'payment_method': payment_dto.paymentMethod,
+            'status': payment_dto.status or PaymentStatus.PENDING,
+            'transaction_id': payment_dto.transactionId,
+            'service_name': payment_dto.serviceName,
+            'customer_email': payment_dto.customerEmail,
+            'customer_name': payment_dto.customerName,
+            'phone_number': payment_dto.phoneNumber,
+            'bank_code': payment_dto.bankCode,
+            'network': payment_dto.network,
+        }
+
         # Create or retrieve payment record
-        payment = Payment(**payment_dto.dict())
+        payment = Payment(**payment_data)
 
         # Validate payment data
         self._validate_payment(payment)

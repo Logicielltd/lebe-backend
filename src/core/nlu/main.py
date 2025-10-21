@@ -140,8 +140,8 @@ class LebeNLUSystem:
                 return self._process_non_payment_intent(user_id, intent, slots)
 
         except Exception as e:
-            print(f"[EXECUTE_ACTION] ERROR: {e}", exc_info=True)
             import traceback
+            print(f"[EXECUTE_ACTION] ERROR: {e}")
             traceback.print_exc()
             return self.response_formatter.format_response(intent, "error", message=str(e))
 
@@ -174,43 +174,43 @@ class LebeNLUSystem:
             # Create PaymentDto based on intent
             if intent == "buy_airtime":
                 payment_dto = PaymentDto(
-                    amount_paid=Decimal(slots.get('amount', '0')),
-                    phone_number=slots.get('phone_number'),
+                    phoneNumber=slots.get('phone_number'),
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
-                    payment_method=PaymentMethod.MOBILE_MONEY,
-                    service_name="Airtime Top-Up",
-                    transaction_id=str(UniqueIdGenerator.generate())
+                    paymentMethod=PaymentMethod.MOBILE_MONEY,
+                    serviceName="Airtime Top-Up",
+                    amountPaid=Decimal(slots.get('amount', '0')),
+                    transactionId=str(UniqueIdGenerator.generate())
                 )
 
             elif intent == "send_money":
                 payment_dto = PaymentDto(
-                    amount_paid=Decimal(slots.get('amount', '0')),
-                    phone_number=slots.get('recipient'),
+                    phoneNumber=slots.get('recipient'),
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
-                    payment_method=PaymentMethod.MOBILE_MONEY,
-                    customer_name=slots.get('recipient_name', 'Unknown'),
-                    service_name=f"Money Transfer to {slots.get('recipient')}",
-                    transaction_id=str(UniqueIdGenerator.generate())
+                    paymentMethod=PaymentMethod.MOBILE_MONEY,
+                    customerName=slots.get('recipient_name', 'Unknown'),
+                    serviceName=f"Money Transfer to {slots.get('recipient')}",
+                    amountPaid=Decimal(slots.get('amount', '0')),
+                    transactionId=str(UniqueIdGenerator.generate())
                 )
 
             elif intent == "pay_bill":
                 payment_dto = PaymentDto(
-                    amount_paid=Decimal(slots.get('amount', '0')),
-                    phone_number=user_id,  # Use user's phone
+                    phoneNumber=user_id,  # Use user's phone
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
-                    payment_method=PaymentMethod.MOBILE_MONEY,
-                    service_name=f"Bill Payment: {slots.get('bill_type')}",
-                    transaction_id=str(UniqueIdGenerator.generate())
+                    paymentMethod=PaymentMethod.MOBILE_MONEY,
+                    serviceName=f"Bill Payment: {slots.get('bill_type')}",
+                    amountPaid=Decimal(slots.get('amount', '0')),
+                    transactionId=str(UniqueIdGenerator.generate())
                 )
 
             elif intent == "get_loan":
                 payment_dto = PaymentDto(
-                    amount_paid=Decimal(slots.get('loan_amount', '0')),
-                    phone_number=user_id,  # User's phone for payout
+                    phoneNumber=user_id,  # User's phone for payout
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
-                    payment_method=PaymentMethod.MOBILE_MONEY,
-                    service_name="Loan Disbursement",
-                    transaction_id=str(UniqueIdGenerator.generate())
+                    paymentMethod=PaymentMethod.MOBILE_MONEY,
+                    serviceName="Loan Disbursement",
+                    amountPaid=Decimal(slots.get('loan_amount', '0')),
+                    transactionId=str(UniqueIdGenerator.generate())
                 )
             else:
                 return self.response_formatter.format_response(intent, "error", message=f"Unknown payment intent: {intent}")

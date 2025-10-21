@@ -40,8 +40,8 @@ class PaymentService:
         Returns:
             PaymentResultResponse with status and transaction details
         """
-        logger.info(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amount_paid}")
-        print(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amount_paid}")
+        logger.info(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amountPaid}")
+        print(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amountPaid}")
 
         # Create or retrieve payment record
         payment = Payment(**payment_dto.dict())

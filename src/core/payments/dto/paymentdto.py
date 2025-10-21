@@ -21,5 +21,6 @@ class PaymentDto(BaseModel):
     phoneNumber: Optional[str] = None
     bankCode: Optional[str] = None
     network: Optional[Network] = None
+    amountPaid: Optional[Decimal] = None
     datePaid: Optional[datetime] = None
     updatedOn: Optional[datetime] = None

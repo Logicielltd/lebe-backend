@@ -2,7 +2,7 @@ import os
 from typing import Dict, List, Any
 
 # API Configuration
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = "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"
 MODEL = "gpt-4"  # or "gpt-3.5-turbo" for cost efficiency
 
 # Local Model Configuration

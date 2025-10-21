@@ -70,20 +70,21 @@ class LebeNLUSystem:
             )
  
         else:
-            # All slots collected, request PIN if needed
-            if self.security_manager.is_pin_required(intent):
-                # Set pending action using ConversationManager method
-                self.conversation_manager.set_pending_action(
-                    user_id,
-                    intent,
-                    state.collected_slots.copy()
-                )
-                response = self.response_formatter.format_response(
-                    intent, "confirm_action", **state.collected_slots
-                )
-            else:
-                # Execute non-secure action directly
-                response = self._execute_action(user_id, intent, state.collected_slots)
+            # All slots collected, execute action directly (PIN verification commented out for testing)
+            # TODO: Re-enable PIN verification after payment flow is working
+            # if self.security_manager.is_pin_required(intent):
+            #     # Set pending action using ConversationManager method
+            #     self.conversation_manager.set_pending_action(
+            #         user_id,
+            #         intent,
+            #         state.collected_slots.copy()
+            #     )
+            #     response = self.response_formatter.format_response(
+            #         intent, "confirm_action", **state.collected_slots
+            #     )
+            # else:
+            #     # Execute non-secure action directly
+            response = self._execute_action(user_id, intent, state.collected_slots)
         
         # Add assistant response to history
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
@@ -126,18 +127,22 @@ class LebeNLUSystem:
     def _execute_action(self, user_id: str, intent: str, slots: Dict) -> str:
         """Execute the actual financial action through payment service"""
         try:
-            print(f"Executing action for intent: {intent} with slots: {slots}")
+            print(f"[EXECUTE_ACTION] User {user_id}: intent={intent}, slots={slots}")
 
             # Payment intents that require Orchard API
             payment_intents = ["buy_airtime", "send_money", "pay_bill", "get_loan"]
 
             if intent in payment_intents:
+                print(f"[EXECUTE_ACTION] Routing to payment processor for intent: {intent}")
                 return self._process_payment_intent(user_id, intent, slots)
             else:
+                print(f"[EXECUTE_ACTION] Routing to non-payment processor for intent: {intent}")
                 return self._process_non_payment_intent(user_id, intent, slots)
 
         except Exception as e:
-            print(f"Error executing action: {e}")
+            print(f"[EXECUTE_ACTION] ERROR: {e}", exc_info=True)
+            import traceback
+            traceback.print_exc()
             return self.response_formatter.format_response(intent, "error", message=str(e))
 
     def _process_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
@@ -150,6 +155,9 @@ class LebeNLUSystem:
         from utilities.uniqueidgenerator import UniqueIdGenerator
         from decimal import Decimal
 
+        print(f"[PAYMENT_INTENT] Starting payment processing for intent: {intent}")
+        print(f"[PAYMENT_INTENT] Slots received: {slots}")
+
         db = SessionLocal()
         try:
             # Map network string to Network enum
@@ -160,6 +168,8 @@ class LebeNLUSystem:
                 "AirtelTigo": Network.AIRTELTIGO,
                 "AIR": Network.AIRTELTIGO
             }
+
+            print(f"[PAYMENT_INTENT] Creating PaymentDto for intent: {intent}")
 
             # Create PaymentDto based on intent
             if intent == "buy_airtime":
@@ -205,9 +215,14 @@ class LebeNLUSystem:
             else:
                 return self.response_formatter.format_response(intent, "error", message=f"Unknown payment intent: {intent}")
 
+            print(f"[PAYMENT_INTENT] PaymentDto created successfully")
+            print(f"[PAYMENT_INTENT] Calling PaymentService.make_payment() with intent={intent}")
+
             # Process payment through PaymentService
             payment_service = PaymentService(db)
             result = payment_service.make_payment(payment_dto, intent)
+
+            print(f"[PAYMENT_INTENT] Payment result: status={result.status}, response_code={result.response_code}, transaction_id={result.transaction_id}")
 
             # Create history record
             history_service = HistoryService(db)

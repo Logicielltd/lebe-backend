@@ -40,7 +40,8 @@ class PaymentService:
         Returns:
             PaymentResultResponse with status and transaction details
         """
-        logger.info(f"Processing payment for intent: {intent}, amount: {payment_dto.amount_paid}")
+        logger.info(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amount_paid}")
+        print(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amount_paid}")
 
         # Create or retrieve payment record
         payment = Payment(**payment_dto.dict())
@@ -61,13 +62,17 @@ class PaymentService:
             self.db.add(payment)
             self.db.commit()
             self.db.refresh(payment)
+            print(f"[PAYMENT_SERVICE] Payment record created: {payment.id} with transaction_id: {payment.transaction_id}")
             logger.info(f"Payment record created: {payment.id} with transaction_id: {payment.transaction_id}")
 
             # Build request following Orchard spec
             payment_request = self._build_payment_request(payment, intent)
+            print(f"[PAYMENT_SERVICE] Built payment request: {payment_request}")
 
             # Send to Orchard API
+            print(f"[PAYMENT_SERVICE] Sending payment request to Orchard API...")
             http_response = self.payment_gateway_client.process_payment(payment_request)
+            print(f"[PAYMENT_SERVICE] Received response from Orchard API: status_code={http_response.status_code}")
 
             # Process response and update payment status
             return self._process_gateway_response(http_response, payment)

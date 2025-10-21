@@ -229,20 +229,23 @@ class PaymentService:
         
         if not payment.network:
             raise PaymentValidationException("Network is required")
-        
+
         if payment.payment_method == PaymentMethod.MOBILE_MONEY:
             if not payment.phone_number:
                 raise PaymentValidationException("Phone number is required for mobile money payments")
-            if payment.network not in [Network.MTN, Network.VOD, Network.AIR, Network.TIG]:
-                raise PaymentValidationException("Invalid network for mobile money payment")
-        
+            # Valid networks for mobile money: MTN, VOD (Vodafone), AIR (AirtelTigo)
+            if payment.network not in [Network.MTN, Network.VOD, Network.AIR]:
+                raise PaymentValidationException(f"Invalid network for mobile money payment: {payment.network}")
+
         elif payment.payment_method == PaymentMethod.CREDIT_DEBIT_CARD:
+            # Card payments: VIS (VISA), MAS (Mastercard)
             if payment.network not in [Network.VIS, Network.MAS]:
-                raise PaymentValidationException("Invalid network for card payment")
-        
+                raise PaymentValidationException(f"Invalid network for card payment: {payment.network}")
+
         elif payment.payment_method == PaymentMethod.BANK_TRANSFER:
+            # Bank transfers need BNK network and bank code
             if payment.network != Network.BNK:
-                raise PaymentValidationException("Network must be BNK for bank payments")
+                raise PaymentValidationException(f"Network must be BNK for bank payments, got: {payment.network}")
             if not payment.bank_code:
                 raise PaymentValidationException("Bank code is required for bank payments")
     

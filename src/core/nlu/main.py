@@ -160,13 +160,19 @@ class LebeNLUSystem:
 
         db = SessionLocal()
         try:
-            # Map network string to Network enum
+            # Map network string to Network enum (per Orchard API spec)
             network_map = {
                 "MTN": Network.MTN,
-                "Vodafone": Network.VODAFONE,
-                "VOD": Network.VODAFONE,
-                "AirtelTigo": Network.AIRTELTIGO,
-                "AIR": Network.AIRTELTIGO
+                "Vodafone": Network.VOD,
+                "VOD": Network.VOD,
+                "AirtelTigo": Network.AIR,
+                "AIR": Network.AIR,
+                "Mastercard": Network.MAS,
+                "MAS": Network.MAS,
+                "VISA": Network.VIS,
+                "VIS": Network.VIS,
+                "Bank": Network.BNK,
+                "BNK": Network.BNK
             }
 
             print(f"[PAYMENT_INTENT] Creating PaymentDto for intent: {intent}")

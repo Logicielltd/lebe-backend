@@ -250,7 +250,7 @@ class LebeNLUSystem:
                     amount=amount,
                     recipient=slots.get('recipient') or slots.get('phone_number'),
                     phone_number=user_id,
-                    description=f"{intent.replace('_', ' ').title()} - Transaction ID: {payment_dto.transaction_id}",
+                    description=f"{intent.replace('_', ' ').title()} - Transaction ID: {payment_dto.transactionId}",
                     metadata={"slots": slots, "payment_status": result.status}
                 )
 

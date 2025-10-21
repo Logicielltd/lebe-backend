@@ -31,7 +31,7 @@ class Payment(Base):
     network: Mapped[Optional[Network]] = mapped_column(Enum(Network))
 
     date_paid: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), onupdate=func.now())
+    updated_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     def __repr__(self):
         return f"<Payment(id={self.id}, transaction_id={self.transaction_id}, amount={self.amount_paid}, status={self.status})>"

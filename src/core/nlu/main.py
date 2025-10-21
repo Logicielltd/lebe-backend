@@ -228,7 +228,7 @@ class LebeNLUSystem:
             payment_service = PaymentService(db)
             result = payment_service.make_payment(payment_dto, intent)
 
-            print(f"[PAYMENT_INTENT] Payment result: status={result.status}, response_code={result.response_code}, transaction_id={result.transaction_id}")
+            print(f"[PAYMENT_INTENT] Payment result: status={result.status}, response_code={result.responseCode}, transaction_id={result.transactionId}")
 
             # Create history record
             history_service = HistoryService(db)
@@ -262,7 +262,7 @@ class LebeNLUSystem:
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
             else:
-                error_msg = result.response_description or "Payment processing failed"
+                error_msg = result.responseDescription or "Payment processing failed"
                 return self.response_formatter.format_response(intent, "error", message=error_msg)
 
         finally:

@@ -65,12 +65,9 @@ class PaymentService:
         # Validate payment data
         self._validate_payment(payment)
 
-        # Generate external transaction ID if needed (for callback matching)
+        # Generate transaction ID if needed
         if not payment.transaction_id:
             payment.transaction_id = str(UniqueIdGenerator.generate())
-
-        if not payment.external_transaction_id:
-            payment.external_transaction_id = str(UniqueIdGenerator.generate())
 
         try:
             # Save payment record to database (status: PENDING)

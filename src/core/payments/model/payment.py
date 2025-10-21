@@ -30,20 +30,6 @@ class Payment(Base):
     bank_code: Mapped[Optional[str]] = mapped_column(String)
     network: Mapped[Optional[Network]] = mapped_column(Enum(Network))
 
-    # New fields for enhanced tracking and callback matching
-    checkout_id: Mapped[Optional[str]] = mapped_column(String, index=True, nullable=True)
-    external_transaction_id: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
-    orchard_reference: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-
-    # Response tracking for audit trail
-    initiation_response: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    callback_response: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    verification_response: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-
-    # Timestamps for tracking
-    callback_received_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    last_status_check: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-
     date_paid: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

@@ -44,10 +44,12 @@ class PaymentGatewayClient:
     
     def process_payment(self, payment_request: Dict[str, Any]) -> httpx.Response:
         try:
+            # Create authorization header with sorted JSON (for consistent signature)
             authorization = self._create_authorization_header(payment_request)
             logger.info(f"Authorization Header: {authorization}")
 
-            json_string = json.dumps(payment_request)
+            # Use the same sorted JSON format for the request body to match signature
+            json_string = json.dumps(payment_request, sort_keys=True, separators=(',', ':'))
             logger.debug(f"Request payload: {json_string}")
 
             # Orchard API endpoint is /sendRequest
@@ -61,7 +63,7 @@ class PaymentGatewayClient:
                         "Authorization": authorization,
                         "Content-Type": "application/json"
                     },
-                    json=payment_request
+                    content=json_string
                 )
 
             logger.info(f"Payment gateway raw response: status={response.status_code}, body={response.text}")
@@ -112,7 +114,8 @@ class PaymentGatewayClient:
                 "trans_type": "TSC"
             }
 
-            json_payload = json.dumps(request)
+            # Use sorted JSON for consistent signature and request body
+            json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
             signature = self._get_signature(json_payload)
             logger.debug(f"Status check request payload: {json_payload}")
 
@@ -123,7 +126,7 @@ class PaymentGatewayClient:
                         "Authorization": f"{self.client_id}:{signature}",
                         "Content-Type": "application/json"
                     },
-                    json=request
+                    content=json_payload
                 )
 
             logger.info(f"Transaction status check response: status={response.status_code}, body={response.text}")

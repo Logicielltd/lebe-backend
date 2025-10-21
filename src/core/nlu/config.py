@@ -1,8 +1,15 @@
 import os
 from typing import Dict, List, Any
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # API Configuration
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
+
 MODEL = "gpt-4"  # or "gpt-3.5-turbo" for cost efficiency
 
 # Local Model Configuration

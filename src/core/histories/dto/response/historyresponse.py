@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 from typing import Optional, Dict, Any
 from datetime import datetime
+from uuid import UUID
 
 class HistoryResponseDTO(BaseModel):
     id: str
@@ -15,12 +16,19 @@ class HistoryResponseDTO(BaseModel):
     category: Optional[str] = None
     status: str = "completed"
     description: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = Field(None, alias="transaction_metadata")
     created_at: datetime
     updated_at: datetime
-    
+
+    @validator('id', pre=True)
+    def convert_id_to_str(cls, v):
+        if isinstance(v, UUID):
+            return str(v)
+        return v
+
     class Config:
         orm_mode = True
+        allow_population_by_field_name = True
 
 class HistoryListResponseDTO(BaseModel):
     histories: list[HistoryResponseDTO]

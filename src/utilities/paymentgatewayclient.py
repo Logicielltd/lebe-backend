@@ -78,7 +78,8 @@ class PaymentGatewayClient:
             raise PaymentGatewayException(f"Failed to process payment request: {e}")
     
     def _create_authorization_header(self, request: Dict[str, Any]) -> str:
-        json_payload = json.dumps(request)
+        # Use sorted keys and compact separators for consistent signature generation
+        json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
         logger.debug(f"Creating signature for payload: {json_payload}")
         signature = self._get_signature(json_payload)
         return f"{self.client_id}:{signature}"

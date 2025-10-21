@@ -72,11 +72,12 @@ class LebeNLUSystem:
         else:
             # All slots collected, request PIN if needed
             if self.security_manager.is_pin_required(intent):
-                state.waiting_for_pin = True
-                state.pending_action = {
-                    "intent": intent,
-                    "slots": state.collected_slots.copy()
-                }
+                # Set pending action using ConversationManager method
+                self.conversation_manager.set_pending_action(
+                    user_id,
+                    intent,
+                    state.collected_slots.copy()
+                )
                 response = self.response_formatter.format_response(
                     intent, "confirm_action", **state.collected_slots
                 )

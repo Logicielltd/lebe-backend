@@ -111,80 +111,150 @@ class LebeNLUSystem:
         return response
     
     def _execute_action(self, user_id: str, intent: str, slots: Dict) -> str:
-        """Execute the actual financial action"""
+        """Execute the actual financial action through payment service"""
         try:
-            payload = {
-                "user_id": user_id,
-                "intent": intent,
-                "slots": slots,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            def get_db():
-                db = SessionLocal()
-                try:
-                    yield db
-                finally:
-                    db.close()
-
-            # print slot values for debugging
             print(f"Executing action for intent: {intent} with slots: {slots}")
 
-            # All other services and functions would be called and returned here
+            # Payment intents that require Orchard API
+            payment_intents = ["buy_airtime", "send_money", "pay_bill", "get_loan"]
 
-            # Save every financial transaction to the database
-            
-            transaction_mapping = {
-                "send_money": ("debit", slots.get('amount'), slots.get('recipient')),
-                "buy_airtime": ("debit", slots.get('amount'), None),
-                "buy_data": ("debit", slots.get('amount'), None),
-                "pay_bill": ("debit", slots.get('amount'), slots.get('bill_type')),
-                "get_loan": ("credit", slots.get('loan_amount'), "Loan Provider"),
-                "set_budget": ("budget_set", None, slots.get('category'))
-            }
-            
-            transaction_type, amount, recipient = transaction_mapping.get(intent, (None, None, None))
-            
-            # Create history record for financial transactions
-            if transaction_type:
-                db = next(get_db())
-                try:
-                    history_service = HistoryService(db)
-                    history_service.create_history(
-                        user_id=user_id,
-                        intent=intent,
-                        transaction_type=transaction_type,
-                        amount=amount,
-                        recipient=recipient,
-                        phone_number=slots.get('phone_number'),
-                        data_plan=slots.get('data_plan'),
-                        category=slots.get('category'),
-                        description=success_messages.get(intent),
-                        metadata={"slots": slots}
-                    )
-                finally:
-                    db.close()
-                    
-            # Prepare success messages based on intent
+            if intent in payment_intents:
+                return self._process_payment_intent(user_id, intent, slots)
+            else:
+                return self._process_non_payment_intent(user_id, intent, slots)
 
-            success_messages = {
-                "create_new_account": "Your account has been created successfully!",
-                "send_money": f"Successfully sent GHS {slots.get('amount')} to {slots.get('recipient')}",
-                "buy_airtime": f"Airtime of GHS {slots.get('amount')} purchased for {slots.get('phone_number')}",
-                "buy_data": f"Data bundle {slots.get('data_plan')} activated for {slots.get('phone_number')}",
-                "pay_bill": f"Bill payment of GHS {slots.get('amount')} processed successfully",
-                "get_loan": f"Loan application for GHS {slots.get('loan_amount')} submitted",
-                "check_balance": "Your current balance is GHS 1,234.56",
-                "track_expenses": "Here's your spending summary for this month...",
-                "set_budget": f"Budget of GHS {slots.get('amount')} set for {slots.get('category')}"
-            }
-            
-            message = success_messages.get(intent, "Action completed successfully")
-            return self.response_formatter.format_response(intent, "success", message=message)
-            
         except Exception as e:
             print(f"Error executing action: {e}")
             return self.response_formatter.format_response(intent, "error", message=str(e))
+
+    def _process_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
+        """Process payment intents through PaymentService"""
+        from core.payments.dto.paymentdto import PaymentDto
+        from core.payments.model.paymentmethod import PaymentMethod
+        from core.payments.model.paymentstatus import PaymentStatus
+        from core.payments.model.paynetwork import Network
+        from core.payments.service.paymentservice import PaymentService
+        from utilities.uniqueidgenerator import UniqueIdGenerator
+        from decimal import Decimal
+
+        db = SessionLocal()
+        try:
+            # Map network string to Network enum
+            network_map = {
+                "MTN": Network.MTN,
+                "Vodafone": Network.VODAFONE,
+                "VOD": Network.VODAFONE,
+                "AirtelTigo": Network.AIRTELTIGO,
+                "AIR": Network.AIRTELTIGO
+            }
+
+            # Create PaymentDto based on intent
+            if intent == "buy_airtime":
+                payment_dto = PaymentDto(
+                    amount_paid=Decimal(slots.get('amount', '0')),
+                    phone_number=slots.get('phone_number'),
+                    network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
+                    payment_method=PaymentMethod.MOBILE_MONEY,
+                    service_name="Airtime Top-Up",
+                    transaction_id=str(UniqueIdGenerator.generate())
+                )
+
+            elif intent == "send_money":
+                payment_dto = PaymentDto(
+                    amount_paid=Decimal(slots.get('amount', '0')),
+                    phone_number=slots.get('recipient'),
+                    network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
+                    payment_method=PaymentMethod.MOBILE_MONEY,
+                    customer_name=slots.get('recipient_name', 'Unknown'),
+                    service_name=f"Money Transfer to {slots.get('recipient')}",
+                    transaction_id=str(UniqueIdGenerator.generate())
+                )
+
+            elif intent == "pay_bill":
+                payment_dto = PaymentDto(
+                    amount_paid=Decimal(slots.get('amount', '0')),
+                    phone_number=user_id,  # Use user's phone
+                    network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
+                    payment_method=PaymentMethod.MOBILE_MONEY,
+                    service_name=f"Bill Payment: {slots.get('bill_type')}",
+                    transaction_id=str(UniqueIdGenerator.generate())
+                )
+
+            elif intent == "get_loan":
+                payment_dto = PaymentDto(
+                    amount_paid=Decimal(slots.get('loan_amount', '0')),
+                    phone_number=user_id,  # User's phone for payout
+                    network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
+                    payment_method=PaymentMethod.MOBILE_MONEY,
+                    service_name="Loan Disbursement",
+                    transaction_id=str(UniqueIdGenerator.generate())
+                )
+            else:
+                return self.response_formatter.format_response(intent, "error", message=f"Unknown payment intent: {intent}")
+
+            # Process payment through PaymentService
+            payment_service = PaymentService(db)
+            result = payment_service.make_payment(payment_dto, intent)
+
+            # Create history record
+            history_service = HistoryService(db)
+
+            transaction_mapping = {
+                "buy_airtime": ("debit", slots.get('amount')),
+                "send_money": ("debit", slots.get('amount')),
+                "pay_bill": ("debit", slots.get('amount')),
+                "get_loan": ("credit", slots.get('loan_amount'))
+            }
+
+            transaction_type, amount = transaction_mapping.get(intent, (None, None))
+
+            if transaction_type:
+                history_service.create_history(
+                    user_id=user_id,
+                    intent=intent,
+                    transaction_type=transaction_type,
+                    amount=amount,
+                    recipient=slots.get('recipient') or slots.get('phone_number'),
+                    phone_number=user_id,
+                    description=f"{intent.replace('_', ' ').title()} - Transaction ID: {payment_dto.transaction_id}",
+                    metadata={"slots": slots, "payment_status": result.status}
+                )
+
+            # Return response based on payment result
+            if result.status == PaymentStatus.PENDING:
+                message = self._get_success_message(intent, slots, result)
+                return self.response_formatter.format_response(intent, "success", message=message)
+            elif result.status == PaymentStatus.SUCCESS:
+                message = self._get_success_message(intent, slots, result)
+                return self.response_formatter.format_response(intent, "success", message=message)
+            else:
+                error_msg = result.response_description or "Payment processing failed"
+                return self.response_formatter.format_response(intent, "error", message=error_msg)
+
+        finally:
+            db.close()
+
+    def _process_non_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
+        """Process non-payment intents"""
+        success_messages = {
+            "create_new_account": "Your account has been created successfully!",
+            "check_balance": "Your current balance is GHS 1,234.56",
+            "track_expenses": "Here's your spending summary for this month...",
+            "set_budget": f"Budget of GHS {slots.get('amount')} set for {slots.get('category')}"
+        }
+
+        message = success_messages.get(intent, "Action completed successfully")
+        return self.response_formatter.format_response(intent, "success", message=message)
+
+    def _get_success_message(self, intent: str, slots: Dict, result: Any) -> str:
+        """Generate success message based on intent"""
+        success_messages = {
+            "buy_airtime": f"✅ Airtime of GHS {slots.get('amount')} sent to {slots.get('phone_number')}. Transaction ID: {result.transaction_id}",
+            "send_money": f"✅ Successfully sent GHS {slots.get('amount')} to {slots.get('recipient')}. Transaction ID: {result.transaction_id}",
+            "pay_bill": f"✅ Bill payment of GHS {slots.get('amount')} processed. Transaction ID: {result.transaction_id}",
+            "get_loan": f"✅ Loan of GHS {slots.get('loan_amount')} application submitted. Transaction ID: {result.transaction_id}"
+        }
+        return success_messages.get(intent, "Payment processed successfully")
     
     def initialize_user(self, user_id: str, pin: str) -> bool:
         """Initialize user with PIN during onboarding"""

@@ -26,41 +26,58 @@ class PaymentService:
     def __init__(self, db: Session):
         self.db = db
         self.payment_gateway_client = PaymentGatewayClient()
-        self.service_id = "your_service_id"
+        self.service_id = self.payment_gateway_client.service_id
     
-    def make_payment(self, payment_dto: PaymentDto, request: Any) -> PaymentResultResponse:
-        logger.info(f"Processing payment for billId: {payment_dto.bill_id}")
-        
-        # Check if payment exists by response_id or create new
-        if payment_dto.response_id:
-            payment = self.db.query(Payment).filter(Payment.response_id == payment_dto.response_id).first()
-            if not payment:
-                payment = Payment(**payment_dto.dict())
-        else:
-            payment = Payment(**payment_dto.dict())
-        
-        # Get bill and validate payment
-        bill = self.db.query(Bill).filter(Bill.id == payment.bill_id).first()
-        if not bill:
-            raise HTTPException(status_code=404, detail="Bill not found")
-            
+    def make_payment(self, payment_dto: PaymentDto, intent: str, request: Any = None) -> PaymentResultResponse:
+        """
+        Process payment through Orchard API.
+
+        Args:
+            payment_dto: Payment data object
+            intent: The NLU intent (buy_airtime, send_money, pay_bill, etc.)
+            request: Optional HTTP request object
+
+        Returns:
+            PaymentResultResponse with status and transaction details
+        """
+        logger.info(f"Processing payment for intent: {intent}, amount: {payment_dto.amount_paid}")
+
+        # Create or retrieve payment record
+        payment = Payment(**payment_dto.dict())
+
+        # Validate payment data
         self._validate_payment(payment)
-        payment.amount_paid = bill.amount
-        
-        # Generate transaction ID if needed
-        if not payment.transaction_id or not payment.status or payment.status == PaymentStatus.FAILED:
+
+        # Generate external transaction ID if needed (for callback matching)
+        if not payment.transaction_id:
             payment.transaction_id = str(UniqueIdGenerator.generate())
-        
+
+        if not payment.external_transaction_id:
+            payment.external_transaction_id = str(UniqueIdGenerator.generate())
+
         try:
-            # Process payment through gateway
-            payment_request = self._build_payment_request(payment, request)
+            # Save payment record to database (status: PENDING)
+            payment.status = PaymentStatus.PENDING
+            self.db.add(payment)
+            self.db.commit()
+            self.db.refresh(payment)
+            logger.info(f"Payment record created: {payment.id} with transaction_id: {payment.transaction_id}")
+
+            # Build request following Orchard spec
+            payment_request = self._build_payment_request(payment, intent)
+
+            # Send to Orchard API
             http_response = self.payment_gateway_client.process_payment(payment_request)
-            
+
+            # Process response and update payment status
             return self._process_gateway_response(http_response, payment)
-            
+
         except PaymentGatewayException as e:
-            logger.error(f"Payment processing failed for transactionId: {payment.transaction_id}", exc_info=True)
+            logger.error(f"Payment gateway error for transactionId: {payment.transaction_id}", exc_info=True)
             return self._handle_system_error(payment, e)
+        except Exception as e:
+            logger.error(f"Unexpected error processing payment for intent {intent}", exc_info=True)
+            return self._handle_system_error(payment, Exception(str(e)))
     
     def _process_gateway_response(self, http_response: Any, payment: Payment) -> PaymentResultResponse:
         try:
@@ -208,21 +225,44 @@ class PaymentService:
             if not payment.bank_code:
                 raise PaymentValidationException("Bank code is required for bank payments")
     
-    def _build_payment_request(self, payment: Payment, request: Any) -> Dict[str, Any]:
-        return {
-            "amount": str(payment.amount_pid.quantize(Decimal('0.00'))),
-            "exttrid": int(payment.transaction_id),
-            "nw": payment.network.value,
-            "reference": f"Payment for {payment.service_name}",
-            "recipient_name": payment.customer_name,
+    def _build_payment_request(self, payment: Payment, intent: str) -> Dict[str, Any]:
+        """
+        Build Orchard API request following specification.
+        trans_type is determined by intent.
+        """
+        # Map intent to transaction type
+        transaction_type_map = {
+            "buy_airtime": "ATP",           # Airtime Top-Up
+            "send_money": "CTM",            # Customer to Merchant
+            "pay_bill": "CTM",              # Bill payment (also CTM)
+            "get_loan": "MTC",              # Merchant to Customer (Payout)
+            "verify_account": "AII"         # Account Inquiry
+        }
+
+        trans_type = transaction_type_map.get(intent, "CTM")  # Default to CTM
+
+        # Build base request (all transaction types need these)
+        request_data = {
+            "amount": str(payment.amount_paid).quantize(Decimal('0.00')),
             "customer_number": payment.phone_number,
-            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "exttrid": payment.transaction_id,  # Keep as string, not int
+            "nw": payment.network.value,
+            "reference": f"{intent.replace('_', ' ').title()}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
-            "nickname": f"Payment for {payment.service_name}",
-            "trans_type": "CTM",
-            "bank_code": payment.bank_code
+            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "trans_type": trans_type
         }
+
+        # Add optional fields only if they exist (as per Orchard spec)
+        if payment.customer_name and intent in ["send_money", "get_loan"]:
+            request_data["recipient_name"] = payment.customer_name
+
+        if payment.bank_code and intent in ["pay_bill", "get_loan"]:
+            request_data["bank_code"] = payment.bank_code
+
+        logger.info(f"Built payment request for {intent}: trans_type={trans_type}")
+        return request_data
     
     def _create_invoice(self, payment: Payment) -> None:
         invoice = Invoice(

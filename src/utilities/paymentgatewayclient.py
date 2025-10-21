@@ -2,6 +2,7 @@ import hmac
 import hashlib
 import json
 import httpx
+import os
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 import logging
@@ -14,12 +15,32 @@ class PaymentGatewayException(Exception):
 
 class PaymentGatewayClient:
     def __init__(self):
-        self.client_secret = "your_client_secret"  # Should be from config
-        self.client_id = "your_client_id"          # Should be from config
-        self.base_url = "https://orchard-api.anmgw.com/"
-        self.service_id = "your_service_id"        # Should be from config
-        self.callback_url = "your_callback_url"    # Should be from config
-        self.timeout = 30  # seconds
+        # Load from environment variables
+        self.client_id = os.getenv("ORCHARD_API_KEY")
+        self.client_secret = os.getenv("ORCHARD_SECRET_KEY")
+        self.service_id = os.getenv("ORCHARD_SERVICE_ID")
+        self.base_url = os.getenv("ORCHARD_BASE_URL", "https://orchard-api.anmgw.com")
+        self.callback_url = os.getenv("PAYMENT_CALLBACK_URL")
+        self.timeout = int(os.getenv("PAYMENT_TIMEOUT", "30"))
+
+        # Validate required config
+        self._validate_config()
+
+    def _validate_config(self):
+        """Validate that all required config is present"""
+        required_vars = {
+            "ORCHARD_API_KEY": self.client_id,
+            "ORCHARD_SECRET_KEY": self.client_secret,
+            "ORCHARD_SERVICE_ID": self.service_id,
+            "PAYMENT_CALLBACK_URL": self.callback_url
+        }
+
+        missing_vars = [key for key, value in required_vars.items() if not value]
+
+        if missing_vars:
+            error_msg = f"Missing required environment variables: {', '.join(missing_vars)}"
+            logger.error(error_msg)
+            raise PaymentGatewayException(error_msg)
     
     async def process_payment(self, payment_request: Dict[str, Any]) -> httpx.Response:
         try:

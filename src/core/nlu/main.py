@@ -93,13 +93,25 @@ class LebeNLUSystem:
     def _handle_pin_verification(self, user_id: str, pin_input: str) -> str:
         """Handle PIN verification for pending actions"""
         state = self.conversation_manager.get_conversation_state(user_id)
-        
+
+        # Validate pending action exists
+        if not state.pending_action or "intent" not in state.pending_action or "slots" not in state.pending_action:
+            error_response = self.response_formatter.format_response("", "error", message="No pending action found. Please start over.")
+            self.conversation_manager.update_conversation_history(user_id, "assistant", error_response)
+            self.conversation_manager.reset_conversation_state(user_id)
+            return error_response
+
         if self.security_manager.verify_pin(user_id, pin_input):
             # PIN verified, execute action
+            pending_intent = state.pending_action["intent"]
+            pending_slots = state.pending_action["slots"]
+
+            print(f"PIN verified for user {user_id}. Executing pending action: intent={pending_intent}, slots={pending_slots}")
+
             response = self._execute_action(
-                user_id, 
-                state.pending_action["intent"], 
-                state.pending_action["slots"]
+                user_id,
+                pending_intent,
+                pending_slots
             )
             # Reset conversation state
             self.conversation_manager.reset_conversation_state(user_id)
@@ -107,7 +119,7 @@ class LebeNLUSystem:
             # Invalid PIN
             response = self.response_formatter.format_response("", "invalid_pin")
             # Keep waiting for PIN
-        
+
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
         return response
     

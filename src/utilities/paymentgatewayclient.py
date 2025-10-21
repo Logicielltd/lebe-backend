@@ -42,27 +42,31 @@ class PaymentGatewayClient:
             logger.error(error_msg)
             raise PaymentGatewayException(error_msg)
     
-    async def process_payment(self, payment_request: Dict[str, Any]) -> httpx.Response:
+    def process_payment(self, payment_request: Dict[str, Any]) -> httpx.Response:
         try:
-            authorization = await self._create_authorization_header(payment_request)
+            authorization = self._create_authorization_header(payment_request)
             logger.info(f"Authorization Header: {authorization}")
-            
+
             json_string = json.dumps(payment_request)
             logger.debug(f"Request payload: {json_string}")
-            
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    self.base_url,
+
+            # Orchard API endpoint is /sendRequest
+            endpoint_url = urljoin(self.base_url, "/sendRequest")
+            logger.info(f"Sending payment request to: {endpoint_url}")
+
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                    endpoint_url,
                     headers={
                         "Authorization": authorization,
                         "Content-Type": "application/json"
                     },
                     json=payment_request
                 )
-                
+
             logger.info(f"Payment gateway raw response: status={response.status_code}, body={response.text}")
             return response
-            
+
         except httpx.TimeoutException:
             logger.error("Payment processing timeout")
             raise PaymentGatewayException("Payment processing timeout")
@@ -73,7 +77,7 @@ class PaymentGatewayClient:
             logger.error(f"Error processing payment request: {e}", exc_info=True)
             raise PaymentGatewayException(f"Failed to process payment request: {e}")
     
-    async def _create_authorization_header(self, request: Dict[str, Any]) -> str:
+    def _create_authorization_header(self, request: Dict[str, Any]) -> str:
         json_payload = json.dumps(request)
         logger.debug(f"Creating signature for payload: {json_payload}")
         signature = self._get_signature(json_payload)
@@ -99,20 +103,20 @@ class PaymentGatewayClient:
     def build_callback_url(self) -> str:
         return self.callback_url  # Just return the callback URL directly
     
-    async def check_transaction_status(self, external_transaction_id: str) -> httpx.Response:
+    def check_transaction_status(self, external_transaction_id: str) -> httpx.Response:
         try:
             request = {
                 "exttrid": external_transaction_id,
                 "service_id": self.service_id,
                 "trans_type": "TSC"
             }
-            
+
             json_payload = json.dumps(request)
             signature = self._get_signature(json_payload)
             logger.debug(f"Status check request payload: {json_payload}")
-            
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
+
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
                     urljoin(self.base_url, "checkTransaction"),
                     headers={
                         "Authorization": f"{self.client_id}:{signature}",
@@ -120,10 +124,10 @@ class PaymentGatewayClient:
                     },
                     json=request
                 )
-                
+
             logger.info(f"Transaction status check response: status={response.status_code}, body={response.text}")
             return response
-            
+
         except httpx.TimeoutException:
             logger.error("Transaction status check timeout")
             raise PaymentGatewayException("Transaction status check timeout")

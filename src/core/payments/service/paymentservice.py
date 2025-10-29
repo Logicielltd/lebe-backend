@@ -314,7 +314,7 @@ class PaymentService:
     
     def _handle_success(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
         logger.info(f"Handling successful payment for transactionId: {payment.transaction_id}")
-        payment.status = PaymentStatus.PENDING
+        payment.status = PaymentStatus.SUCCESS
 
         logger.debug(f"Creating invoice for transactionId: {payment.transaction_id}")
         self._create_invoice(payment)
@@ -327,7 +327,7 @@ class PaymentService:
 
         return PaymentResultResponse(
             payment_id=payment.id,
-            status=PaymentStatus.PENDING,
+            status=PaymentStatus.SUCCESS,
             responseCode=response.get("resp_code"),
             responseDescription=response.get("resp_desc"),
             transactionId=payment.transaction_id,

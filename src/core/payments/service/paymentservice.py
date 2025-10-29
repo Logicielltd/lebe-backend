@@ -101,12 +101,12 @@ class PaymentService:
         try:
             if http_response.status_code == 200:
                 response_data = http_response.json()
-                
-                if response_data and response_data.get("respCode") == "015":
+
+                if response_data and response_data.get("resp_code") == "015":
                     logger.info(f"Payment successful for transactionId: {payment.transaction_id}")
                     return self._handle_success(payment, response_data)
                 else:
-                    logger.warn(f"Payment failed with response code: {response_data.get('respCode') if response_data else 'null'} for transactionId: {payment.transaction_id}")
+                    logger.warn(f"Payment failed with response code: {response_data.get('resp_code') if response_data else 'null'} for transactionId: {payment.transaction_id}")
                     return self._handle_gateway_failure(payment, response_data)
             else:
                 logger.error(f"Payment gateway returned HTTP status: {http_response.status_code} for transactionId: {payment.transaction_id}")
@@ -315,42 +315,42 @@ class PaymentService:
     def _handle_success(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
         logger.info(f"Handling successful payment for transactionId: {payment.transaction_id}")
         payment.status = PaymentStatus.PENDING
-        
+
         logger.debug(f"Creating invoice for transactionId: {payment.transaction_id}")
         self._create_invoice(payment)
-        
+
         logger.info(f"Persisting payment for transactionId: {payment.transaction_id}")
         self.db.add(payment)
         self.db.commit()
-        
+
         logger.info(f"Payment persisted successfully with paymentId: {payment.id} for transactionId: {payment.transaction_id}")
-        
+
         return PaymentResultResponse(
             payment_id=payment.id,
             status=PaymentStatus.PENDING,
-            response_code=response.get("respCode"),
-            response_description=response.get("respDesc"),
-            transaction_id=payment.transaction_id,
-            payment_method=payment.payment_method
+            responseCode=response.get("resp_code"),
+            responseDescription=response.get("resp_desc"),
+            transactionId=payment.transaction_id,
+            paymentMethod=payment.payment_method
         )
     
     def _handle_gateway_failure(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
-        logger.warn(f"Handling gateway failure for transactionId: {payment.transaction_id}. Response code: {response.get('respCode')}, description: {response.get('respDesc')}")
-        
+        logger.warn(f"Handling gateway failure for transactionId: {payment.transaction_id}. Response code: {response.get('resp_code')}, description: {response.get('resp_desc')}")
+
         payment.status = PaymentStatus.FAILED
         self.db.add(payment)
         self.db.commit()
-        
+
         logger.info(f"Payment persisted failed with paymentId: {payment.id} for transactionId: {payment.transaction_id}")
         logger.info(f"Returning FAILED status for transactionId: {payment.transaction_id}")
-        
+
         return PaymentResultResponse(
             payment_id=payment.id,
             status=PaymentStatus.FAILED,
-            response_code=response.get("respCode"),
-            response_description=response.get("respDesc"),
-            transaction_id=payment.transaction_id,
-            payment_method=payment.payment_method
+            responseCode=response.get("resp_code"),
+            responseDescription=response.get("resp_desc"),
+            transactionId=payment.transaction_id,
+            paymentMethod=payment.payment_method
         )
     
     def _handle_system_error(self, payment: Payment, exception: Exception) -> PaymentResultResponse:

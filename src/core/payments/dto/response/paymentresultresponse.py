@@ -5,7 +5,7 @@ from core.payments.model.paymentmethod import PaymentMethod
 from core.payments.model.paymentstatus import PaymentStatus
 
 class PaymentResultResponse(BaseModel):
-    paymentId: int
+    paymentId: Optional[int] = None
     status: PaymentStatus
     responseCode: Optional[str] = None
     responseDescription: Optional[str] = None

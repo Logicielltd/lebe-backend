@@ -42,7 +42,7 @@ class HistoryService:
         self.db.add(history)
         self.db.commit()
         self.db.refresh(history)
-        
+
         return HistoryResponseDTO.from_orm(history)
     
     def get_user_histories(self, 

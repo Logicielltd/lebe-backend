@@ -26,52 +26,87 @@ class PaymentService:
     def __init__(self, db: Session):
         self.db = db
         self.payment_gateway_client = PaymentGatewayClient()
-        self.service_id = "your_service_id"
+        self.service_id = self.payment_gateway_client.service_id
     
-    def make_payment(self, payment_dto: PaymentDto, request: Any) -> PaymentResultResponse:
-        logger.info(f"Processing payment for billId: {payment_dto.bill_id}")
-        
-        # Check if payment exists by response_id or create new
-        if payment_dto.response_id:
-            payment = self.db.query(Payment).filter(Payment.response_id == payment_dto.response_id).first()
-            if not payment:
-                payment = Payment(**payment_dto.dict())
-        else:
-            payment = Payment(**payment_dto.dict())
-        
-        # Get bill and validate payment
-        bill = self.db.query(Bill).filter(Bill.id == payment.bill_id).first()
-        if not bill:
-            raise HTTPException(status_code=404, detail="Bill not found")
-            
+    def make_payment(self, payment_dto: PaymentDto, intent: str, request: Any = None) -> PaymentResultResponse:
+        """
+        Process payment through Orchard API.
+
+        Args:
+            payment_dto: Payment data object
+            intent: The NLU intent (buy_airtime, send_money, pay_bill, etc.)
+            request: Optional HTTP request object
+
+        Returns:
+            PaymentResultResponse with status and transaction details
+        """
+        logger.info(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amountPaid}")
+        print(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amountPaid}")
+
+        # Map PaymentDto (camelCase) to Payment model (snake_case)
+        payment_data = {
+            'bill_id': payment_dto.billId or 0,
+            'response_id': payment_dto.responseId,
+            'amount_paid': payment_dto.amountPaid or 0,
+            'payment_method': payment_dto.paymentMethod,
+            'status': payment_dto.status or PaymentStatus.PENDING,
+            'transaction_id': payment_dto.transactionId,
+            'service_name': payment_dto.serviceName,
+            'customer_email': payment_dto.customerEmail,
+            'customer_name': payment_dto.customerName,
+            'phone_number': payment_dto.phoneNumber,
+            'bank_code': payment_dto.bankCode,
+            'network': payment_dto.network,
+        }
+
+        # Create or retrieve payment record
+        payment = Payment(**payment_data)
+
+        # Validate payment data
         self._validate_payment(payment)
-        payment.amount_paid = bill.amount
-        
+
         # Generate transaction ID if needed
-        if not payment.transaction_id or not payment.status or payment.status == PaymentStatus.FAILED:
+        if not payment.transaction_id:
             payment.transaction_id = str(UniqueIdGenerator.generate())
-        
+
         try:
-            # Process payment through gateway
-            payment_request = self._build_payment_request(payment, request)
+            # Save payment record to database (status: PENDING)
+            payment.status = PaymentStatus.PENDING
+            self.db.add(payment)
+            self.db.commit()
+            self.db.refresh(payment)
+            print(f"[PAYMENT_SERVICE] Payment record created: {payment.id} with transaction_id: {payment.transaction_id}")
+            logger.info(f"Payment record created: {payment.id} with transaction_id: {payment.transaction_id}")
+
+            # Build request following Orchard spec
+            payment_request = self._build_payment_request(payment, intent)
+            print(f"[PAYMENT_SERVICE] Built payment request: {payment_request}")
+
+            # Send to Orchard API
+            print(f"[PAYMENT_SERVICE] Sending payment request to Orchard API...")
             http_response = self.payment_gateway_client.process_payment(payment_request)
-            
+            print(f"[PAYMENT_SERVICE] Received response from Orchard API: status_code={http_response.status_code}")
+
+            # Process response and update payment status
             return self._process_gateway_response(http_response, payment)
-            
+
         except PaymentGatewayException as e:
-            logger.error(f"Payment processing failed for transactionId: {payment.transaction_id}", exc_info=True)
+            logger.error(f"Payment gateway error for transactionId: {payment.transaction_id}", exc_info=True)
             return self._handle_system_error(payment, e)
+        except Exception as e:
+            logger.error(f"Unexpected error processing payment for intent {intent}", exc_info=True)
+            return self._handle_system_error(payment, Exception(str(e)))
     
     def _process_gateway_response(self, http_response: Any, payment: Payment) -> PaymentResultResponse:
         try:
             if http_response.status_code == 200:
                 response_data = http_response.json()
-                
-                if response_data and response_data.get("respCode") == "015":
+
+                if response_data and response_data.get("resp_code") == "015":
                     logger.info(f"Payment successful for transactionId: {payment.transaction_id}")
                     return self._handle_success(payment, response_data)
                 else:
-                    logger.warn(f"Payment failed with response code: {response_data.get('respCode') if response_data else 'null'} for transactionId: {payment.transaction_id}")
+                    logger.warn(f"Payment failed with response code: {response_data.get('resp_code') if response_data else 'null'} for transactionId: {payment.transaction_id}")
                     return self._handle_gateway_failure(payment, response_data)
             else:
                 logger.error(f"Payment gateway returned HTTP status: {http_response.status_code} for transactionId: {payment.transaction_id}")
@@ -191,38 +226,66 @@ class PaymentService:
         
         if not payment.network:
             raise PaymentValidationException("Network is required")
-        
+
         if payment.payment_method == PaymentMethod.MOBILE_MONEY:
             if not payment.phone_number:
                 raise PaymentValidationException("Phone number is required for mobile money payments")
-            if payment.network not in [Network.MTN, Network.VOD, Network.AIR, Network.TIG]:
-                raise PaymentValidationException("Invalid network for mobile money payment")
-        
+            # Valid networks for mobile money: MTN, VOD (Vodafone), AIR (AirtelTigo)
+            if payment.network not in [Network.MTN, Network.VOD, Network.AIR]:
+                raise PaymentValidationException(f"Invalid network for mobile money payment: {payment.network}")
+
         elif payment.payment_method == PaymentMethod.CREDIT_DEBIT_CARD:
+            # Card payments: VIS (VISA), MAS (Mastercard)
             if payment.network not in [Network.VIS, Network.MAS]:
-                raise PaymentValidationException("Invalid network for card payment")
-        
+                raise PaymentValidationException(f"Invalid network for card payment: {payment.network}")
+
         elif payment.payment_method == PaymentMethod.BANK_TRANSFER:
+            # Bank transfers need BNK network and bank code
             if payment.network != Network.BNK:
-                raise PaymentValidationException("Network must be BNK for bank payments")
+                raise PaymentValidationException(f"Network must be BNK for bank payments, got: {payment.network}")
             if not payment.bank_code:
                 raise PaymentValidationException("Bank code is required for bank payments")
     
-    def _build_payment_request(self, payment: Payment, request: Any) -> Dict[str, Any]:
-        return {
-            "amount": str(payment.amount_pid.quantize(Decimal('0.00'))),
-            "exttrid": int(payment.transaction_id),
-            "nw": payment.network.value,
-            "reference": f"Payment for {payment.service_name}",
-            "recipient_name": payment.customer_name,
+    def _build_payment_request(self, payment: Payment, intent: str) -> Dict[str, Any]:
+        """
+        Build Orchard API request following specification.
+        trans_type is determined by intent.
+        """
+        # Map intent to transaction type
+        transaction_type_map = {
+            "buy_airtime": "ATP",           # Airtime Top-Up
+            "send_money": "CTM",            # Customer to Merchant
+            "pay_bill": "CTM",              # Bill payment (also CTM)
+            "get_loan": "MTC",              # Merchant to Customer (Payout)
+            "verify_account": "AII"         # Account Inquiry
+        }
+
+        trans_type = transaction_type_map.get(intent, "CTM")  # Default to CTM
+
+        # Build base request (all transaction types need these)
+        # Ensure amount_paid is a Decimal before formatting
+        amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
+        request_data = {
+            "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": payment.phone_number,
-            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "exttrid": payment.transaction_id,  # Keep as string, not int
+            "nw": payment.network.value,
+            "reference": f"{intent.replace('_', ' ').title()}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
-            "nickname": f"Payment for {payment.service_name}",
-            "trans_type": "CTM",
-            "bank_code": payment.bank_code
+            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "trans_type": trans_type
         }
+
+        # Add optional fields only if they exist (as per Orchard spec)
+        if payment.customer_name and intent in ["send_money", "get_loan"]:
+            request_data["recipient_name"] = payment.customer_name
+
+        if payment.bank_code and intent in ["pay_bill", "get_loan"]:
+            request_data["bank_code"] = payment.bank_code
+
+        logger.info(f"Built payment request for {intent}: trans_type={trans_type}")
+        return request_data
     
     def _create_invoice(self, payment: Payment) -> None:
         invoice = Invoice(
@@ -251,43 +314,43 @@ class PaymentService:
     
     def _handle_success(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
         logger.info(f"Handling successful payment for transactionId: {payment.transaction_id}")
-        payment.status = PaymentStatus.PENDING
-        
+        payment.status = PaymentStatus.SUCCESS
+
         logger.debug(f"Creating invoice for transactionId: {payment.transaction_id}")
         self._create_invoice(payment)
-        
+
         logger.info(f"Persisting payment for transactionId: {payment.transaction_id}")
         self.db.add(payment)
         self.db.commit()
-        
+
         logger.info(f"Payment persisted successfully with paymentId: {payment.id} for transactionId: {payment.transaction_id}")
-        
+
         return PaymentResultResponse(
             payment_id=payment.id,
-            status=PaymentStatus.PENDING,
-            response_code=response.get("respCode"),
-            response_description=response.get("respDesc"),
-            transaction_id=payment.transaction_id,
-            payment_method=payment.payment_method
+            status=PaymentStatus.SUCCESS,
+            responseCode=response.get("resp_code"),
+            responseDescription=response.get("resp_desc"),
+            transactionId=payment.transaction_id,
+            paymentMethod=payment.payment_method
         )
     
     def _handle_gateway_failure(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
-        logger.warn(f"Handling gateway failure for transactionId: {payment.transaction_id}. Response code: {response.get('respCode')}, description: {response.get('respDesc')}")
-        
+        logger.warn(f"Handling gateway failure for transactionId: {payment.transaction_id}. Response code: {response.get('resp_code')}, description: {response.get('resp_desc')}")
+
         payment.status = PaymentStatus.FAILED
         self.db.add(payment)
         self.db.commit()
-        
+
         logger.info(f"Payment persisted failed with paymentId: {payment.id} for transactionId: {payment.transaction_id}")
         logger.info(f"Returning FAILED status for transactionId: {payment.transaction_id}")
-        
+
         return PaymentResultResponse(
             payment_id=payment.id,
             status=PaymentStatus.FAILED,
-            response_code=response.get("respCode"),
-            response_description=response.get("respDesc"),
-            transaction_id=payment.transaction_id,
-            payment_method=payment.payment_method
+            responseCode=response.get("resp_code"),
+            responseDescription=response.get("resp_desc"),
+            transactionId=payment.transaction_id,
+            paymentMethod=payment.payment_method
         )
     
     def _handle_system_error(self, payment: Payment, exception: Exception) -> PaymentResultResponse:

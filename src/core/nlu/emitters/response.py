@@ -23,7 +23,7 @@ class ResponseFormatter:
                 "get_loan": f"apply for a GHS {kwargs.get('loan_amount')} loan"
             }
             action_desc = action_descriptions.get(intent, "complete this transaction")
-            return f"🔒 Please enter your 4-digit PIN to confirm {action_desc}."
+            return f"🔒 Please enter your 5-digit PIN to confirm {action_desc}."
         
         elif message_type == "success":
             return f"✅ {kwargs.get('message', 'Action completed successfully!')}"

@@ -5,7 +5,9 @@ from decimal import Decimal
 from datetime import datetime
 
 class Network(str, Enum):
-    MTN = "MTN"
-    VODAFONE = "VODAFONE"
-    AIRTELTIGO = "AIRTELTIGO"
-    OTHER = "OTHER"
+    MTN = "MTN"           # MTN network
+    VOD = "VOD"           # Vodafone network
+    AIR = "AIR"           # AirtelTigo network
+    MAS = "MAS"           # MasterCard
+    VIS = "VIS"           # VISA
+    BNK = "BNK"           # Bank

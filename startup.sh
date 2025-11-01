@@ -1,7 +1,1 @@
-#!/bin/bash
-
-# Install dependencies (if needed)
-pip install -r requirements.txt
-
-# Run the FastAPI app with uvicorn
-uvicorn src.main:app --host 0.0.0.0 --port 8000 --workers 4
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app

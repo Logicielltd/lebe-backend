@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Change to src directory
+cd src
+
 # Install dependencies (if needed)
 pip install -r requirements.txt
 

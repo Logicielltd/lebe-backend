@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi_jwt_auth import AuthJWT
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseSettings
-from routes import base_routes
+from src.routes import base_routes
 from src.core.auth.controller.authcontroller import auth_routes
 from src.core.user.controller.usercontroller import user_routes
 from src.core.cloudstorage.controller.storagecontoller import storage_routes

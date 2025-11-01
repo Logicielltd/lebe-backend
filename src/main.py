@@ -25,6 +25,7 @@ from core.auditlogging.service.logservice import logging_service
 from config import settings
 import logging
 from loguru import logger
+from sqlalchemy import inspect
 
 # Initialize FastAPI app
 app = FastAPI( 
@@ -49,10 +50,20 @@ app = FastAPI(
     },
 )
 
-# Initialize database tables
-print("Initializing database tables...")
-Base.metadata.create_all(bind=engine)
-print("Database tables initialized successfully.")
+
+
+def tables_exist():
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    return len(existing_tables) > 0
+
+# Initialize database tables only if they don't exist
+if not tables_exist():
+    print("Initializing database tables...")
+    Base.metadata.create_all(bind=engine)
+    print("Database tables initialized successfully.")
+else:
+    print("Database tables already exist.")
 
 # Add middleware for CORS
 app.add_middleware(

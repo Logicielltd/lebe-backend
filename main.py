@@ -3,25 +3,25 @@ from fastapi_jwt_auth import AuthJWT
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseSettings
 from routes import base_routes
-from core.auth.controller.authcontroller import auth_routes
-from core.user.controller.usercontroller import user_routes
-from core.cloudstorage.controller.storagecontoller import storage_routes
-from core.profile.controller.profilecontroller import profile_routes
-from core.notification.controller.notificationcontroller import notification_routes
-from core.payments.controller.billcontroller import bill_routes
-from core.payments.controller.invoicecontroller import invoice_routes
-from core.payments.controller.paymentcontroller import payment_routes
-from core.otp.controller.otpcontroller import otp_routes
-from core.subscription.controller.subscription_controller import subscription_routes
-from core.webhooks.controller.webhookscontroller import webhooks_routes
+from src.core.auth.controller.authcontroller import auth_routes
+from src.core.user.controller.usercontroller import user_routes
+from src.core.cloudstorage.controller.storagecontoller import storage_routes
+from src.core.profile.controller.profilecontroller import profile_routes
+from src.core.notification.controller.notificationcontroller import notification_routes
+from src.core.payments.controller.billcontroller import bill_routes
+from src.core.payments.controller.invoicecontroller import invoice_routes
+from src.core.payments.controller.paymentcontroller import payment_routes
+from src.core.otp.controller.otpcontroller import otp_routes
+from src.core.subscription.controller.subscription_controller import subscription_routes
+from src.core.webhooks.controller.webhookscontroller import webhooks_routes
 
 from utilities.dbconfig import Base, engine
 from config import settings
 from utilities.exceptions import DatabaseValidationError
 import exceptions
 from fastapi.exceptions import RequestValidationError
-# from core.middleware.logmiddleware import LoggingMiddleware
-from core.auditlogging.service.logservice import logging_service
+# from src.core.middleware.logmiddleware import LoggingMiddleware
+from src.core.auditlogging.service.logservice import logging_service
 from config import settings
 import logging
 from loguru import logger

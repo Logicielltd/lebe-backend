@@ -7,4 +7,5 @@ export PYTHONPATH="${PYTHONPATH}:/home/site/wwwroot"
 pip install -r requirements.txt
 
 # Run with single worker for Azure compatibility
-uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app
+

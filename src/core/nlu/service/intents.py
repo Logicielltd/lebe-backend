@@ -1,6 +1,6 @@
 from typing import Dict, List, Any, Tuple
-from core.nlu.config import INTENTS, SYSTEM_PROMPTS
-from core.nlu.service.llmclient import LLMClient  # Add this import
+from src.core.nlu.config import INTENTS, SYSTEM_PROMPTS
+from src.core.nlu.service.llmclient import LLMClient  # Add this import
 
 class IntentDetector:
     def __init__(self):

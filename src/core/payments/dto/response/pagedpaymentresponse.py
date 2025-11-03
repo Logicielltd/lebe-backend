@@ -1,7 +1,7 @@
 from typing import List
 from pydantic import BaseModel
 
-from core.payments.dto.response.paymentresponse import PaymentResponse
+from src.core.payments.dto.response.paymentresponse import PaymentResponse
 
 
 

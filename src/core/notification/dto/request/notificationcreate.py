@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 
-from core.notification.model.Notification import NotificationType
+from src.core.notification.model.Notification import NotificationType
 
 
 class NotificationCreateRequest(BaseModel):

@@ -1,7 +1,7 @@
 from typing import List
 from pydantic import BaseModel
 
-from core.notification.dto.response.notification_response import NotificationResponse
+from src.core.notification.dto.response.notification_response import NotificationResponse
 
 
 class PagedNotificationResponse(BaseModel):

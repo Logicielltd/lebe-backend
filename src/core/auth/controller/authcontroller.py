@@ -3,16 +3,16 @@ from fastapi_jwt_auth import AuthJWT
 from fastapi_jwt_auth.exceptions import MissingTokenError
 import jwt
 from sqlalchemy.orm import Session
-from core.auth.service.sessiondriver import SessionDriver, TokenData
-from core.exceptions import *
-from core.auth.dto.request.user_create import UserCreateRequest
-from core.auth.dto.request.userlogin import UserLoginRequest
-from core.auth.dto.request.resetpassword import ResetPasswordRequest
-from core.auth.dto.request.resetpassnoauth import ResetPassNoAuth
-from core.auth.dto.request.otp_verify import OTPVerifyRequest
-from core.auth.service.authservice import AuthService
-from core.exceptions.AuthException import InvalidCredentialsError
-from core.exceptions.UserException import UserAlreadyExistsError
+from src.core.auth.service.sessiondriver import SessionDriver, TokenData
+from src.core.exceptions import *
+from src.core.auth.dto.request.user_create import UserCreateRequest
+from src.core.auth.dto.request.userlogin import UserLoginRequest
+from src.core.auth.dto.request.resetpassword import ResetPasswordRequest
+from src.core.auth.dto.request.resetpassnoauth import ResetPassNoAuth
+from src.core.auth.dto.request.otp_verify import OTPVerifyRequest
+from src.core.auth.service.authservice import AuthService
+from src.core.exceptions.AuthException import InvalidCredentialsError
+from src.core.exceptions.UserException import UserAlreadyExistsError
 from utilities.dbconfig import SessionLocal
 import logging
 

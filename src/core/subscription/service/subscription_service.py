@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from core.subscription.model.subscription_plan import SubscriptionPlan
-from core.subscription.model.user_subscription import UserSubscription, SubscriptionStatus
-from core.user.model.User import User
+from src.core.subscription.model.subscription_plan import SubscriptionPlan
+from src.core.subscription.model.user_subscription import UserSubscription, SubscriptionStatus
+from src.core.user.model.User import User
 import logging
 
 logger = logging.getLogger(__name__)

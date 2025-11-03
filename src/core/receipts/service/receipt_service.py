@@ -5,9 +5,9 @@ from fastapi import HTTPException, status
 from typing import List, Optional
 from datetime import datetime
 
-from core.receipts.model.Receipt import Receipt
-from core.receipts.dto.response.receiptresponse import ReceiptResponse
-from core.receipts.service.image_gen import ReceiptGenerator
+from src.core.receipts.model.Receipt import Receipt
+from src.core.receipts.dto.response.receiptresponse import ReceiptResponse
+from src.core.receipts.service.image_gen import ReceiptGenerator
 
 class ReceiptService:
     def __init__(self, db: Session):

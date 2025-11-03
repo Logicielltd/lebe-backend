@@ -1,7 +1,7 @@
 from sqlalchemy import JSON, Column, Integer, String, DateTime, ForeignKey, Boolean, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from core.notification.model import Notification
+from src.core.notification.model import Notification
 from utilities.dbconfig import Base
 from datetime import datetime
 from typing import List, Optional
@@ -9,8 +9,8 @@ from typing import List, Optional
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
-from core.auth.model.password_reset_token import PasswordResetToken
-from core.auth.model.refreshtoken import RefreshToken
+from src.core.auth.model.password_reset_token import PasswordResetToken
+from src.core.auth.model.refreshtoken import RefreshToken
 
 
 class UserStatus(str, Enum):

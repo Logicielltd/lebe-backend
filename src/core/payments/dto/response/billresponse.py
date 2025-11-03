@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
-from core.payments.model.bill import BillingType, BillFrequency, BillStatus, PaymentMethod
+from src.core.payments.model.bill import BillingType, BillFrequency, BillStatus, PaymentMethod
 
 class BillResponse(BaseModel):
     id: int

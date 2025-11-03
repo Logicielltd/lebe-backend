@@ -1,5 +1,5 @@
 from typing import Dict, List, Any, Optional
-from core.nlu.config import INTENTS
+from src.core.nlu.config import INTENTS
 
 class SlotManager:
     def __init__(self):

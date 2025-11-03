@@ -2,8 +2,8 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from core.payments.model.bill import BillFrequency, BillStatus, BillingType
-from core.payments.model.paymentmethod import PaymentMethod
+from src.core.payments.model.bill import BillFrequency, BillStatus, BillingType
+from src.core.payments.model.paymentmethod import PaymentMethod
 
 class BillCreate(BaseModel):
     form_id: Optional[int] = Field(None, description="ID of the associated form")

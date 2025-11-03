@@ -3,32 +3,32 @@ import json
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
-from core.auth.service.sessiondriver import SessionDriver, TokenData
+from src.core.auth.service.sessiondriver import SessionDriver, TokenData
 from fastapi_jwt_auth import AuthJWT
-from core.exceptions import *
-from core.webhooks.dto.request.dialogrequest import DialogRequest
+from src.core.exceptions import *
+from src.core.webhooks.dto.request.dialogrequest import DialogRequest
 from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
 import logging
 import os
-from core.user.model.User import User
-from core.nlu.main import LebeNLUSystem
-from core.subscription.service.subscription_service import SubscriptionService
-from core.webhooks.service.whatsapp_service import WhatsAppService
+from src.core.user.model.User import User
+from src.core.nlu.main import LebeNLUSystem
+from src.core.subscription.service.subscription_service import SubscriptionService
+from src.core.webhooks.service.whatsapp_service import WhatsAppService
 from utilities.phone_utils import normalize_ghana_phone_number
 
 # DTO Models
-from core.notification.dto.response.message_response import MessageResponse
-from core.webhooks.dto.response.message_response import LebeResponse
+from src.core.notification.dto.response.message_response import MessageResponse
+from src.core.webhooks.dto.response.message_response import LebeResponse
 
 from fastapi_jwt_auth.exceptions import MissingTokenError
-from core.auth.service.authservice import AuthService
+from src.core.auth.service.authservice import AuthService
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Reuse your existing token validation and DB dependencies
-from core.user.controller.usercontroller import validate_token, get_db
+from src.core.user.controller.usercontroller import validate_token, get_db
 
 # Controller (Router)
 webhooks_routes = APIRouter()

@@ -3,7 +3,7 @@ from enum import Enum
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
 
-from core.notification.model.Notification import NotificationStatus, NotificationType
+from src.core.notification.model.Notification import NotificationStatus, NotificationType
 
 class NotificationResponse(BaseModel):
     id: str

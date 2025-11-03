@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from core.payments.dto.response.invoiceresponse import InvoiceResponse
-from core.payments.model.invoice import Invoice
+from src.core.payments.dto.response.invoiceresponse import InvoiceResponse
+from src.core.payments.model.invoice import Invoice
 
 class PaginatedInvoicesResponse(BaseModel):
     invoices: List[InvoiceResponse]

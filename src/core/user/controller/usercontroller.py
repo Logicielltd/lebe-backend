@@ -3,23 +3,23 @@ from datetime import datetime
 from typing import List, Optional
 import jwt
 from pydantic import BaseModel
-from core.auth.service.sessiondriver import SessionDriver, TokenData
+from src.core.auth.service.sessiondriver import SessionDriver, TokenData
 from fastapi_jwt_auth import AuthJWT
-from core.exceptions import *
-from core.user.dto.response.paged_users import PagedUserResponse
+from src.core.exceptions import *
+from src.core.user.dto.response.paged_users import PagedUserResponse
 from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
-from core.user.model.User import User
+from src.core.user.model.User import User
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # DTO Models
-from core.user.dto.response.message_response import MessageResponse
-from core.user.dto.response.user_response import UserResponse
+from src.core.user.dto.response.message_response import MessageResponse
+from src.core.user.dto.response.user_response import UserResponse
 
-from core.user.service.user_service import UserService
+from src.core.user.service.user_service import UserService
 from fastapi_jwt_auth.exceptions import MissingTokenError
 
 def validate_token(authjwt: AuthJWT = Depends()):

@@ -4,11 +4,11 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from fastapi import HTTPException
-from core.payments.model.bill import Bill, BillStatus, BillingType
-from core.payments.dto.request.billcreate import BillCreate
-from core.payments.dto.request.billupdate import BillUpdate
-from core.exceptions.BillException import BillNotFoundException
-from core.payments.model.timeline import Timeline
+from src.core.payments.model.bill import Bill, BillStatus, BillingType
+from src.core.payments.dto.request.billcreate import BillCreate
+from src.core.payments.dto.request.billupdate import BillUpdate
+from src.core.exceptions.BillException import BillNotFoundException
+from src.core.payments.model.timeline import Timeline
 
 class BillService:
     def __init__(self, db: Session):

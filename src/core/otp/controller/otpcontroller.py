@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from utilities.dbconfig import get_db
-from core.otp.service.otpservice import OTPService
-from core.otp.dto.request.otp_send_request import OTPSendRequest
-from core.otp.dto.request.otp_verify_request import OTPVerifyRequest
-from core.otp.dto.response.otp_send_response import OTPSendResponse
-from core.otp.dto.response.otp_verify_response import OTPVerifyResponse
+from src.core.otp.service.otpservice import OTPService
+from src.core.otp.dto.request.otp_send_request import OTPSendRequest
+from src.core.otp.dto.request.otp_verify_request import OTPVerifyRequest
+from src.core.otp.dto.response.otp_send_response import OTPSendResponse
+from src.core.otp.dto.response.otp_verify_response import OTPVerifyResponse
 
 otp_routes = APIRouter()
 

@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from core.exceptions.FileException import AuthenticationError
+from src.core.exceptions.FileException import AuthenticationError
 
 
 class SessionExpiredError(AuthenticationError):

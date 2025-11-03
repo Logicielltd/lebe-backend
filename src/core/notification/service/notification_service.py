@@ -4,13 +4,13 @@ import string
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
-from src.core.notification.model.Notification import Notification, NotificationStatus, NotificationType
-from src.core.user.model.User import User
+from core.notification.model.Notification import Notification, NotificationStatus, NotificationType
+from core.user.model.User import User
 
 # DTO Models
-from src.core.notification.dto.response.notification_response import NotificationResponse
-from src.core.notification.dto.response.paged_notifications import PagedNotificationResponse
-from src.core.notification.dto.response.message_response import MessageResponse
+from core.notification.dto.response.notification_response import NotificationResponse
+from core.notification.dto.response.paged_notifications import PagedNotificationResponse
+from core.notification.dto.response.message_response import MessageResponse
 
 class NotificationService:
     def __init__(self, db: Session):

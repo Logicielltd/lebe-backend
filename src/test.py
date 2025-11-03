@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 # Add the project root to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from src.core.receipts.service.image_gen import ReceiptGenerator
-from src.core.receipts.service.receipt_service import ReceiptService
+from core.receipts.service.image_gen import ReceiptGenerator
+from core.receipts.service.receipt_service import ReceiptService
 from utilities.dbconfig import SessionLocal, engine
-from src.core.receipts.model.Receipt import Base
+from core.receipts.model.Receipt import Base
 import base64
 from PIL import Image
 import io

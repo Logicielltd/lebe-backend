@@ -1,4 +1,4 @@
-from src.core.logging.logging_service import logging_service
+from core.logging.logging_service import logging_service
 
 @auth_routes.post("/signup")
 def signup(request: UserCreateRequest, db: Session = Depends(get_db)):
@@ -70,7 +70,7 @@ def signout(authjwt: AuthJWT = Depends(validate_token), db: Session = Depends(ge
         )
         raise e
         
-from src.core.logging.logging_service import logging_service
+from core.logging.logging_service import logging_service
 
 # Log user actions
 logging_service.log_custom_event(

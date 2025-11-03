@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import json
 from loguru import logger
-from src.core.auditlogging.handlers.loghandler import MongoDBHandler
+from core.auditlogging.handlers.loghandler import MongoDBHandler
 from config import settings
 
 class APILoggingService:

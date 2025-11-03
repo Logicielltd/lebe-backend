@@ -3,8 +3,8 @@ import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from sqlalchemy.orm import Session
-from src.core.otp.model.otp import OTP
-from src.core.otp.dto.response.otp_send_response import OTPSendResponse
+from core.otp.model.otp import OTP
+from core.otp.dto.response.otp_send_response import OTPSendResponse
 from config import settings
 import logging
 

@@ -2,7 +2,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
-from src.core.profile.model.Profile import ProfileType
+from core.profile.model.Profile import ProfileType
 
 class ProfileResponse(BaseModel):
     id: str

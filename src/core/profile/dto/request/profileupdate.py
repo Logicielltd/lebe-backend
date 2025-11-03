@@ -2,7 +2,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from src.core.profile.model.Profile import ProfileType
+from core.profile.model.Profile import ProfileType
 
 class ProfileUpdateRequest(BaseModel):
     name: Optional[str] = None

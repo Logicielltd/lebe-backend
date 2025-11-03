@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List
-from src.core.payments.dto.response.billresponse import BillResponse
+from core.payments.dto.response.billresponse import BillResponse
 
 class PaginatedBillsResponse(BaseModel):
     bills: List[BillResponse]

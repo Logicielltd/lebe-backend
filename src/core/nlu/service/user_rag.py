@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import json
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from src.core.histories.model.history import History
+from core.histories.model.history import History
 from utilities.dbconfig import SessionLocal
 
 class UserRAGManager:

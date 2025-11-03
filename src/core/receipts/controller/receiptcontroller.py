@@ -2,19 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 from datetime import datetime
 
-from src.core.auth.service.sessiondriver import SessionDriver, TokenData
+from core.auth.service.sessiondriver import SessionDriver, TokenData
 from fastapi_jwt_auth import AuthJWT
 from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
 
 # DTO Models
-from src.core.receipts.dto.request.receiptcreate import ReceiptCreateRequest
-from src.core.receipts.dto.response.receiptresponse import ReceiptResponse
+from core.receipts.dto.request.receiptcreate import ReceiptCreateRequest
+from core.receipts.dto.response.receiptresponse import ReceiptResponse
 
-from src.core.receipts.service.receipt_service import ReceiptService
+from core.receipts.service.receipt_service import ReceiptService
 
 # Reuse existing dependencies
-from src.core.user.controller.usercontroller import validate_token, get_db
+from core.user.controller.usercontroller import validate_token, get_db
 
 # Controller (Router)
 receipt_routes = APIRouter()
@@ -67,7 +67,7 @@ def get_user_receipts(
     current_user_email = authjwt.get_jwt_subject()
     
     # You might need to get user_id from email
-    from src.core.user.model.User import User
+    from core.user.model.User import User
     user = db.query(User).filter(User.email == current_user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

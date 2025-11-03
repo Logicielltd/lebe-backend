@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
-from src.core.payments.model.invoice import Invoice
+from core.payments.model.invoice import Invoice
 
 class InvoiceResponse(BaseModel):
     id: int

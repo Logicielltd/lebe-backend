@@ -7,10 +7,10 @@ import logging
 from fastapi_jwt_auth.exceptions import MissingTokenError
 
 from sqlalchemy.orm import Session
-from src.core.payments.service.invoiceservice import InvoiceService
-from src.core.payments.model.timeline import Timeline
+from core.payments.service.invoiceservice import InvoiceService
+from core.payments.model.timeline import Timeline
 from utilities.dbconfig import SessionLocal
-from src.core.payments.dto.response.pagedinvoiceresponse import PaginatedInvoicesResponse
+from core.payments.dto.response.pagedinvoiceresponse import PaginatedInvoicesResponse
 from fastapi_jwt_auth.exceptions import MissingTokenError
 
 logging.basicConfig(level=logging.DEBUG)

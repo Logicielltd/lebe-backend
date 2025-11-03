@@ -1,8 +1,8 @@
 # core/nlu/service/intent_processor.py
 from typing import Dict, List, Any, Optional
-from src.core.nlu.service.llmclient import LLMClient
-from src.core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES, INTENT_CATEGORIES
-from src.core.nlu.service.user_rag import UserRAGManager
+from core.nlu.service.llmclient import LLMClient
+from core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES, INTENT_CATEGORIES
+from core.nlu.service.user_rag import UserRAGManager
 
 class IntentProcessor:
     """Processes conversational and financial tips intents using LLM with User RAG"""

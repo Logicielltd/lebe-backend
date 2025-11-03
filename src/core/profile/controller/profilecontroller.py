@@ -3,28 +3,28 @@ from datetime import datetime
 from typing import List, Optional
 import jwt
 from pydantic import BaseModel
-from src.core.auth.service.sessiondriver import SessionDriver, TokenData
+from core.auth.service.sessiondriver import SessionDriver, TokenData
 from fastapi_jwt_auth import AuthJWT
-from src.core.profile.dto.request.profileupdate import ProfileUpdateRequest
-from src.core.exceptions import *
+from core.profile.dto.request.profileupdate import ProfileUpdateRequest
+from core.exceptions import *
 from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
-from src.core.user.model.User import User
-from src.core.profile.model.Profile import Profile
+from core.user.model.User import User
+from core.profile.model.Profile import Profile
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # DTO Models
-from src.core.user.dto.response.message_response import MessageResponse
-from src.core.profile.dto.response.profile_response import ProfileResponse
+from core.user.dto.response.message_response import MessageResponse
+from core.profile.dto.response.profile_response import ProfileResponse
 
-from src.core.profile.service.profile_service import ProfileService
+from core.profile.service.profile_service import ProfileService
 from fastapi_jwt_auth.exceptions import MissingTokenError
 
 # Reuse the same token validation from user controller
-from src.core.user.controller.usercontroller import validate_token
+from core.user.controller.usercontroller import validate_token
 
 # Controller (Router)
 profile_routes = APIRouter()

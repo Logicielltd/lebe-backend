@@ -1,8 +1,8 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
-from src.core.histories.model.history import History
-from src.core.histories.dto.response.historyresponse import HistoryResponseDTO, HistorySummaryDTO
+from core.histories.model.history import History
+from core.histories.dto.response.historyresponse import HistoryResponseDTO, HistorySummaryDTO
 import uuid
 from datetime import datetime, timedelta
 

@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from utilities.dbconfig import get_db
-from src.core.subscription.service.subscription_service import SubscriptionService
-from src.core.subscription.dto.request.subscribe_request import SubscribeRequest
-from src.core.subscription.dto.request.upgrade_request import UpgradeRequest
-from src.core.subscription.dto.request.cancel_request import CancelRequest
-from src.core.subscription.dto.request.create_plan_request import CreatePlanRequest
-from src.core.subscription.dto.request.update_plan_request import UpdatePlanRequest
-from src.core.subscription.dto.response.subscription_response import (
+from core.subscription.service.subscription_service import SubscriptionService
+from core.subscription.dto.request.subscribe_request import SubscribeRequest
+from core.subscription.dto.request.upgrade_request import UpgradeRequest
+from core.subscription.dto.request.cancel_request import CancelRequest
+from core.subscription.dto.request.create_plan_request import CreatePlanRequest
+from core.subscription.dto.request.update_plan_request import UpdatePlanRequest
+from core.subscription.dto.response.subscription_response import (
     SubscriptionResponse, 
     SubscriptionStatusResponse, 
     PlansListResponse,

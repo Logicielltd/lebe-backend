@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
-from src.core.subscription.model.subscription_plan import BillingPeriod
+from core.subscription.model.subscription_plan import BillingPeriod
 import json
 
 

@@ -3,21 +3,21 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
-from src.core.auth.service.sessiondriver import SessionDriver, TokenData
+from core.auth.service.sessiondriver import SessionDriver, TokenData
 from fastapi_jwt_auth import AuthJWT
-from src.core.exceptions import *
+from core.exceptions import *
 from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
-from src.core.user.model.User import User
+from core.user.model.User import User
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # DTO Models
-from src.core.user.dto.request.user_filter_request import UserFilterRequest
-from src.core.user.dto.response.message_response import MessageResponse
-from src.core.user.dto.response.user_response import UserResponse
+from core.user.dto.request.user_filter_request import UserFilterRequest
+from core.user.dto.response.message_response import MessageResponse
+from core.user.dto.response.user_response import UserResponse
 
 # Service Class
 class UserService:

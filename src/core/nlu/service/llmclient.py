@@ -1,6 +1,6 @@
 import openai
 from typing import Dict, List, Any, Optional
-from src.core.nlu.config import OPENAI_API_KEY, MODEL, MODEL_CONFIG
+from core.nlu.config import OPENAI_API_KEY, MODEL, MODEL_CONFIG
 
 class LLMClient:
     """Centralized LLM API client for handling all LLM conversations"""

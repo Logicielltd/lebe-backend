@@ -4,9 +4,9 @@ from typing import Optional
 from decimal import Decimal
 from datetime import datetime
 
-from src.core.payments.model.paymentmethod import PaymentMethod
-from src.core.payments.model.paymentstatus import PaymentStatus
-from src.core.payments.model.paynetwork import Network
+from core.payments.model.paymentmethod import PaymentMethod
+from core.payments.model.paymentstatus import PaymentStatus
+from core.payments.model.paynetwork import Network
 
 class PaymentDto(BaseModel):
     id: Optional[int] = None

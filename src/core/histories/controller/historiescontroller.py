@@ -1,34 +1,34 @@
-from src.core.auth.service.authservice import AuthService
-from src.core.histories.dto.response.historyresponse import HistoryListResponseDTO, HistoryResponseDTO, HistorySummaryDTO
-from src.core.histories.service.historyservice import HistoryService
+from core.auth.service.authservice import AuthService
+from core.histories.dto.response.historyresponse import HistoryListResponseDTO, HistoryResponseDTO, HistorySummaryDTO
+from core.histories.service.historyservice import HistoryService
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
-from src.core.auth.service.sessiondriver import SessionDriver, TokenData
+from core.auth.service.sessiondriver import SessionDriver, TokenData
 from fastapi_jwt_auth import AuthJWT
-from src.core.exceptions import *
-from src.core.notification.dto.request.notificationcreate import NotificationCreateRequest
-from src.core.notification.dto.request.notificationupdate import NotificationUpdateRequest
+from core.exceptions import *
+from core.notification.dto.request.notificationcreate import NotificationCreateRequest
+from core.notification.dto.request.notificationupdate import NotificationUpdateRequest
 from utilities.dbconfig import SessionLocal
 from sqlalchemy.orm import Session
 import logging
-from src.core.notification.model.Notification import Notification, NotificationStatus, NotificationType
-from src.core.user.model.User import User
+from core.notification.model.Notification import Notification, NotificationStatus, NotificationType
+from core.user.model.User import User
 
 # DTO Models
-from src.core.notification.dto.response.notification_response import NotificationResponse
-from src.core.notification.dto.response.paged_notifications import PagedNotificationResponse
-from src.core.notification.dto.response.message_response import MessageResponse
+from core.notification.dto.response.notification_response import NotificationResponse
+from core.notification.dto.response.paged_notifications import PagedNotificationResponse
+from core.notification.dto.response.message_response import MessageResponse
 
-from src.core.notification.service.notification_service import NotificationService
+from core.notification.service.notification_service import NotificationService
 from fastapi_jwt_auth.exceptions import MissingTokenError
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Reuse your existing token validation and DB dependencies
-from src.core.user.controller.usercontroller import validate_token, get_db
+from core.user.controller.usercontroller import validate_token, get_db
 
 # Controller (Router)
 histories_routes = APIRouter()

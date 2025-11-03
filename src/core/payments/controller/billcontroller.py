@@ -6,13 +6,13 @@ import logging
 from fastapi_jwt_auth.exceptions import MissingTokenError
 
 from sqlalchemy.orm import Session
-from src.core.payments.service.billservice import BillService
-from src.core.payments.model.bill import BillStatus, BillingType
-from src.core.payments.model.timeline import Timeline
-from src.core.payments.dto.request.billcreate import BillCreate
-from src.core.payments.dto.request.billupdate import BillUpdate
+from core.payments.service.billservice import BillService
+from core.payments.model.bill import BillStatus, BillingType
+from core.payments.model.timeline import Timeline
+from core.payments.dto.request.billcreate import BillCreate
+from core.payments.dto.request.billupdate import BillUpdate
 from utilities.dbconfig import SessionLocal
-from src.core.payments.dto.response.pagedbillresponse import PaginatedBillsResponse
+from core.payments.dto.response.pagedbillresponse import PaginatedBillsResponse
 from fastapi_jwt_auth.exceptions import MissingTokenError
 
 logging.basicConfig(level=logging.DEBUG)

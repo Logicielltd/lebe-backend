@@ -8,11 +8,11 @@ from pydantic import BaseModel
 from fastapi import HTTPException
 from fastapi import status
 from datetime import datetime, timedelta, timezone
-from src.core.auth.service.sessiondriver import SessionDriver
-from src.core.exceptions.AuthException import InvalidCredentialsError
-from src.core.exceptions.UserException import UserAlreadyExistsError
-from src.core.user.model.User import User
-from src.core.otp.service.otpservice import OTPService
+from core.auth.service.sessiondriver import SessionDriver
+from core.exceptions.AuthException import InvalidCredentialsError
+from core.exceptions.UserException import UserAlreadyExistsError
+from core.user.model.User import User
+from core.otp.service.otpservice import OTPService
 import secrets
 import string
 import logging

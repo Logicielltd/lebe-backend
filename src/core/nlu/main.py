@@ -1,20 +1,20 @@
 from ast import List
-from src.core.histories.service.historyservice import HistoryService
+from core.histories.service.historyservice import HistoryService
 import openai
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
-from src.core.auth.service.authservice import AuthService
-from src.core.nlu.config import INTENT_CATEGORIES
-from src.core.nlu.service.intentprocessor import IntentProcessor
-from src.core.nlu.service.intents import IntentDetector
-from src.core.nlu.service.slot_manager import SlotManager
-from src.core.nlu.service.conversation_manager import ConversationManager
-from src.core.nlu.service.security import SecurityManager
-from src.core.nlu.emitters.response import ResponseFormatter
-from src.core.user.service.user_service import UserService
+from core.auth.service.authservice import AuthService
+from core.nlu.config import INTENT_CATEGORIES
+from core.nlu.service.intentprocessor import IntentProcessor
+from core.nlu.service.intents import IntentDetector
+from core.nlu.service.slot_manager import SlotManager
+from core.nlu.service.conversation_manager import ConversationManager
+from core.nlu.service.security import SecurityManager
+from core.nlu.emitters.response import ResponseFormatter
+from core.user.service.user_service import UserService
 from utilities.dbconfig import SessionLocal
-from src.core.auth.dto.request.user_create import UserCreateRequest
-from src.core.receipts.service.receipt_service import ReceiptService
+from core.auth.dto.request.user_create import UserCreateRequest
+from core.receipts.service.receipt_service import ReceiptService
 
 
 class LebeNLUSystem:
@@ -154,11 +154,11 @@ class LebeNLUSystem:
 
     def _process_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
         """Process payment intents through PaymentService"""
-        from src.core.payments.dto.paymentdto import PaymentDto
-        from src.core.payments.model.paymentmethod import PaymentMethod
-        from src.core.payments.model.paymentstatus import PaymentStatus
-        from src.core.payments.model.paynetwork import Network
-        from src.core.payments.service.paymentservice import PaymentService
+        from core.payments.dto.paymentdto import PaymentDto
+        from core.payments.model.paymentmethod import PaymentMethod
+        from core.payments.model.paymentstatus import PaymentStatus
+        from core.payments.model.paynetwork import Network
+        from core.payments.service.paymentservice import PaymentService
         from utilities.uniqueidgenerator import UniqueIdGenerator
         from decimal import Decimal
 

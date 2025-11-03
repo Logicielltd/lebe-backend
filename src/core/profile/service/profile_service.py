@@ -2,12 +2,12 @@ import secrets
 import string
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from src.core.user.model.User import User
-from src.core.profile.model.Profile import Profile
-from src.core.exceptions import *
-from src.core.profile.dto.request.profileupdate import ProfileUpdateRequest
-from src.core.profile.dto.response.profile_response import ProfileResponse
-from src.core.user.dto.response.message_response import MessageResponse
+from core.user.model.User import User
+from core.profile.model.Profile import Profile
+from core.exceptions import *
+from core.profile.dto.request.profileupdate import ProfileUpdateRequest
+from core.profile.dto.response.profile_response import ProfileResponse
+from core.user.dto.response.message_response import MessageResponse
 from typing import Optional
 from datetime import datetime
 

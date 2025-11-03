@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Enum, Numeric
 from sqlalchemy.sql import func
-from src.core.payments.model.paymentmethod import PaymentMethod
+from core.payments.model.paymentmethod import PaymentMethod
 from utilities.dbconfig import Base
 from datetime import datetime
 from typing import Optional

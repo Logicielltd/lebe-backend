@@ -8,7 +8,8 @@ import os
 # Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.routes import base_routes
+import exceptions
+from routes import base_routes
 from core.auth.controller.authcontroller import auth_routes
 from core.user.controller.usercontroller import user_routes
 from core.cloudstorage.controller.storagecontoller import storage_routes
@@ -21,14 +22,13 @@ from core.otp.controller.otpcontroller import otp_routes
 from core.subscription.controller.subscription_controller import subscription_routes
 from core.webhooks.controller.webhookscontroller import webhooks_routes
 
-from src.utilities.dbconfig import Base, engine
-from src.config import settings
-from src.utilities.exceptions import DatabaseValidationError
-import src.exceptions
+from utilities.dbconfig import Base, engine
+from config import settings
+from utilities.exceptions import DatabaseValidationError
 from fastapi.exceptions import RequestValidationError
 # from core.middleware.logmiddleware import LoggingMiddleware
 from core.auditlogging.service.logservice import logging_service
-from src.config import settings
+from config import settings
 import logging
 from loguru import logger
 from sqlalchemy import inspect

@@ -8,11 +8,11 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     DB_DRIVER: str = "postgresql+asyncpg"
-    DB_HOST: str = os.environ.get('DB_HOST')
-    DB_PORT: int = os.environ.get('DB_PORT')
-    DB_USER: str = os.environ.get('DB_USER')
-    DB_PASSWORD: str = os.environ.get('DB_PASSWORD')
-    DB_DATABASE: str = os.environ.get('DB_DATABASE')
+    DB_HOST: str = os.environ.get('PGHOST')
+    DB_PORT: int = os.environ.get('PGPORT')
+    DB_USER: str = os.environ.get('PGUSER')
+    DB_PASSWORD: str = os.environ.get('PGPASSWORD')
+    DB_DATABASE: str = os.environ.get('PGDATABASE')
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 0
     DB_ECHO: bool = False

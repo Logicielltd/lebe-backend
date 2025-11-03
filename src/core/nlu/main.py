@@ -1,7 +1,7 @@
-from ast import List
+
 from core.histories.service.historyservice import HistoryService
 import openai
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 from core.auth.service.authservice import AuthService
 from core.nlu.config import INTENT_CATEGORIES

@@ -256,9 +256,11 @@ class LebeNLUSystem:
 
             # Return response based on payment result
             if result.status == PaymentStatus.PENDING:
-                message = self._get_success_message(intent, slots, result)
-                return self.response_formatter.format_response(intent, "success", message=message)
+                # Payment request accepted by gateway, awaiting callback confirmation
+                message = self._get_pending_message(intent, slots, result)
+                return self.response_formatter.format_response(intent, "pending", message=message)
             elif result.status == PaymentStatus.SUCCESS:
+                # Payment confirmed successful
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
             else:
@@ -279,6 +281,16 @@ class LebeNLUSystem:
 
         message = success_messages.get(intent, "Action completed successfully")
         return self.response_formatter.format_response(intent, "success", message=message)
+
+    def _get_pending_message(self, intent: str, slots: Dict, result: Any) -> str:
+        """Generate pending message based on intent - payment awaiting confirmation"""
+        pending_messages = {
+            "buy_airtime": f"⏳ Your airtime request of GHS {slots.get('amount')} to {slots.get('phone_number')} is being processed. Transaction ID: {result.transactionId}",
+            "send_money": f"⏳ Your money transfer of GHS {slots.get('amount')} to {slots.get('recipient')} is being processed. Transaction ID: {result.transactionId}",
+            "pay_bill": f"⏳ Your bill payment of GHS {slots.get('amount')} is being processed. Transaction ID: {result.transactionId}",
+            "get_loan": f"⏳ Your loan application for GHS {slots.get('loan_amount')} is being processed. Transaction ID: {result.transactionId}"
+        }
+        return pending_messages.get(intent, "Payment is being processed. Please wait for confirmation.")
 
     def _get_success_message(self, intent: str, slots: Dict, result: Any) -> str:
         """Generate success message based on intent"""

@@ -28,13 +28,13 @@ def validate_token(authjwt: AuthJWT = Depends()):
 @base_routes.get("/")
 def home():
     return {
-        "message": "Welcome to LambdarMCore",
-        "description": "An ML focused app infrastructure deployed with python",
-        "detault endpoints": [
+        "message": "Welcome to Lebe Backend!",
+        "description": "API backend for Lebe Financial Assistant Platform.",
+        "default endpoints": [
             "Authentication",
-            "File and Document Management",
+            "File / Document Management",
             "Message and Task Queuing",
             "Notifications",
         ],
-        "note": "All developers should take note of README.md.",
+        "note": "Pay attention to the API Documentation via README.md.",
     }

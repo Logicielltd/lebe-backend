@@ -1,96 +1,69 @@
+from typing import Any, Dict
+
 from core.histories.service.historyservice import HistoryService
-import openai
-from typing import Dict, Any, Optional
-from datetime import datetime
-from core.auth.service.authservice import AuthService
-from core.nlu.service.intents import IntentDetector
-from core.nlu.service.slot_manager import SlotManager
-from core.nlu.service.conversation_manager import ConversationManager
-from core.nlu.service.security import SecurityManager
 from core.nlu.emitters.response import ResponseFormatter
+from core.nlu.service.conversation_manager import ConversationManager
+from core.nlu.service.intents import IntentDetector
+from core.nlu.service.security import SecurityManager
+from core.nlu.service.slot_manager import SlotManager
 from utilities.dbconfig import SessionLocal
-from core.auth.dto.request.user_create import UserCreateRequest
+
 
 class LebeNLUSystem:
+    """NLU system for processing user messages and routing to appropriate handlers."""
+
     def __init__(self):
         self.intent_detector = IntentDetector()
         self.slot_manager = SlotManager()
         self.conversation_manager = ConversationManager()
         self.security_manager = SecurityManager()
         self.response_formatter = ResponseFormatter()
-    
+
     def process_message(self, user_id: str, user_message: str, user_subscription_status: str) -> str:
         """Main method to process user messages"""
-        
+
         # Get conversation state
         state = self.conversation_manager.get_conversation_state(user_id)
-        
+
         # Add user message to history
         self.conversation_manager.update_conversation_history(user_id, "user", user_message)
-        
+
         # Check if waiting for PIN
         if state.waiting_for_pin:
             return self._handle_pin_verification(user_id, user_message)
-        
+
         # Detect intent and extract slots
-        intent, extracted_slots, missing_slots = self.intent_detector.detect_intent_and_slots(
+        intent, extracted_slots, _ = self.intent_detector.detect_intent_and_slots(
             user_message, state.conversation_history
         )
-        
+
         # Validate and merge slots
         validated_slots = self.slot_manager.validate_slots(intent, extracted_slots)
         state.collected_slots.update(validated_slots)
         state.current_intent = intent
 
-        # CHECK SUBSCRIPTION STATUS EARLY
-        # print (f"User Subscription Status: {user_subscription_status}")
-        # if not user_subscription_status and intent != "create_new_account":
-        #     # User needs subscription but isn't trying to create account
-        #     response = self.response_formatter.format_response(
-        #         "subscription_required", 
-        #         "need_subscription",
-        #         current_intent=intent  # Pass the original intent for context
-        #     )
-        #     self.conversation_manager.update_conversation_history(user_id, "assistant", response)
-        #     return response
-        
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
-        
-        
+
         if intent in ["greeting"]:
             # Handle simple intents directly
             response = self.response_formatter.format_response(intent, "greeting")
-
         elif current_missing:
             # Ask for missing slots
             prompt = self.slot_manager.generate_slot_prompt(intent, current_missing)
             response = self.response_formatter.format_response(
                 intent, "missing_slots", prompt=prompt
             )
- 
         else:
-            # All slots collected, execute action directly (PIN verification commented out for testing)
+            # All slots collected, execute action directly
             # TODO: Re-enable PIN verification after payment flow is working
-            # if self.security_manager.is_pin_required(intent):
-            #     # Set pending action using ConversationManager method
-            #     self.conversation_manager.set_pending_action(
-            #         user_id,
-            #         intent,
-            #         state.collected_slots.copy()
-            #     )
-            #     response = self.response_formatter.format_response(
-            #         intent, "confirm_action", **state.collected_slots
-            #     )
-            # else:
-            #     # Execute non-secure action directly
             response = self._execute_action(user_id, intent, state.collected_slots)
-        
+
         # Add assistant response to history
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
-        
+
         return response
-    
+
     def _handle_pin_verification(self, user_id: str, pin_input: str) -> str:
         """Handle PIN verification for pending actions"""
         state = self.conversation_manager.get_conversation_state(user_id)
@@ -107,7 +80,9 @@ class LebeNLUSystem:
             pending_intent = state.pending_action["intent"]
             pending_slots = state.pending_action["slots"]
 
-            print(f"PIN verified for user {user_id}. Executing pending action: intent={pending_intent}, slots={pending_slots}")
+            msg = f"PIN verified for user {user_id}. Executing pending action: "
+            msg += f"intent={pending_intent}, slots={pending_slots}"
+            print(msg)
 
             response = self._execute_action(
                 user_id,
@@ -119,7 +94,6 @@ class LebeNLUSystem:
         else:
             # Invalid PIN
             response = self.response_formatter.format_response("", "invalid_pin")
-            # Keep waiting for PIN
 
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
         return response
@@ -132,12 +106,22 @@ class LebeNLUSystem:
             # Payment intents that require Orchard API
             payment_intents = ["buy_airtime", "send_money", "pay_bill", "get_loan"]
 
+            # Beneficiary intents
+            beneficiary_intents = ["add_beneficiary", "view_beneficiaries", "delete_beneficiary"]
+
             if intent in payment_intents:
-                print(f"[EXECUTE_ACTION] Routing to payment processor for intent: {intent}")
+                msg = f"[EXECUTE_ACTION] Routing to payment processor for intent: {intent}"
+                print(msg)
                 return self._process_payment_intent(user_id, intent, slots)
-            else:
-                print(f"[EXECUTE_ACTION] Routing to non-payment processor for intent: {intent}")
-                return self._process_non_payment_intent(user_id, intent, slots)
+
+            if intent in beneficiary_intents:
+                msg = f"[EXECUTE_ACTION] Routing to beneficiary processor for intent: {intent}"
+                print(msg)
+                return self._process_beneficiary_intent(user_id, intent, slots)
+
+            msg = f"[EXECUTE_ACTION] Routing to non-payment processor for intent: {intent}"
+            print(msg)
+            return self._process_non_payment_intent(user_id, intent, slots)
 
         except Exception as e:
             import traceback
@@ -270,59 +254,202 @@ class LebeNLUSystem:
         finally:
             db.close()
 
-    def _process_non_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
+    def _process_non_payment_intent(self, _user_id: str, intent: str, slots: Dict) -> str:
         """Process non-payment intents"""
         success_messages = {
             "create_new_account": "Your account has been created successfully!",
             "check_balance": "Your current balance is GHS 1,234.56",
             "track_expenses": "Here's your spending summary for this month...",
-            "set_budget": f"Budget of GHS {slots.get('amount')} set for {slots.get('category')}"
+            "set_budget": f"Budget of GHS {slots.get('amount')} for {slots.get('category')}"
         }
 
         message = success_messages.get(intent, "Action completed successfully")
         return self.response_formatter.format_response(intent, "success", message=message)
 
     def _get_pending_message(self, intent: str, slots: Dict, result: Any) -> str:
-        """Generate pending message based on intent - payment awaiting confirmation"""
+        """Generate pending message for payment awaiting confirmation"""
+        amount = slots.get('amount')
+        phone = slots.get('phone_number')
+        recipient = slots.get('recipient')
+        loan_amt = slots.get('loan_amount')
+        txn_id = result.transactionId
+
         pending_messages = {
-            "buy_airtime": f"⏳ Your airtime request of GHS {slots.get('amount')} to {slots.get('phone_number')} is being processed. Transaction ID: {result.transactionId}",
-            "send_money": f"⏳ Your money transfer of GHS {slots.get('amount')} to {slots.get('recipient')} is being processed. Transaction ID: {result.transactionId}",
-            "pay_bill": f"⏳ Your bill payment of GHS {slots.get('amount')} is being processed. Transaction ID: {result.transactionId}",
-            "get_loan": f"⏳ Your loan application for GHS {slots.get('loan_amount')} is being processed. Transaction ID: {result.transactionId}"
+            "buy_airtime": (
+                f"⏳ Your airtime request of GHS {amount} to {phone} "
+                f"is being processed. Transaction ID: {txn_id}"
+            ),
+            "send_money": (
+                f"⏳ Your money transfer of GHS {amount} to {recipient} "
+                f"is being processed. Transaction ID: {txn_id}"
+            ),
+            "pay_bill": (
+                f"⏳ Your bill payment of GHS {amount} is being processed. "
+                f"Transaction ID: {txn_id}"
+            ),
+            "get_loan": (
+                f"⏳ Your loan application for GHS {loan_amt} is being processed. "
+                f"Transaction ID: {txn_id}"
+            )
         }
-        return pending_messages.get(intent, "Payment is being processed. Please wait for confirmation.")
+        default = "Payment is being processed. Please wait for confirmation."
+        return pending_messages.get(intent, default)
 
     def _get_success_message(self, intent: str, slots: Dict, result: Any) -> str:
         """Generate success message based on intent"""
+        amount = slots.get('amount')
+        phone = slots.get('phone_number')
+        recipient = slots.get('recipient')
+        loan_amt = slots.get('loan_amount')
+        txn_id = result.transactionId
+
         success_messages = {
-            "buy_airtime": f"✅ Airtime of GHS {slots.get('amount')} sent to {slots.get('phone_number')}. Transaction ID: {result.transactionId}",
-            "send_money": f"✅ Successfully sent GHS {slots.get('amount')} to {slots.get('recipient')}. Transaction ID: {result.transactionId}",
-            "pay_bill": f"✅ Bill payment of GHS {slots.get('amount')} processed. Transaction ID: {result.transactionId}",
-            "get_loan": f"✅ Loan of GHS {slots.get('loan_amount')} application submitted. Transaction ID: {result.transactionId}"
+            "buy_airtime": (
+                f"✅ Airtime of GHS {amount} sent to {phone}. "
+                f"Transaction ID: {txn_id}"
+            ),
+            "send_money": (
+                f"✅ Successfully sent GHS {amount} to {recipient}. "
+                f"Transaction ID: {txn_id}"
+            ),
+            "pay_bill": (
+                f"✅ Bill payment of GHS {amount} processed. "
+                f"Transaction ID: {txn_id}"
+            ),
+            "get_loan": (
+                f"✅ Loan of GHS {loan_amt} application submitted. "
+                f"Transaction ID: {txn_id}"
+            )
         }
         return success_messages.get(intent, "Payment processed successfully")
-    
+
+    def _process_beneficiary_intent(
+        self, user_id: str, intent: str, slots: Dict
+    ) -> str:
+        """Process beneficiary management intents"""
+        from core.beneficiaries.service.beneficiary_service import BeneficiaryService
+
+        db = SessionLocal()
+        try:
+            beneficiary_service = BeneficiaryService(db)
+
+            print(f"[BENEFICIARY_INTENT] Processing intent: {intent}")
+
+            if intent == "add_beneficiary":
+                return self._handle_add_beneficiary(
+                    user_id, slots, beneficiary_service
+                )
+
+            if intent == "view_beneficiaries":
+                return self._handle_view_beneficiaries(user_id, beneficiary_service)
+
+            if intent == "delete_beneficiary":
+                return self._handle_delete_beneficiary(
+                    user_id, slots, beneficiary_service
+                )
+
+            msg = "Unknown beneficiary action"
+            return self.response_formatter.format_response(
+                intent, "error", message=msg
+            )
+
+        finally:
+            db.close()
+
+    def _handle_add_beneficiary(self, user_id: str, slots: Dict, beneficiary_service) -> str:
+        """Handle adding a new beneficiary"""
+        print(f"[BENEFICIARY_INTENT] Adding beneficiary with slots: {slots}")
+
+        name = slots.get('beneficiary_name')
+        customer_number = slots.get('customer_number')
+        network = slots.get('network')
+        bank_code = slots.get('bank_code')
+
+        if not name or not customer_number:
+            return self.response_formatter.format_response(
+                "add_beneficiary", "error",
+                message="Please provide both beneficiary name and phone/account number"
+            )
+
+        success, beneficiary, message = beneficiary_service.add_beneficiary(
+            user_id=user_id,
+            name=name,
+            customer_number=customer_number,
+            network=network,
+            bank_code=bank_code
+        )
+
+        if success:
+            print(f"[BENEFICIARY_INTENT] Beneficiary added successfully: {beneficiary.id}")
+            return self.response_formatter.format_response(
+                "add_beneficiary", "success",
+                message=f"✅ {message}"
+            )
+
+        print(f"[BENEFICIARY_INTENT] Failed to add beneficiary: {message}")
+        return self.response_formatter.format_response(
+            "add_beneficiary", "error",
+            message=f"Could not save beneficiary: {message}"
+        )
+
+    def _handle_view_beneficiaries(self, user_id: str, beneficiary_service) -> str:
+        """Handle viewing beneficiaries"""
+        print(f"[BENEFICIARY_INTENT] Fetching beneficiaries for user: {user_id}")
+
+        beneficiaries = beneficiary_service.get_beneficiaries(user_id)
+        beneficiary_list = beneficiary_service.format_beneficiary_list(beneficiaries)
+
+        print(f"[BENEFICIARY_INTENT] Found {len(beneficiaries)} beneficiaries")
+        return self.response_formatter.format_response(
+            "view_beneficiaries", "success",
+            message=beneficiary_list
+        )
+
+    def _handle_delete_beneficiary(self, user_id: str, slots: Dict, beneficiary_service) -> str:
+        """Handle deleting a beneficiary"""
+        beneficiary_name = slots.get('beneficiary_name')
+
+        if not beneficiary_name:
+            return self.response_formatter.format_response(
+                "delete_beneficiary", "error",
+                message="Please provide the name of the beneficiary to remove"
+            )
+
+        print(f"[BENEFICIARY_INTENT] Deleting beneficiary: {beneficiary_name}")
+
+        # Find beneficiary by name
+        beneficiaries = beneficiary_service.get_beneficiaries(user_id)
+        matching_beneficiary = next(
+            (b for b in beneficiaries if b.name.lower() == beneficiary_name.lower()),
+            None
+        )
+
+        if not matching_beneficiary:
+            return self.response_formatter.format_response(
+                "delete_beneficiary", "error",
+                message=f"Beneficiary '{beneficiary_name}' not found"
+            )
+
+        success, message = beneficiary_service.delete_beneficiary(
+            matching_beneficiary.id, user_id
+        )
+
+        if success:
+            msg = f"[BENEFICIARY_INTENT] Beneficiary deleted: {matching_beneficiary.id}"
+            print(msg)
+            return self.response_formatter.format_response(
+                "delete_beneficiary", "success",
+                message=f"✅ {message}"
+            )
+
+        msg = f"[BENEFICIARY_INTENT] Failed to delete beneficiary: {message}"
+        print(msg)
+        return self.response_formatter.format_response(
+            "delete_beneficiary", "error",
+            message=f"Could not remove beneficiary: {message}"
+        )
+
     def initialize_user(self, user_id: str, pin: str) -> bool:
         """Initialize user with PIN during onboarding"""
         return self.security_manager.set_user_pin(user_id, pin)
 
-# Usage example
-# if __name__ == "__main__":
-#     nlu_system = LebeNLUSystem()
-    
-#     # Simulate user onboarding
-#     nlu_system.initialize_user("user123", "1234")
-    
-#     # Simulate conversation
-#     test_messages = [
-#         "Hello",
-#         "I want to send money",
-#         "Send 50 cedis to 0234567890",
-#         "1234"  # PIN
-#     ]
-    
-#     user_id = "user123"
-#     for message in test_messages:
-#         print(f"User: {message}")
-#         response = nlu_system.process_message(user_id, message)
-#         print(f"Lebe: {response}\n")

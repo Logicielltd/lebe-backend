@@ -74,6 +74,22 @@ INTENTS = {
         "description": "Set spending budget",
         "slots": ["category", "amount", "period"],
         "required_slots": ["category", "amount"]
+    },
+    # Beneficiary management intents
+    "add_beneficiary": {
+        "description": "Save a new payment recipient (beneficiary)",
+        "slots": ["beneficiary_name", "customer_number", "network", "bank_code"],
+        "required_slots": ["beneficiary_name", "customer_number"]
+    },
+    "view_beneficiaries": {
+        "description": "View saved beneficiaries",
+        "slots": [],
+        "required_slots": []
+    },
+    "delete_beneficiary": {
+        "description": "Remove a saved beneficiary",
+        "slots": ["beneficiary_name"],
+        "required_slots": ["beneficiary_name"]
     }
 }
 

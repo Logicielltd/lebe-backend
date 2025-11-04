@@ -1,30 +1,28 @@
 from fastapi import FastAPI
-from fastapi_jwt_auth import AuthJWT
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi_jwt_auth import AuthJWT
 from pydantic import BaseSettings
-from routes import base_routes
+
+import exceptions
+from config import settings
 from core.auth.controller.authcontroller import auth_routes
-from core.user.controller.usercontroller import user_routes
 from core.cloudstorage.controller.storagecontoller import storage_routes
-from core.profile.controller.profilecontroller import profile_routes
 from core.notification.controller.notificationcontroller import notification_routes
+from core.otp.controller.otpcontroller import otp_routes
 from core.payments.controller.billcontroller import bill_routes
 from core.payments.controller.invoicecontroller import invoice_routes
 from core.payments.controller.paymentcontroller import payment_routes
-from core.otp.controller.otpcontroller import otp_routes
+from core.profile.controller.profilecontroller import profile_routes
 from core.subscription.controller.subscription_controller import subscription_routes
+from core.user.controller.usercontroller import user_routes
+from core.user.model.User import User  # noqa: F401
+from core.beneficiaries.controller.beneficiary_controller import beneficiary_routes
+from core.beneficiaries.model.beneficiary import Beneficiary  # noqa: F401
 from core.webhooks.controller.webhookscontroller import webhooks_routes
-
+from routes import base_routes
 from utilities.dbconfig import Base, engine
-from config import settings
 from utilities.exceptions import DatabaseValidationError
-import exceptions
-from fastapi.exceptions import RequestValidationError
-# from core.middleware.logmiddleware import LoggingMiddleware
-from core.auditlogging.service.logservice import logging_service
-from config import settings
-import logging
-from loguru import logger
 
 # Initialize FastAPI app
 app = FastAPI( 
@@ -84,12 +82,19 @@ app.include_router(storage_routes, prefix="/api/v1/storage", tags=["Storage Rout
 app.include_router(auth_routes, prefix="/api/v1/auth", tags=["Auth Routes"])
 app.include_router(user_routes, prefix="/api/v1/user", tags=["User Routes"])
 app.include_router(profile_routes, prefix="/api/v1/profile", tags=["Profile Routes"])
-app.include_router(notification_routes, prefix="/api/v1/notification", tags=["Notification Routes"])
+app.include_router(
+    notification_routes, prefix="/api/v1/notification", tags=["Notification Routes"]
+)
 app.include_router(payment_routes, prefix="/api/v1/payment", tags=["Payment Routes"])
+app.include_router(
+    beneficiary_routes, prefix="/api/v1/beneficiaries", tags=["Beneficiary Routes"]
+)
 app.include_router(bill_routes, prefix="/api/v1/bill", tags=["Billing Routes"])
 app.include_router(invoice_routes, prefix="/api/v1/invoice", tags=["Invoice Routes"])
 app.include_router(otp_routes, prefix="/api/v1/otp", tags=["OTP Routes"])
-app.include_router(subscription_routes, prefix="/api/v1/subscription", tags=["Subscription Routes"])
+app.include_router(
+    subscription_routes, prefix="/api/v1/subscription", tags=["Subscription Routes"]
+)
 app.include_router(webhooks_routes, prefix="/api/v1/webhooks", tags=["Webhooks Routes"])
 
 # AuthJWT Configuration

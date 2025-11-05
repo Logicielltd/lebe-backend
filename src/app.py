@@ -21,6 +21,7 @@ from core.payments.controller.paymentcontroller import payment_routes
 from core.otp.controller.otpcontroller import otp_routes
 from core.subscription.controller.subscription_controller import subscription_routes
 from core.webhooks.controller.webhookscontroller import webhooks_routes
+from core.beneficiaries.controller.beneficiary_controller import beneficiary_routes
 
 from utilities.dbconfig import Base, engine
 from config import settings
@@ -107,6 +108,7 @@ app.include_router(bill_routes, prefix="/api/v1/bill", tags=["Billing Routes"])
 app.include_router(invoice_routes, prefix="/api/v1/invoice", tags=["Invoice Routes"])
 app.include_router(otp_routes, prefix="/api/v1/otp", tags=["OTP Routes"])
 app.include_router(subscription_routes, prefix="/api/v1/subscription", tags=["Subscription Routes"])
+app.include_router(beneficiary_routes, prefix="/api/v1/beneficiaries", tags=["Beneficiary Routes"])
 app.include_router(webhooks_routes, prefix="/api/v1/webhooks", tags=["Webhooks Routes"])
 
 # AuthJWT Configuration

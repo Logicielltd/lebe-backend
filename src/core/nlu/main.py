@@ -3,6 +3,7 @@ from core.histories.service.historyservice import HistoryService
 import openai
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
+import logging
 from core.auth.service.authservice import AuthService
 from core.nlu.config import INTENT_CATEGORIES
 from core.nlu.service.intentprocessor import IntentProcessor
@@ -15,6 +16,8 @@ from core.user.service.user_service import UserService
 from utilities.dbconfig import SessionLocal
 from core.auth.dto.request.user_create import UserCreateRequest
 from core.receipts.service.receipt_service import ReceiptService
+
+logger = logging.getLogger(__name__)
 
 
 class LebeNLUSystem:

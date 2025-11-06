@@ -1,4 +1,5 @@
 from typing import Any, Dict
+import logging
 
 from core.histories.service.historyservice import HistoryService
 from core.nlu.emitters.response import ResponseFormatter
@@ -7,6 +8,8 @@ from core.nlu.service.intents import IntentDetector
 from core.nlu.service.security import SecurityManager
 from core.nlu.service.slot_manager import SlotManager
 from utilities.dbconfig import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 
 class LebeNLUSystem:

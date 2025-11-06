@@ -380,7 +380,7 @@ class LebeNLUSystem:
             user_service = UserService(db)
             
             # Get user by ID (assuming user_id is the same as email or you have a method to get by user_id)
-            user = user_service.get_user_by_id(user_id)
+            user = user_service.get_user_by_phone(user_id)
             
             if user:
                 # Convert user data to dictionary format expected by RAG manager

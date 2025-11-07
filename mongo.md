@@ -79,6 +79,19 @@ logging_service.log_custom_event(
     user_email=user_email,
     extra_data={"file_name": "document.pdf", "file_size": 1024}
 )
+from core.storage.azure_blob_service import AzureBlobService
+
+# Upload file to Azure Blob Storage
+azure_blob_service = AzureBlobService()
+file_url = azure_blob_service.upload_file("document.pdf", file_bytes)
+
+# Log Azure upload event
+logging_service.log_custom_event(
+    level="INFO",
+    message="User uploaded file to Azure",
+    user_email=user_email,
+    extra_data={"file_url": file_url}
+)
 
 # Log errors
 try:

@@ -283,25 +283,38 @@ class LebeNLUSystem:
         """Route intent to the appropriate processor"""
         conversational_intents = INTENT_CATEGORIES["conversational"]
         financial_tips_intents = INTENT_CATEGORIES["financial_tips"]
+        expense_report_intents = INTENT_CATEGORIES["expense_report"]
 
         user_data = self._get_user_data(user_id)
         
         if intent in conversational_intents:
             return self.intent_processor.process_conversational_intent(
-                user_data, intent, user_message, conversation_history, slots
+                intent,
+                user_message, 
+                conversation_history, 
+                slots,
+                user_data
             )
         elif intent in financial_tips_intents:
             return self.intent_processor.process_financial_tips_intent(
-                user_data, intent, user_message, conversation_history, slots
+                intent,
+                user_message, 
+                conversation_history, 
+                slots,
+                user_data
             )
-        elif intent == "expense_report":
+        elif intent in expense_report_intents:
             return self.intent_processor.process_expense_report_intent(
-                user_data, intent, user_message, conversation_history, slots
+                intent,
+                user_message,
+                conversation_history, 
+                slots,
+                user_data
             )
         else:
             # Fallback for unhandled intents
             return self.response_formatter.format_response(intent, "error", message="Intent not supported")
-
+        
     def _generate_receipt_after_payment(self, user_id: str, intent: str, slots: Dict, result: Any) -> str:
         """Generate receipt after successful payment and return image URL only"""
        

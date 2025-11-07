@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 import logging
 import os
 from core.user.model.User import User
-from core.nlu.main import LebeNLUSystem
+from core.nlu.nlu import LebeNLUSystem
 from core.subscription.service.subscription_service import SubscriptionService
 from core.webhooks.service.whatsapp_service import WhatsAppService
 from utilities.phone_utils import normalize_ghana_phone_number

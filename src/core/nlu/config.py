@@ -229,6 +229,6 @@ RESPONSE_TEMPLATES = {
 INTENT_CATEGORIES = {
     "conversational": ["greeting", "normal_conversation", "small_talk", "goodbye"],
     "financial_tips": ["financial_tips", "budgeting_advice", "savings_tips", "investment_advice", "debt_management"],
-    "transactional": ["create_new_account", "send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
+    "transactional": ["send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
     "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report"]
 }

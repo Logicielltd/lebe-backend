@@ -68,6 +68,8 @@ class UserService:
             id=user.id,
             username=user.username,
             email=user.email,
+            phone=user.phone,
+            hashed_pin=user.hashed_pin,
             first_name=user.first_name,
             last_name=user.last_name,
             is_active=user.is_active,

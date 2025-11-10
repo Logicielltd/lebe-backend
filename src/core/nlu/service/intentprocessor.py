@@ -96,7 +96,34 @@ class IntentProcessor:
         )
         
         return response
-
+    def process_beneficiaries_intent(
+        self,
+        intent: str,
+        user_message: str,
+        conversation_history: List[Dict],
+        slots: Dict[str, Any],
+        user_data: Optional[Dict] = None  # Add user_data parameter
+    ) -> str:
+        """
+        Process beneficiaries management with user context
+        """
+        system_prompt = self._build_enhanced_system_prompt(
+            base_prompt=SYSTEM_PROMPTS["beneficiaries"],
+            conversation_history=conversation_history,
+            user_data=user_data,
+            intent=intent,
+            slots=slots
+        )
+        
+        response = self.llm_client.chat_completion(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            conversation_history=conversation_history,
+            temperature=0.5
+        )
+        
+        return response
+    
     def _build_enhanced_system_prompt(
         self,
         base_prompt: str,
@@ -126,7 +153,7 @@ class IntentProcessor:
         enhanced_prompt = base_prompt.format(
             context=conversation_context,
             missing_slots="",
-            topic=slots.get('topic', 'general')
+            category=slots.get('category', 'general')
         )
         
         # Append user context if available

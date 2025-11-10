@@ -284,6 +284,7 @@ class LebeNLUSystem:
         conversational_intents = INTENT_CATEGORIES["conversational"]
         financial_tips_intents = INTENT_CATEGORIES["financial_tips"]
         expense_report_intents = INTENT_CATEGORIES["expense_report"]
+        beneficiaries_intents = INTENT_CATEGORIES["beneficiaries"]
 
         user_data = self._get_user_data(user_id)
         
@@ -308,6 +309,14 @@ class LebeNLUSystem:
                 intent,
                 user_message,
                 conversation_history, 
+                slots,
+                user_data
+            )
+        elif intent in beneficiaries_intents:
+            return self.intent_processor.process_beneficiaries_intent(
+                intent,
+                user_message,
+                conversation_history,
                 slots,
                 user_data
             )

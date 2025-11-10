@@ -113,11 +113,11 @@ INTENTS = {
         "required_slots": ["loan_amount"],
         "category": "transactional"
     },
-    "track_expenses": {
+    "expense_report": {
         "description": "View expense tracking",
         "slots": ["time_period", "category"],
         "required_slots": [],
-        "category": "transactional"
+        "category": "expense_report"
     },
     "set_budget": {
         "description": "Set spending budget",
@@ -125,7 +125,7 @@ INTENTS = {
         "required_slots": ["category", "amount"],
         "category": "transactional"
     },
-    # Beneficiary management intents
+    # ===== BENEFICIARY MANAGEMENT INTENTS =====
     "add_beneficiary": {
         "description": "Save a new payment recipient (beneficiary)",
         "slots": ["beneficiary_name", "customer_number", "network", "bank_code"],
@@ -141,6 +141,7 @@ INTENTS = {
         "slots": ["beneficiary_name"],
         "required_slots": ["beneficiary_name"]
     }
+    
 }
 
 # Enhanced System Prompts by Category
@@ -175,7 +176,7 @@ SYSTEM_PROMPTS = {
     - Suggesting ways to reduce expenses
 
     User context: {context}
-    Expense report criteria: {criteria}
+    Expense report criteria: {category}
     """,
 
     "transactional": """
@@ -191,6 +192,17 @@ SYSTEM_PROMPTS = {
     If unsure, ask clarifying questions.
     
     Current context: {context}
+    Missing slots: {missing_slots}
+    """,
+
+    "beneficiaries": """
+    You are Lebe, a financial assistant for users in Ghana. You can help users with managing beneficiaries.
+    Focus on:
+    - Adding new beneficiaries
+    - Viewing saved beneficiaries
+    - Deleting beneficiaries
+
+    User context: {context}
     Missing slots: {missing_slots}
     """
 }
@@ -222,6 +234,11 @@ RESPONSE_TEMPLATES = {
         "confirm_action": "Great! I'm ready to {intent}. Please confirm with your PIN to proceed.",
         "error": "I apologize, but I'm having trouble processing your request. Please try again.",
         "success": "Your {intent} has been processed successfully! {details}"
+    },
+    "beneficiaries": {
+        "add_beneficiary": "The beneficiary {beneficiary_name} has been added successfully.",
+        "view_beneficiaries": "Here are your saved beneficiaries: {beneficiaries_list}",
+        "delete_beneficiary": "The beneficiary {beneficiary_name} has been removed successfully."
     }
 }
 
@@ -230,5 +247,6 @@ INTENT_CATEGORIES = {
     "conversational": ["greeting", "normal_conversation", "small_talk", "goodbye"],
     "financial_tips": ["financial_tips", "budgeting_advice", "savings_tips", "investment_advice", "debt_management"],
     "transactional": ["send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
-    "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report"]
+    "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report"],
+    "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary"]
 }

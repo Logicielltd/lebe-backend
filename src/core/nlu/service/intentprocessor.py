@@ -1,8 +1,11 @@
 # core/nlu/service/intent_processor.py
 from typing import Dict, List, Any, Optional
+from core.beneficiaries.service.beneficiary_service import BeneficiaryService
 from core.nlu.service.llmclient import LLMClient
 from core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES, INTENT_CATEGORIES
 from core.nlu.service.user_rag import UserRAGManager
+from core.user.controller.usercontroller import get_db
+from core.beneficiaries.service.beneficiary_service import BeneficiaryService
 
 class IntentProcessor:
     """Processes conversational and financial tips intents using LLM with User RAG"""
@@ -96,33 +99,80 @@ class IntentProcessor:
         )
         
         return response
+    
     def process_beneficiaries_intent(
-        self,
-        intent: str,
-        user_message: str,
-        conversation_history: List[Dict],
-        slots: Dict[str, Any],
-        user_data: Optional[Dict] = None  # Add user_data parameter
+    self,
+    intent: str,
+    user_message: str,
+    conversation_history: List[Dict],
+    slots: Dict[str, Any],
+    user_data: Optional[Dict] = None
     ) -> str:
         """
-        Process beneficiaries management with user context
+        Process beneficiaries management using BeneficiaryService
         """
-        system_prompt = self._build_enhanced_system_prompt(
-            base_prompt=SYSTEM_PROMPTS["beneficiaries"],
-            conversation_history=conversation_history,
-            user_data=user_data,
-            intent=intent,
-            slots=slots
+
+        db = next(get_db())
+
+        beneficiary_service = BeneficiaryService(db)
+        
+        user_id = user_data.get("id") if user_data else "unknown"
+        
+        if intent == "add_beneficiary":
+            return self._handle_add_beneficiary(beneficiary_service, user_id, slots)
+        elif intent == "view_beneficiaries":
+            return self._handle_view_beneficiaries(beneficiary_service, user_id)
+        elif intent == "delete_beneficiary":
+            return self._handle_delete_beneficiary(beneficiary_service, user_id, slots)
+        else:
+            return "Beneficiary intent not supported"
+
+    def _handle_add_beneficiary(self, beneficiary_service: BeneficiaryService, user_id: str, slots: Dict) -> str:
+        """Handle adding a new beneficiary"""
+        name = slots.get("beneficiary_name")
+        customer_number = slots.get("customer_number")
+        network = slots.get("network")
+        bank_code = slots.get("bank_code")
+        
+        if not name or not customer_number:
+            return "Please provide both beneficiary name and customer number to save a new beneficiary."
+        
+        success, beneficiary, message = beneficiary_service.add_beneficiary(
+            user_id=user_id,
+            name=name,
+            customer_number=customer_number,
+            network=network,
+            bank_code=bank_code
         )
         
-        response = self.llm_client.chat_completion(
-            system_prompt=system_prompt,
-            user_message=user_message,
-            conversation_history=conversation_history,
-            temperature=0.5
-        )
+        return message
+
+    def _handle_view_beneficiaries(self, beneficiary_service: BeneficiaryService, user_id: str) -> str:
+        """Handle viewing all beneficiaries"""
+        beneficiaries = beneficiary_service.get_beneficiaries(user_id)
+        return beneficiary_service.format_beneficiary_list(beneficiaries)
+
+    def _handle_delete_beneficiary(self, beneficiary_service: BeneficiaryService, user_id: str, slots: Dict) -> str:
+        """Handle deleting a beneficiary"""
+        beneficiary_name = slots.get("beneficiary_name")
         
-        return response
+        if not beneficiary_name:
+            return "Please specify which beneficiary you want to remove."
+        
+        beneficiaries = beneficiary_service.get_beneficiaries(user_id)
+        
+        # Find beneficiary by name
+        target_beneficiary = None
+        for beneficiary in beneficiaries:
+            if beneficiary.name.lower() == beneficiary_name.lower():
+                target_beneficiary = beneficiary
+                break
+        
+        if not target_beneficiary:
+            return f"Beneficiary '{beneficiary_name}' not found in your saved beneficiaries."
+        
+        success, message = beneficiary_service.delete_beneficiary(target_beneficiary.id, user_id)
+        return message
     
     def _build_enhanced_system_prompt(
         self,

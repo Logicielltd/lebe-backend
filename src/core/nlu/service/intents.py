@@ -6,8 +6,8 @@ class IntentDetector:
     def __init__(self):
         self.intents = INTENTS
         self.llm_client = LLMClient()  # Replace direct openai client with LLMClient
-    
-    def detect_intent_and_slots(self, user_message: str, conversation_history: List[Dict]) -> Tuple[str, Dict, List[str]]:
+
+    def detect_intent_and_slots(self, user_message: str, conversation_history: List[Dict], current_intent: str = None) -> Tuple[str, Dict, List[str]]:
         """
         Detect user intent and extract slots from message
         Returns: (intent, extracted_slots, missing_slots)
@@ -22,6 +22,9 @@ class IntentDetector:
             missing_slots="",
             topic="intent detection"
         )
+
+        # Enhanced prompt with context awareness and precision
+        prompt = self._create_enhanced_prompt(user_message, current_intent)
         
         # Create prompt for intent detection
         prompt = f"""
@@ -59,6 +62,74 @@ class IntentDetector:
         except Exception as e:
             print(f"Error in intent detection: {e}")
             return "unknown", {}, []
+    
+    def _create_enhanced_prompt(self, user_message: str, current_intent: str = None) -> str:
+        """Create enhanced prompt with context awareness and precision"""
+        
+        intent_guidelines = """
+        INTENT DETECTION GUIDELINES:
+        1. Be precise - analyze the exact words and phrasing in the user message
+        2. If the message continues the current conversation flow, maintain the same intent
+        3. Only change intent if the user clearly introduces a new topic or request
+        4. For ambiguous messages, prefer the current intent if it makes contextual sense
+        5. Consider conversation history when determining if this is a continuation
+        
+        CRITICAL RULES:
+        - If user provides additional information for current intent: KEEP SAME INTENT
+        - If user corrects or modifies previous information: KEEP SAME INTENT  
+        - If user asks clarifying questions about current task: KEEP SAME INTENT
+        - Only switch intent for completely new, unrelated requests
+        """
+        
+        current_intent_context = f"CURRENT_INTENT: {current_intent if current_intent else 'None (new conversation)'}"
+        
+        return f"""
+        {intent_guidelines}
+        
+        {current_intent_context}
+        You are an expert conversational AI that identifies user intents and extracts relevant slot information.
+        A slot is a specific piece of information needed to fulfill an intent (e.g., amount, recipient).
+
+        Your goals:
+        1. Identify the user's **main intent** from the list below:
+        List of defined intents: {list(self.intents.keys())}
+        2. Extract slot values relevant to that intent.
+        3. If the message is a continuation of an existing intent (current_intent = "{current_intent}"), 
+        maintain that same intent **unless** the user clearly starts a new topic.
+        4. Accurately identify missing required slots for that intent.
+        
+        User message to analyze: "{user_message}"
+        
+        Available intents and their slots:
+        {self._format_intents_for_prompt()}
+        
+        DECISION PROCESS:
+        - Is this message clearly about a NEW intent? → Use new intent
+        - Is this message continuing/refining the CURRENT intent? → Keep current intent
+        - Is this message ambiguous but contextually related? → Prefer current intent
+        
+        Respond in this EXACT format:
+        INTENT: [detected_intent]
+        SLOTS: [json_object_with_slots]
+        MISSING: [comma_separated_missing_slots]
+        
+        Examples:
+        User continues current send_money intent: "Actually, make it 100 cedis instead"
+        INTENT: send_money
+        SLOTS: {{"amount": "100"}}
+        MISSING: recipient,network,reason
+        
+        User starts new intent: "I want to check my balance"
+        INTENT: check_balance
+        SLOTS: {{}}
+        MISSING: account_id
+        Examples end.
+
+        Notes for accuracy:
+        - If the user's message clarifies or adds to the **current intent**, do not change it.
+        - Only switch intent if the message explicitly refers to a different goal or action.
+        - Always ensure `SLOTS` is valid JSON.
+        """
     
     def _prepare_context(self, conversation_history: List[Dict]) -> str:
         """Prepare conversation context for the AI"""

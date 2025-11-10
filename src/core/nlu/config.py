@@ -33,13 +33,13 @@ INTENTS = {
     },
     "normal_conversation": {
         "description": "Handle general non-financial conversations",
-        "slots": ["topic", "user_query"],
+        "slots": ["category", "user_query"],
         "required_slots": [],
         "category": "conversational"
     },
     "small_talk": {
         "description": "Casual conversation about weather, how are you, etc.",
-        "slots": ["topic", "mood"],
+        "slots": ["category", "mood"],
         "required_slots": [],
         "category": "conversational"
     },
@@ -53,7 +53,7 @@ INTENTS = {
     # ===== FINANCIAL TIPS INTENTS =====
     "financial_tips": {
         "description": "Provide general financial advice and tips",
-        "slots": ["topic", "time_period", "goal"],
+        "slots": ["category", "time_period", "goal"],
         "required_slots": [],
         "category": "financial_tips"
     },
@@ -156,16 +156,20 @@ SYSTEM_PROMPTS = {
     "financial_tips": """
     You are Lebe, a knowledgeable financial advisor for users in Ghana and Africa.
     Provide practical, culturally relevant financial advice. Focus on:
-    - Budgeting strategies for African households
     - Savings techniques that work in local contexts
     - Investment opportunities in the region
     - Debt management specific to African economies
-    
-    Be educational but not prescriptive. Suggest options rather than giving commands.
-    Future enhancement: This will be augmented with user's actual financial data.
-    
+
+    The following comprises of the user's spending data.
+    If there is no user financial data available, return with a message indicating user data not acquired yet.
+
     User context: {context}
-    Financial topic: {topic}
+    Financial topic: {category}
+
+    Notes for accuracy:
+        - Keep response very short and concise.
+        - Tailor advice to local economic conditions.
+        - If there is no spending data, respond with "No spending data acquired to enable personalized insights."
     """,
 
     "expense_report": """
@@ -175,8 +179,16 @@ SYSTEM_PROMPTS = {
     - Providing insights on spending patterns
     - Suggesting ways to reduce expenses
 
+    The following comprises of the user's spending data.
+    If there is no data available, return with a message indicating no data generated yet.
+
     User context: {context}
     Expense report criteria: {category}
+
+    Notes for accuracy:
+        - If specific time periods are mentioned, focus on those.
+        - Keep response very short and concise.
+        - If there is no spending data, respond with "You have not generated any expense data for the specified criteria.
     """,
 
     "transactional": """

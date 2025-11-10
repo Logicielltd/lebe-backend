@@ -20,7 +20,7 @@ class IntentDetector:
         system_prompt = SYSTEM_PROMPTS["transactional"].format(
             context=context, 
             missing_slots="",
-            topic="intent detection"
+            category="intent detection"
         )
 
         # Enhanced prompt with context awareness and precision

@@ -50,7 +50,7 @@ async def process_message(
         logger.info(f"Processing message for user {current_user.username}: {request.message}")
         
         # Process message through NLU system
-        nlu_system.initialize_user(current_user.phone, current_user.hashed_pin)
+        #nlu_system.initialize_user(current_user.phone, current_user.hashed_pin)
 
         response = nlu_system.process_message(
             current_user.phone,

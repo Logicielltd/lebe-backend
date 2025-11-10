@@ -248,8 +248,7 @@ def handle_text_message(message: dict, phone: str, phone_number_id: str, db: Ses
         # Get user subscription status
         result = subscription_service.get_user_subscription_status_by_phone(phone)
 
-        # Initialize user and process message
-        nlu_system.initialize_user(phone, existing_user.hashed_pin)
+        # Process the message
         response_message = nlu_system.process_message(
             phone,
             message_text,

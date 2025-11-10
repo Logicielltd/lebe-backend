@@ -44,7 +44,7 @@ class LebeNLUSystem:
         
         # Detect intent and extract slots
         intent, extracted_slots, missing_slots = self.intent_detector.detect_intent_and_slots(
-            user_message, state.conversation_history
+            user_message, state.conversation_history, state.current_intent
         )
         
         # Validate and merge slots
@@ -381,10 +381,6 @@ class LebeNLUSystem:
             "get_loan": f"✅ Loan of GHS {slots.get('loan_amount')} application submitted. Transaction ID: {result.transactionId}"
         }
         return success_messages.get(intent, "Payment processed successfully")
-    
-    def initialize_user(self, user_id: str, pin: str) -> bool:
-        """Initialize user with PIN during onboarding"""
-        return self.security_manager.set_user_pin(user_id, pin)
 
     def _get_user_data(self, user_id: str) -> Optional[Dict]:
         """Fetch user data for personalized processing"""

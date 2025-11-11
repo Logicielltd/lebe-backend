@@ -116,7 +116,7 @@ class IntentProcessor:
 
         beneficiary_service = BeneficiaryService(db)
         
-        user_id = user_data.get("id") if user_data else "unknown"
+        user_id = user_data.get("user_id") if user_data else "unknown"
         
         if intent == "add_beneficiary":
             return self._handle_add_beneficiary(beneficiary_service, user_id, slots)
@@ -133,6 +133,9 @@ class IntentProcessor:
         customer_number = slots.get("customer_number")
         network = slots.get("network")
         bank_code = slots.get("bank_code")
+
+        # print user data
+        print(f"[METHOD_HANDLE_ADD_BENEFICIARY] User Data for {user_id}")
         
         if not name or not customer_number:
             return "Please provide both beneficiary name and customer number to save a new beneficiary."

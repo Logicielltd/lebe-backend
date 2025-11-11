@@ -46,12 +46,14 @@ class LebeNLUSystem:
         intent, extracted_slots, missing_slots = self.intent_detector.detect_intent_and_slots(
             user_message, state.conversation_history, state.current_intent
         )
-        
+
         # Validate and merge slots
         validated_slots = self.slot_manager.validate_slots(intent, extracted_slots)
-        state.collected_slots.update(validated_slots)
-        state.current_intent = intent
 
+        state.collected_slots.update(validated_slots)
+
+        state.current_intent = intent
+        
         # CHECK SUBSCRIPTION STATUS EARLY
         # print (f"User Subscription Status: {user_subscription_status}")
         # if not user_subscription_status and intent != "create_new_account":
@@ -66,7 +68,6 @@ class LebeNLUSystem:
         
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
-        
         
         if intent in ["greeting"]:
             # Handle simple intents directly
@@ -98,6 +99,10 @@ class LebeNLUSystem:
         
         # Add assistant response to history
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+
+        # Clear collected slots if action was executed
+        if not current_missing:
+            self.conversation_manager.clear_collected_slots(user_id)
         
         return response
     

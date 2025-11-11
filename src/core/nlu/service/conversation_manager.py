@@ -151,7 +151,16 @@ class ConversationManager:
         except Exception as e:
             self.db.rollback()
             raise e
-    
+        
+    # Method to clear collected slots after action execution
+    def clear_collected_slots(self, user_id: str):
+        """Clear collected slots after action execution"""
+        state = self.get_conversation_state(user_id)
+        state.collected_slots = {}
+        
+        # Persist changes
+        self._save_conversation_state(state)
+
     def set_pending_action(self, user_id: str, intent: str, slots: Dict):
         """Set pending action waiting for PIN and persist to database"""
         state = self.get_conversation_state(user_id)

@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 # Reuse your existing token validation and DB dependencies
 from core.user.controller.usercontroller import validate_token, get_db
 
+from fastapi.responses import FileResponse
+import os
+
 
 storage_routes = APIRouter()
 
@@ -41,10 +44,6 @@ async def upload_file(file: UploadFile, authjwt: AuthJWT = Depends(validate_toke
         content_type=file.content_type
     )
     return FileDTO(file_name=file.filename, file_url=url)
-
-
-from fastapi.responses import FileResponse
-import os
 
 @storage_routes.get("/download/{file_name}")
 async def download_file(file_name: str, authjwt: AuthJWT = Depends(validate_token)):

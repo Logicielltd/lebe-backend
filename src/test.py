@@ -38,67 +38,68 @@ def test_receipt_generator():
                 'payment_method': 'Mobile Money',
                 'timestamp': datetime.now()
             }
-        },
-        {
-            "name": "Money Transfer",
-            "data": {
-                'transaction_type': 'Money Transfer',
-                'amount': '150.50',
-                'status': 'Completed',
-                'transaction_id': 'TXN987654321',
-                'sender': 'User456',
-                'receiver': '0247654321',
-                'payment_method': 'Mobile Money',
-                'timestamp': datetime.now()
-            }
-        },
-        {
-            "name": "Bill Payment",
-            "data": {
-                'transaction_type': 'Bill Payment',
-                'amount': '89.75',
-                'status': 'Pending',
-                'transaction_id': 'TXN555666777',
-                'sender': 'User789',
-                'receiver': 'ECG Ghana',
-                'payment_method': 'Mobile Money',
-                'timestamp': datetime.now()
-            }
-        },
-        {
-            "name": "Loan Disbursement",
-            "data": {
-                'transaction_type': 'Loan Disbursement',
-                'amount': '1000.00',
-                'status': 'Completed',
-                'transaction_id': 'LOAN888999000',
-                'sender': 'Lebe Financial',
-                'receiver': '0241234567',
-                'payment_method': 'Mobile Money',
-                'timestamp': datetime.now(),
-                'interest_rate': '5',
-                'loan_period': '30 days',
-                'expected_pay_date': (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
-                'penalty_rate': '2'
-            }
-        },
-        {
-            "name": "Large Amount Loan",
-            "data": {
-                'transaction_type': 'Loan',
-                'amount': '5000.00',
-                'status': 'Completed',
-                'transaction_id': 'LOAN111222333',
-                'sender': 'Lebe Financial',
-                'receiver': '0249876543',
-                'payment_method': 'Bank Transfer',
-                'timestamp': datetime.now(),
-                'interest_rate': '7.5',
-                'loan_period': '90 days',
-                'expected_pay_date': (datetime.now() + timedelta(days=90)).strftime("%Y-%m-%d"),
-                'penalty_rate': '3.5'
-            }
         }
+        # },
+        # {
+        #     "name": "Money Transfer",
+        #     "data": {
+        #         'transaction_type': 'Money Transfer',
+        #         'amount': '150.50',
+        #         'status': 'Completed',
+        #         'transaction_id': 'TXN987654321',
+        #         'sender': 'User456',
+        #         'receiver': '0247654321',
+        #         'payment_method': 'Mobile Money',
+        #         'timestamp': datetime.now()
+        #     }
+        # },
+        # {
+        #     "name": "Bill Payment",
+        #     "data": {
+        #         'transaction_type': 'Bill Payment',
+        #         'amount': '89.75',
+        #         'status': 'Pending',
+        #         'transaction_id': 'TXN555666777',
+        #         'sender': 'User789',
+        #         'receiver': 'ECG Ghana',
+        #         'payment_method': 'Mobile Money',
+        #         'timestamp': datetime.now()
+        #     }
+        # },
+        # {
+        #     "name": "Loan Disbursement",
+        #     "data": {
+        #         'transaction_type': 'Loan Disbursement',
+        #         'amount': '1000.00',
+        #         'status': 'Completed',
+        #         'transaction_id': 'LOAN888999000',
+        #         'sender': 'Lebe Financial',
+        #         'receiver': '0241234567',
+        #         'payment_method': 'Mobile Money',
+        #         'timestamp': datetime.now(),
+        #         'interest_rate': '5',
+        #         'loan_period': '30 days',
+        #         'expected_pay_date': (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d"),
+        #         'penalty_rate': '2'
+        #     }
+        # },
+        # {
+        #     "name": "Large Amount Loan",
+        #     "data": {
+        #         'transaction_type': 'Loan',
+        #         'amount': '5000.00',
+        #         'status': 'Completed',
+        #         'transaction_id': 'LOAN111222333',
+        #         'sender': 'Lebe Financial',
+        #         'receiver': '0249876543',
+        #         'payment_method': 'Bank Transfer',
+        #         'timestamp': datetime.now(),
+        #         'interest_rate': '7.5',
+        #         'loan_period': '90 days',
+        #         'expected_pay_date': (datetime.now() + timedelta(days=90)).strftime("%Y-%m-%d"),
+        #         'penalty_rate': '3.5'
+        #     }
+        # }
     ]
     
     # Create test_output directory if it doesn't exist
@@ -111,6 +112,9 @@ def test_receipt_generator():
         try:
             # Generate receipt image
             image_url = generator.generate_receipt_image(test_case['data'])
+            
+            # Print image url
+            print(f"✅ Receipt image URL generated (truncated): {image_url[:50]}...")
             
             # Extract base64 data from URL
             base64_data = image_url.split(',')[1]

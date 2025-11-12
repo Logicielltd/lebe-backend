@@ -1,4 +1,5 @@
 
+from dataclasses import dataclass
 from core.histories.service.historyservice import HistoryService
 import openai
 from typing import Dict, Any, Optional, List
@@ -19,6 +20,22 @@ from core.receipts.service.receipt_service import ReceiptService
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class ReceiptData:
+    transaction_id: str
+    user_id: str
+    transaction_type: str
+    amount: str
+    status: str
+    sender: str
+    receiver: str
+    payment_method: str
+    timestamp: datetime
+    # Optional loan fields
+    interest_rate: Optional[str] = None
+    loan_period: Optional[str] = None
+    expected_pay_date: Optional[str] = None
+    penalty_rate: Optional[str] = None
 
 class LebeNLUSystem:
     def __init__(self):
@@ -241,6 +258,7 @@ class LebeNLUSystem:
 
             # Process payment through PaymentService
             payment_service = PaymentService(db)
+
             result = payment_service.make_payment(payment_dto, intent)
 
             print(f"[PAYMENT_INTENT] Payment result: status={result.status}, response_code={result.responseCode}, transaction_id={result.transactionId}")
@@ -274,6 +292,8 @@ class LebeNLUSystem:
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
             elif result.status == PaymentStatus.SUCCESS:
+                # Generate receipt after successful payment
+                receipt_image_url = self._generate_receipt_after_payment(payment_dto.transactionId, user_id, intent, payment_dto.amountPaid, result.status, payment_dto.phoneNumber, slots.get('recipient'), payment_dto.paymentMethod.name, datetime.now())
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
             else:

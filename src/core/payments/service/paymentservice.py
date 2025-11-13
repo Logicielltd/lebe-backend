@@ -52,6 +52,7 @@ class PaymentService:
             'status': payment_dto.status or PaymentStatus.PENDING,
             'transaction_id': payment_dto.transactionId,
             'service_name': payment_dto.serviceName,
+            'intent': intent,
             'customer_email': payment_dto.customerEmail,
             'customer_name': payment_dto.customerName,
             'phone_number': payment_dto.phoneNumber,
@@ -119,30 +120,30 @@ class PaymentService:
     def process_payment_callback(self, callback_response: Any) -> None:
         try:
             logger.info(f"Callback details - Trans_ref: {callback_response.trans_ref}, Trans_id: {callback_response.trans_id}, Status: {callback_response.trans_status}, Message: {callback_response.message}")
-            
+
             # Validate callback data
             if not callback_response.trans_ref:
                 raise ValueError("Transaction reference (trans_ref) is required")
-            
+
             payment = self.db.query(Payment).filter(Payment.transaction_id == str(callback_response.trans_ref)).first()
             if not payment:
                 logger.error(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
                 raise PaymentNotFoundException(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
-            
+
             incoming_status = self._determine_payment_status(callback_response.trans_status)
             logger.info(f"Payment ID: {payment.id} | Current Status: {payment.status} | Incoming Status: {incoming_status}")
-            
+
             # Skip processing if no status change or already successful
             if self._should_skip_callback_processing(payment, incoming_status):
                 return
-            
+
             # Update payment status
             payment.status = incoming_status
             payment.updated_on = datetime.now()
-            
+
             self.db.commit()
             logger.info(f"Payment status updated to {incoming_status} for payment ID: {payment.id}")
-            
+
         except Exception as e:
             self.db.rollback()
             logger.error("Unexpected error during callback processing", exc_info=True)

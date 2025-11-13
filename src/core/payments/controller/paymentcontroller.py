@@ -141,6 +141,10 @@ def handle_payment_callback(
         payment_service = PaymentService(db)
         payment_service.process_payment_callback(callback_response)
         logger.info(f"Callback processed successfully for transaction: {callback_response.trans_ref}")
+
+        # Send WhatsApp notification after successful callback processing
+        _send_payment_notification_to_user(callback_response, db)
+
         return {"message": "Callback processed successfully"}
     except PaymentNotFoundException as ex:
         logger.error(f"Payment not found for transaction: {callback_response.trans_ref}", exc_info=True)
@@ -151,3 +155,104 @@ def handle_payment_callback(
     except Exception as ex:
         logger.error("Unexpected error during callback processing", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process callback. Please try again or contact support.")
+
+
+def _send_payment_notification_to_user(callback_response: PaymentCallbackResponse, db: Session):
+    """
+    Generate receipt and send WhatsApp notification to user after payment callback
+
+    Args:
+        callback_response: The payment callback response
+        db: Database session
+    """
+    import os
+    from datetime import datetime
+    from core.webhooks.service.whatsapp_service import WhatsAppService
+    from core.payments.model.payment import Payment
+    from core.nlu.nlu import LebeNLUSystem
+
+    try:
+        # Get WhatsApp phone number ID from environment
+        phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+        if not phone_number_id:
+            logger.warning("WHATSAPP_PHONE_NUMBER_ID not set in environment variables")
+            return
+
+        # Get payment record
+        payment = db.query(Payment).filter(
+            Payment.transaction_id == str(callback_response.trans_ref)
+        ).first()
+
+        if not payment:
+            logger.error(f"Payment not found for notification: {callback_response.trans_ref}")
+            return
+
+        # Determine status from callback
+        status_code = callback_response.trans_status[:3] if callback_response.trans_status else None
+        is_success = status_code == "000"
+
+        # Initialize WhatsApp service
+        whatsapp_service = WhatsAppService()
+
+        if is_success:
+            # Generate receipt using NLU system's method
+            logger.info(f"[CALLBACK] Generating receipt for successful payment: {payment.transaction_id}")
+
+            # Use the intent stored in the payment record
+            intent = payment.intent or "payment"
+
+            # Use NLU's receipt generation method
+            nlu_system = LebeNLUSystem()
+            receipt_url = nlu_system._generate_receipt_after_payment(
+                transaction_id=payment.transaction_id,
+                user_id=payment.phone_number,
+                intent=intent,
+                amount=payment.amount_paid,
+                status='SUCCESS',
+                sender=payment.phone_number,
+                receiver=payment.phone_number,
+                payment_method=payment.payment_method.name,
+                timestamp=payment.updated_on or datetime.now()
+            )
+
+            logger.info(f"[CALLBACK] Receipt saved to Azure Storage: {receipt_url}")
+
+            # Send receipt image with caption containing all transaction details
+            success_caption = (
+                f"✅ Payment Successful!\n\n"
+                f"{payment.service_name}\n"
+                f"Amount: GHS {payment.amount_paid}\n"
+                f"Transaction ID: {payment.transaction_id}"
+            )
+
+            whatsapp_service.send_message_receipt(
+                phone_number_id=phone_number_id,
+                recipient_phone=payment.phone_number,
+                image_url=receipt_url,
+                caption=success_caption
+            )
+
+            logger.info(f"[CALLBACK] WhatsApp notification sent to {payment.phone_number}")
+
+        else:
+            # Send failure notification
+            failure_message = (
+                f"❌ Payment Failed\n\n"
+                f"{payment.service_name}\n"
+                f"Amount: GHS {payment.amount_paid}\n"
+                f"Transaction ID: {payment.transaction_id}\n\n"
+                f"Reason: {callback_response.message}\n\n"
+                f"Please try again or contact support if the issue persists."
+            )
+
+            whatsapp_service.send_message(
+                phone_number_id=phone_number_id,
+                recipient_phone=payment.phone_number,
+                message_text=failure_message
+            )
+
+            logger.info(f"[CALLBACK] Failure notification sent to {payment.phone_number}")
+
+    except Exception as e:
+        logger.error(f"[CALLBACK] Error sending payment notification: {str(e)}", exc_info=True)
+        # Don't raise exception - notification failure shouldn't break callback processing

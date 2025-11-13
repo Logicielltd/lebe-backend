@@ -125,3 +125,58 @@ class WhatsAppService:
             if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"Response content: {e.response.text}")
             return False
+
+    def send_message_receipt(
+        self,
+        phone_number_id: str,
+        recipient_phone: str,
+        image_url: str,
+        caption: Optional[str] = None
+    ) -> bool:
+        """
+        Send a receipt image via WhatsApp Cloud API
+
+        Args:
+            phone_number_id: The phone number ID from Meta webhook metadata
+            recipient_phone: The recipient's WhatsApp ID (phone number)
+            image_url: The URL of the receipt image to send (must be publicly accessible)
+            caption: Optional caption for the receipt
+
+        Returns:
+            bool: True if receipt sent successfully, False otherwise
+        """
+        url = f"{self.base_url}/{phone_number_id}/messages"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": recipient_phone,
+            "type": "image",
+            "image": {
+                "link": image_url
+            }
+        }
+
+        # Add caption if provided
+        if caption:
+            payload["image"]["caption"] = caption
+
+        try:
+            logger.info(f"Sending WhatsApp receipt to {recipient_phone}")
+            logger.debug(f"Receipt URL: {image_url}")
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+
+            logger.info(
+                f"WhatsApp receipt sent successfully: {response.json()}")
+            return True
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to send WhatsApp receipt: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"Response content: {e.response.text}")
+            return False

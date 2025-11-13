@@ -293,37 +293,14 @@ class LebeNLUSystem:
                 )
 
             # Return response based on payment result
+            # NOTE: Receipt generation happens in the callback, not here
             if result.status == PaymentStatus.PENDING:
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
             elif result.status == PaymentStatus.SUCCESS:
-                # Generate receipt after successful payment
-                receipt_image_url = self._generate_receipt_after_payment(
-                                    transaction_id=payment_dto.transactionId,
-                                    user_id=user_id,
-                                    intent=intent,
-                                    amount=payment_dto.amountPaid,
-                                    status=result.status.value if isinstance(result.status, PaymentStatus) else result.status,
-                                    sender=user_id,
-                                    receiver=payment_dto.phoneNumber,
-                                    payment_method=payment_dto.paymentMethod.name,
-                                    timestamp=datetime.now()
-                                )
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
             else:
-                # Generate receipt after successful payment
-                receipt_image_url = self._generate_receipt_after_payment(
-                    transaction_id=payment_dto.transactionId,
-                    user_id=user_id,
-                    intent=intent,
-                    amount=payment_dto.amountPaid,
-                    status="SUCCESS",
-                    sender=user_id,
-                    receiver=payment_dto.phoneNumber,
-                    payment_method=payment_dto.paymentMethod.name,
-                    timestamp=datetime.now()
-                )
                 error_msg = result.responseDescription or "Payment processing failed"
                 return self.response_formatter.format_response(intent, "error", message=error_msg)
 

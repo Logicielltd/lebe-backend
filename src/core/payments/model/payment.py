@@ -23,6 +23,7 @@ class Payment(Base):
 
     transaction_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     service_name: Mapped[Optional[str]] = mapped_column(String)
+    intent: Mapped[Optional[str]] = mapped_column(String)
     customer_email: Mapped[Optional[str]] = mapped_column(String)
     customer_name: Mapped[Optional[str]] = mapped_column(String)
     phone_number: Mapped[Optional[str]] = mapped_column(String)

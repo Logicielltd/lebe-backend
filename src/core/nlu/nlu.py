@@ -1,5 +1,9 @@
 
+import base64
 from dataclasses import dataclass
+from decimal import Decimal
+import io
+from core.cloudstorage.service.storageservice import StorageService
 from core.histories.service.historyservice import HistoryService
 import openai
 from typing import Dict, Any, Optional, List
@@ -13,6 +17,7 @@ from core.nlu.service.slot_manager import SlotManager
 from core.nlu.service.conversation_manager import ConversationManager
 from core.nlu.service.security import SecurityManager
 from core.nlu.emitters.response import ResponseFormatter
+from core.receipts.service.image_gen import ReceiptGenerator
 from core.user.service.user_service import UserService
 from utilities.dbconfig import SessionLocal
 from core.auth.dto.request.user_create import UserCreateRequest
@@ -293,7 +298,17 @@ class LebeNLUSystem:
                 return self.response_formatter.format_response(intent, "success", message=message)
             elif result.status == PaymentStatus.SUCCESS:
                 # Generate receipt after successful payment
-                receipt_image_url = self._generate_receipt_after_payment(payment_dto.transactionId, user_id, intent, payment_dto.amountPaid, result.status, payment_dto.phoneNumber, slots.get('recipient'), payment_dto.paymentMethod.name, datetime.now())
+                receipt_image_url = self._generate_receipt_after_payment(
+                    transaction_id=payment_dto.transactionId,
+                    user_id=user_id,
+                    intent=intent,
+                    amount=payment_dto.amountPaid,
+                    status=result.status,
+                    sender=user_id,
+                    receiver=payment_dto.phoneNumber,
+                    payment_method=payment_dto.paymentMethod.name,
+                    timestamp=datetime.now()
+                )
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
             else:
@@ -349,12 +364,15 @@ class LebeNLUSystem:
             # Fallback for unhandled intents
             return self.response_formatter.format_response(intent, "error", message="Intent not supported")
         
-    def _generate_receipt_after_payment(self, user_id: str, intent: str, slots: Dict, result: Any) -> str:
-        """Generate receipt after successful payment and return image URL only"""
-       
-        db = SessionLocal()
+    def _generate_receipt_after_payment(self, transaction_id: str, user_id: str, intent: str, 
+                                  amount: Decimal, status: str, sender: str, receiver: str, 
+                                  payment_method: str, timestamp: datetime) -> str:
+        """Generate receipt image and save to Azure Blob Storage"""
         try:
-            # Map intent to transaction type
+            
+            print(f"[RECEIPT] Generating receipt for transaction: {transaction_id}")
+            
+            # Map intent to transaction type for receipt
             transaction_type_map = {
                 "buy_airtime": "Airtime Purchase",
                 "send_money": "Money Transfer", 
@@ -362,49 +380,58 @@ class LebeNLUSystem:
                 "get_loan": "Loan Disbursement"
             }
             
-            # Calculate loan-specific fields if this is a loan
-            interest_rate = None
-            loan_period = None
-            expected_pay_date = None
-            penalty_rate = None
+            # Prepare receipt data
+            receipt_data = {
+                'transaction_id': transaction_id,
+                'user_id': user_id,
+                'transaction_type': transaction_type_map.get(intent, "Payment"),
+                'amount': str(amount),
+                'status': status,
+                'sender': sender,
+                'receiver': receiver,
+                'payment_method': payment_method,
+                'timestamp': timestamp
+            }
             
+            # Add loan-specific fields if it's a loan transaction
             if intent == "get_loan":
-                # Example loan calculations - adjust based on your business logic
-                interest_rate = "5"  # 5% interest rate
-                loan_period = "30 days"
-                expected_pay_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
-                penalty_rate = "2"  # 2% penalty for late payment
-                
-                # Set sender as Lebe Financial for loans
-                sender = "Lebe Financial"
-            else:
-                sender = user_id
+                receipt_data.update({
+                    'interest_rate': '5',  # You might want to get this from your data
+                    'loan_period': '30 days',  # Default or from slots
+                    'expected_pay_date': (timestamp + timedelta(days=30)).strftime("%b %d, %Y"),
+                    'penalty_rate': '2'  # Default penalty rate
+                })
             
-            receipt_service = ReceiptService(db)
-            image_url = receipt_service.create_receipt(
-                transaction_id=result.transactionId,
-                user_id=user_id,
-                transaction_type=transaction_type_map.get(intent, "Payment"),
-                amount=slots.get('amount') or slots.get('loan_amount', '0'),
-                status='Completed',
-                sender=sender,
-                receiver=slots.get('recipient') or slots.get('phone_number'),
-                payment_method='Mobile Money',
-                timestamp=datetime.now(),
-                # Loan-specific fields (will be ignored for non-loan transactions)
-                interest_rate=interest_rate,
-                loan_period=loan_period,
-                expected_pay_date=expected_pay_date,
-                penalty_rate=penalty_rate
+            # Generate receipt image
+            receipt_generator = ReceiptGenerator()
+            base64_data_url = receipt_generator.generate_receipt_image(receipt_data)
+            
+            # Extract base64 data from data URL
+            base64_data = base64_data_url.split(',')[1]
+            image_data = base64.b64decode(base64_data)
+            
+            # Create file-like object from image data
+            image_file = io.BytesIO(image_data)
+            
+            # Generate filename with date and user ID
+            date_str = timestamp.strftime("%Y%m%d_%H%M%S")
+            filename = f"receipts/{date_str}_{user_id}_{transaction_id}.png"
+            
+            # Upload to Azure Blob Storage
+            storage_service = StorageService()
+            blob_url = storage_service.upload_file(
+                file_obj=image_file,
+                file_name=filename,
+                content_type="image/png"
             )
             
-            return image_url
+            print(f"[RECEIPT] Receipt saved to Azure Storage: {blob_url}")
+            return blob_url
             
         except Exception as e:
-            print(f"Receipt generation failed: {e}")
-            return ""  # Return empty string if receipt generation fails
-        finally:
-            db.close()
+            print(f"[RECEIPT] Error generating/saving receipt: {str(e)}")
+            # Return a fallback or empty string if receipt generation fails
+            return ""
 
     def _get_success_message(self, intent: str, slots: Dict, result: Any) -> str:
         """Generate success message based on intent"""

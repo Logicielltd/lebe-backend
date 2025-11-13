@@ -299,19 +299,31 @@ class LebeNLUSystem:
             elif result.status == PaymentStatus.SUCCESS:
                 # Generate receipt after successful payment
                 receipt_image_url = self._generate_receipt_after_payment(
+                                    transaction_id=payment_dto.transactionId,
+                                    user_id=user_id,
+                                    intent=intent,
+                                    amount=payment_dto.amountPaid,
+                                    status=result.status.value if isinstance(result.status, PaymentStatus) else result.status,
+                                    sender=user_id,
+                                    receiver=payment_dto.phoneNumber,
+                                    payment_method=payment_dto.paymentMethod.name,
+                                    timestamp=datetime.now()
+                                )
+                message = self._get_success_message(intent, slots, result)
+                return self.response_formatter.format_response(intent, "success", message=message)
+            else:
+                # Generate receipt after successful payment
+                receipt_image_url = self._generate_receipt_after_payment(
                     transaction_id=payment_dto.transactionId,
                     user_id=user_id,
                     intent=intent,
                     amount=payment_dto.amountPaid,
-                    status=result.status,
+                    status="SUCCESS",
                     sender=user_id,
                     receiver=payment_dto.phoneNumber,
                     payment_method=payment_dto.paymentMethod.name,
                     timestamp=datetime.now()
                 )
-                message = self._get_success_message(intent, slots, result)
-                return self.response_formatter.format_response(intent, "success", message=message)
-            else:
                 error_msg = result.responseDescription or "Payment processing failed"
                 return self.response_formatter.format_response(intent, "error", message=error_msg)
 

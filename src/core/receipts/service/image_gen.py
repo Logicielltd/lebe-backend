@@ -99,45 +99,45 @@ class ReceiptGenerator:
         draw.ellipse([center_x - r, icon_y - r, center_x + r, icon_y + r], fill=accent_color)
 
 
-        icon_to_use = self.failed_icon if is_failed else self.success_icon
-        # Calculate position to center the icon
-        icon_x = center_x - icon_to_use.width // 2
-        icon_y_pos = icon_y - icon_to_use.height // 2
-        # Paste the icon onto the image
-        image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
+        # icon_to_use = self.failed_icon if is_failed else self.success_icon
+        # # Calculate position to center the icon
+        # icon_x = center_x - icon_to_use.width // 2
+        # icon_y_pos = icon_y - icon_to_use.height // 2
+        # # Paste the icon onto the image
+        # image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
             
-        # Use image icon instead of drawn lines
-        # if (is_failed and self.failed_icon) or (not is_failed and self.success_icon):
-        #     icon_to_use = self.failed_icon if is_failed else self.success_icon
-        #     # Calculate position to center the icon
-        #     icon_x = center_x - icon_to_use.width // 2
-        #     icon_y_pos = icon_y - icon_to_use.height // 2
-        #     # Paste the icon onto the image
-        #     image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
-        # else:
-        #     # Fallback to drawn icon if image not available
-        #     if is_failed:
-        #         # Draw 'X' for failed
-        #         cross_size = 14
-        #         draw.line([
-        #             (center_x - cross_size, icon_y - cross_size),
-        #             (center_x + cross_size, icon_y + cross_size)
-        #         ], fill=icon_color, width=4)
-        #         draw.line([
-        #             (center_x + cross_size, icon_y - cross_size),
-        #             (center_x - cross_size, icon_y + cross_size)
-        #         ], fill=icon_color, width=4)
-        #     else:
-        #         # Draw checkmark for success
-        #         check_size = 10
-        #         draw.line([
-        #             (center_x - check_size // 2, icon_y),
-        #             (center_x, icon_y + check_size // 2)
-        #         ], fill=icon_color, width=4)
-        #         draw.line([
-        #             (center_x, icon_y + check_size // 2),
-        #             (center_x + check_size, icon_y - check_size // 2)
-        #         ], fill=icon_color, width=4)
+        #Use image icon instead of drawn lines
+        if (is_failed and self.failed_icon) or (not is_failed and self.success_icon):
+            icon_to_use = self.failed_icon if is_failed else self.success_icon
+            # Calculate position to center the icon
+            icon_x = center_x - icon_to_use.width // 2
+            icon_y_pos = icon_y - icon_to_use.height // 2
+            # Paste the icon onto the image
+            image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
+        else:
+            # Fallback to drawn icon if image not available
+            if is_failed:
+                # Draw 'X' for failed
+                cross_size = 14
+                draw.line([
+                    (center_x - cross_size, icon_y - cross_size),
+                    (center_x + cross_size, icon_y + cross_size)
+                ], fill=icon_color, width=4)
+                draw.line([
+                    (center_x + cross_size, icon_y - cross_size),
+                    (center_x - cross_size, icon_y + cross_size)
+                ], fill=icon_color, width=4)
+            else:
+                # Draw checkmark for success
+                check_size = 10
+                draw.line([
+                    (center_x - check_size // 2, icon_y),
+                    (center_x, icon_y + check_size // 2)
+                ], fill=icon_color, width=4)
+                draw.line([
+                    (center_x, icon_y + check_size // 2),
+                    (center_x + check_size, icon_y - check_size // 2)
+                ], fill=icon_color, width=4)
 
         # Header Text
         y = icon_y + 60

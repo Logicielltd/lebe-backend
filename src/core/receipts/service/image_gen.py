@@ -115,7 +115,7 @@ class ReceiptGenerator:
             # Paste the icon onto the image
             image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
         else:
-            # Fallback to drawn icon if image not available
+            # Fallback to drawn icon if image not available yet
             if is_failed:
                 # Draw 'X' for failed
                 cross_size = 14

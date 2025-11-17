@@ -71,9 +71,9 @@ if not tables_exist():
 else:
     print("Database tables already exist.")
 
-# print("Initializing database tables...")
-# Base.metadata.create_all(bind=engine)
-# print("Database tables initialized successfully.")
+print("Initializing database tables...")
+Base.metadata.create_all(bind=engine)
+print("Database tables initialized successfully.")
 
 # Add middleware for CORS
 app.add_middleware(

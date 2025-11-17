@@ -126,6 +126,50 @@ def get_payments_by_customer_name(
     payment_service = PaymentService(db)
     return payment_service.get_payments_by_customer_name(customer_name)
 
+@payment_routes.get("/status/{transaction_id}")
+def get_payment_status(
+    transaction_id: str = Path(..., description="Transaction ID to check status"),
+    db: Session = Depends(get_db),
+    authjwt: AuthJWT = Depends(validate_token)
+):
+    """
+    Check the status of a payment by transaction ID.
+    Useful when user wants to verify if their payment was completed.
+
+    Returns:
+    - PENDING: Payment request accepted, awaiting processing confirmation
+    - SUCCESS: Payment completed successfully
+    - FAILED: Payment failed
+    """
+    from core.payments.model.payment import Payment
+
+    try:
+        payment = db.query(Payment).filter(Payment.transaction_id == transaction_id).first()
+
+        if not payment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No payment found with transaction ID: {transaction_id}"
+            )
+
+        return {
+            "transaction_id": payment.transaction_id,
+            "payment_id": payment.id,
+            "status": payment.status,
+            "amount": payment.amount_paid,
+            "payment_method": payment.payment_method,
+            "created_at": payment.date_paid,
+            "updated_at": payment.updated_on
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking payment status for transaction {transaction_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Error checking payment status. Please try again."
+        )
+
 @payment_routes.post("/callback")
 def handle_payment_callback(
     callback_response: PaymentCallbackResponse,

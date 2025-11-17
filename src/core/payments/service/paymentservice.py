@@ -104,20 +104,26 @@ class PaymentService:
                 response_data = http_response.json()
 
                 if response_data and response_data.get("resp_code") == "015":
-                    logger.info(f"Payment successful for transactionId: {payment.transaction_id}")
-                    return self._handle_success(payment, response_data)
+                    # 015 = "Request successfully received for processing"
+                    # This is NOT final success - we must wait for the callback to confirm
+                    logger.info(f"Payment request accepted for processing (resp_code: 015) for transactionId: {payment.transaction_id}")
+                    return self._handle_pending_payment(payment, response_data)
                 else:
                     logger.warn(f"Payment failed with response code: {response_data.get('resp_code') if response_data else 'null'} for transactionId: {payment.transaction_id}")
                     return self._handle_gateway_failure(payment, response_data)
             else:
                 logger.error(f"Payment gateway returned HTTP status: {http_response.status_code} for transactionId: {payment.transaction_id}")
                 return self._handle_system_error(payment, PaymentGatewayException(f"HTTP Status: {http_response.status_code}"))
-                
+
         except Exception as e:
             logger.error(f"Failed to parse payment gateway response for transactionId: {payment.transaction_id}", exc_info=True)
             return self._handle_system_error(payment, PaymentGatewayException(f"Response parsing error: {str(e)}"))
     
     def process_payment_callback(self, callback_response: Any) -> None:
+        """
+        Process payment callback from Orchard API.
+        This is where we get the final payment status (success or failure).
+        """
         try:
             logger.info(f"Callback details - Trans_ref: {callback_response.trans_ref}, Trans_id: {callback_response.trans_id}, Status: {callback_response.trans_status}, Message: {callback_response.message}")
 
@@ -137,12 +143,18 @@ class PaymentService:
             if self._should_skip_callback_processing(payment, incoming_status):
                 return
 
-            # Update payment status
-            payment.status = incoming_status
-            payment.updated_on = datetime.now()
-
-            self.db.commit()
-            logger.info(f"Payment status updated to {incoming_status} for payment ID: {payment.id}")
+            # Handle successful payment - create invoice
+            if incoming_status == PaymentStatus.SUCCESS:
+                logger.info(f"Payment callback confirmed success for transaction {payment.transaction_id}")
+                self._handle_success(payment, {"resp_code": "000", "resp_desc": "Payment successful"})
+            else:
+                # Handle failed payment
+                logger.warn(f"Payment callback confirmed failure for transaction {payment.transaction_id}")
+                payment.status = incoming_status
+                payment.updated_on = datetime.now()
+                self.db.add(payment)
+                self.db.commit()
+                logger.info(f"Payment status updated to {incoming_status} for payment ID: {payment.id}")
 
         except Exception as e:
             self.db.rollback()
@@ -313,7 +325,34 @@ class PaymentService:
         else:
             return datetime.min
     
+    def _handle_pending_payment(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
+        """
+        Handle response code 015: Request received for processing.
+        Payment is PENDING - waiting for callback from Orchard API.
+        """
+        logger.info(f"Payment request accepted, awaiting callback for transactionId: {payment.transaction_id}")
+        payment.status = PaymentStatus.PENDING
+
+        logger.info(f"Persisting pending payment for transactionId: {payment.transaction_id}")
+        self.db.add(payment)
+        self.db.commit()
+
+        logger.info(f"Payment persisted with PENDING status for paymentId: {payment.id}, transactionId: {payment.transaction_id}")
+
+        return PaymentResultResponse(
+            payment_id=payment.id,
+            status=PaymentStatus.PENDING,
+            responseCode=response.get("resp_code"),
+            responseDescription=response.get("resp_desc"),
+            transactionId=payment.transaction_id,
+            paymentMethod=payment.payment_method
+        )
+
     def _handle_success(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
+        """
+        Handle final payment success (called from callback when trans_status = 000).
+        Create invoice and mark payment as SUCCESS.
+        """
         logger.info(f"Handling successful payment for transactionId: {payment.transaction_id}")
         payment.status = PaymentStatus.SUCCESS
 

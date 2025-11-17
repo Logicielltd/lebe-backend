@@ -295,8 +295,8 @@ class LebeNLUSystem:
             # Return response based on payment result
             # NOTE: Receipt generation happens in the callback, not here
             if result.status == PaymentStatus.PENDING:
-                message = self._get_success_message(intent, slots, result)
-                return self.response_formatter.format_response(intent, "success", message=message)
+                message = self._get_processing_message(intent, slots, result)
+                return self.response_formatter.format_response(intent, "processing", message=message)
             elif result.status == PaymentStatus.SUCCESS:
                 message = self._get_success_message(intent, slots, result)
                 return self.response_formatter.format_response(intent, "success", message=message)
@@ -421,6 +421,16 @@ class LebeNLUSystem:
             print(f"[RECEIPT] Error generating/saving receipt: {str(e)}")
             # Return a fallback or empty string if receipt generation fails
             return ""
+
+    def _get_processing_message(self, intent: str, slots: Dict, result: Any) -> str:
+        """Generate message indicating payment is being processed"""
+        processing_messages = {
+            "buy_airtime": f"Payment of GHS {slots.get('amount')} for airtime to {slots.get('phone_number')} is being processed. Transaction ID: {result.transactionId}",
+            "send_money": f"Payment of GHS {slots.get('amount')} to {slots.get('recipient')} is being processed. Transaction ID: {result.transactionId}",
+            "pay_bill": f"Bill payment of GHS {slots.get('amount')} is being processed. Transaction ID: {result.transactionId}",
+            "get_loan": f"Loan application for GHS {slots.get('loan_amount')} is being processed. Transaction ID: {result.transactionId}"
+        }
+        return processing_messages.get(intent, "Payment is being processed. Transaction ID: {result.transactionId}")
 
     def _get_success_message(self, intent: str, slots: Dict, result: Any) -> str:
         """Generate success message based on intent"""

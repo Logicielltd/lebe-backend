@@ -4,6 +4,19 @@ from typing import Optional
 
 
 class PaymentStatus(str, Enum):
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
+    # Initial state
     PENDING = "PENDING"
+
+    # CTM (Customer to Merchant) - Money coming in
+    CTM_PROCESSING = "CTM_PROCESSING"
+    CTM_SUCCESS = "CTM_SUCCESS"
+    CTM_FAILED = "CTM_FAILED"
+
+    # MTC (Merchant to Customer) - Money going out to receiver
+    MTC_PROCESSING = "MTC_PROCESSING"
+    MTC_SUCCESS = "MTC_SUCCESS"
+    MTC_FAILED = "MTC_FAILED"
+
+    # Final states
+    SUCCESS = "SUCCESS"  # Both CTM and MTC succeeded
+    FAILED = "FAILED"    # Either CTM or MTC failed

@@ -122,7 +122,8 @@ class PaymentService:
     def process_payment_callback(self, callback_response: Any) -> None:
         """
         Process payment callback from Orchard API.
-        This is where we get the final payment status (success or failure).
+        Handles both CTM (Customer to Merchant) and MTC (Merchant to Customer) callbacks.
+        Two-stage transaction: CTM first, then MTC after CTM succeeds.
         """
         try:
             logger.info(f"Callback details - Trans_ref: {callback_response.trans_ref}, Trans_id: {callback_response.trans_id}, Status: {callback_response.trans_status}, Message: {callback_response.message}")
@@ -131,47 +132,165 @@ class PaymentService:
             if not callback_response.trans_ref:
                 raise ValueError("Transaction reference (trans_ref) is required")
 
-            payment = self.db.query(Payment).filter(Payment.transaction_id == str(callback_response.trans_ref)).first()
+            trans_ref_str = str(callback_response.trans_ref)
+
+            # Find payment by looking up both ctm_transaction_id and transaction_id
+            payment = self.db.query(Payment).filter(
+                (Payment.transaction_id == trans_ref_str) |
+                (Payment.ctm_transaction_id == trans_ref_str) |
+                (Payment.mtc_transaction_id == trans_ref_str)
+            ).first()
+
             if not payment:
                 logger.error(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
                 raise PaymentNotFoundException(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
 
+            # Determine which leg of the transaction this callback is for
+            is_ctm_callback = (trans_ref_str == payment.transaction_id or trans_ref_str == payment.ctm_transaction_id)
+            is_mtc_callback = (trans_ref_str == payment.mtc_transaction_id)
+
             incoming_status = self._determine_payment_status(callback_response.trans_status)
             logger.info(f"Payment ID: {payment.id} | Current Status: {payment.status} | Incoming Status: {incoming_status}")
 
-            # Skip processing if no status change or already successful
-            if self._should_skip_callback_processing(payment, incoming_status):
-                return
-
-            # Handle successful payment - create invoice
-            if incoming_status == PaymentStatus.SUCCESS:
-                logger.info(f"Payment callback confirmed success for transaction {payment.transaction_id}")
-                self._handle_success(payment, {"resp_code": "000", "resp_desc": "Payment successful"})
+            if is_ctm_callback:
+                # Handle CTM (Customer to Merchant) callback
+                self._handle_ctm_callback(payment, callback_response, incoming_status)
+            elif is_mtc_callback:
+                # Handle MTC (Merchant to Customer) callback
+                self._handle_mtc_callback(payment, callback_response, incoming_status)
             else:
-                # Handle failed payment
-                logger.warn(f"Payment callback confirmed failure for transaction {payment.transaction_id}")
-                payment.status = incoming_status
-                payment.updated_on = datetime.now()
-                self.db.add(payment)
-                self.db.commit()
-                logger.info(f"Payment status updated to {incoming_status} for payment ID: {payment.id}")
+                logger.error(f"Unable to determine callback type for transaction {callback_response.trans_ref}")
+                raise ValueError("Unable to determine if callback is for CTM or MTC")
 
         except Exception as e:
             self.db.rollback()
             logger.error("Unexpected error during callback processing", exc_info=True)
             raise
     
+    def _handle_ctm_callback(self, payment: Payment, callback_response: Any, incoming_status: PaymentStatus) -> None:
+        """
+        Handle CTM (Customer to Merchant) callback.
+        If successful, sets status to CTM_SUCCESS and initiates MTC.
+        If failed, sets status to CTM_FAILED.
+        """
+        if incoming_status == PaymentStatus.SUCCESS:
+            logger.info(f"CTM callback confirmed success for transaction {payment.transaction_id}")
+            payment.status = PaymentStatus.CTM_SUCCESS
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+
+            # Now initiate MTC (Merchant to Customer) to send money to receiver
+            logger.info(f"Initiating MTC for transaction {payment.transaction_id}")
+            self._initiate_mtc(payment)
+        else:
+            # CTM failed
+            logger.warning(f"CTM callback confirmed failure for transaction {payment.transaction_id}")
+            payment.status = PaymentStatus.CTM_FAILED
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+            logger.info(f"Payment marked as CTM_FAILED for payment ID: {payment.id}")
+
+    def _handle_mtc_callback(self, payment: Payment, callback_response: Any, incoming_status: PaymentStatus) -> None:
+        """
+        Handle MTC (Merchant to Customer) callback.
+        If successful, sets status to SUCCESS and creates invoice.
+        If failed, sets status to MTC_FAILED.
+        """
+        if incoming_status == PaymentStatus.SUCCESS:
+            logger.info(f"MTC callback confirmed success for transaction {payment.transaction_id}")
+            # MTC succeeded - both legs are complete, mark as SUCCESS
+            self._handle_success(payment, {"resp_code": "000", "resp_desc": "Payment successful"})
+        else:
+            # MTC failed
+            logger.warning(f"MTC callback confirmed failure for transaction {payment.transaction_id}")
+            payment.status = PaymentStatus.MTC_FAILED
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+            logger.info(f"Payment marked as MTC_FAILED for payment ID: {payment.id}")
+
+    def _initiate_mtc(self, payment: Payment) -> None:
+        """
+        Initiate MTC (Merchant to Customer) transaction after CTM succeeds.
+        Send the same amount from merchant account to receiver.
+        """
+        try:
+            # Generate unique transaction ID for MTC
+            mtc_transaction_id = str(UniqueIdGenerator.generate())
+            payment.mtc_transaction_id = mtc_transaction_id
+            payment.status = PaymentStatus.MTC_PROCESSING
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+
+            # Build MTC payment request
+            # MTC is Merchant to Customer (payout), so trans_type = "MTC"
+            mtc_request = self._build_mtc_payment_request(payment, mtc_transaction_id)
+            logger.info(f"Built MTC payment request for transaction: {mtc_transaction_id}")
+
+            # Send to Orchard API
+            logger.info(f"Sending MTC request to Orchard API for transaction: {mtc_transaction_id}")
+            http_response = self.payment_gateway_client.process_payment(mtc_request)
+            logger.info(f"Received MTC response from Orchard API: status_code={http_response.status_code}")
+
+            # Process MTC response (same as CTM - should get 015 meaning request accepted)
+            if http_response.status_code == 200:
+                response_data = http_response.json()
+                if response_data and response_data.get("resp_code") == "015":
+                    logger.info(f"MTC request accepted for processing (resp_code: 015) for transactionId: {mtc_transaction_id}")
+                    # MTC is now processing, waiting for callback
+                    logger.info(f"Awaiting MTC callback for transaction {mtc_transaction_id}")
+                else:
+                    logger.warning(f"MTC failed with response code: {response_data.get('resp_code')}")
+                    payment.status = PaymentStatus.MTC_FAILED
+                    self.db.add(payment)
+                    self.db.commit()
+            else:
+                logger.error(f"MTC gateway returned HTTP status: {http_response.status_code}")
+                payment.status = PaymentStatus.MTC_FAILED
+                self.db.add(payment)
+                self.db.commit()
+
+        except Exception as e:
+            logger.error(f"Error initiating MTC for transaction {payment.transaction_id}: {str(e)}", exc_info=True)
+            payment.status = PaymentStatus.MTC_FAILED
+            self.db.add(payment)
+            self.db.commit()
+            raise
+
+    def _build_mtc_payment_request(self, payment: Payment, mtc_transaction_id: str) -> Dict[str, Any]:
+        """
+        Build MTC (Merchant to Customer) payment request.
+        MTC sends money from merchant account to customer/receiver.
+        """
+        amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
+        request_data = {
+            "amount": str(amount.quantize(Decimal('0.00'))),
+            "customer_number": payment.phone_number,  # Receiver's phone number
+            "exttrid": mtc_transaction_id,
+            "nw": payment.network.value,
+            "reference": f"Payout for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
+            "service_id": self.service_id,
+            "ts": self.payment_gateway_client.get_current_timestamp(),
+            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "trans_type": "MTC"  # Merchant to Customer
+        }
+        logger.info(f"Built MTC payment request: trans_type=MTC")
+        return request_data
+
     def _should_skip_callback_processing(self, payment: Payment, incoming_status: PaymentStatus) -> bool:
         # Skip if status unchanged
         if payment.status == incoming_status:
             logger.info("Skipping callback - status unchanged")
             return True
-        
+
         # Skip if already successful
         if payment.status == PaymentStatus.SUCCESS:
             logger.info("Skipping callback - payment already successful")
             return True
-        
+
         return False
     
     def _determine_payment_status(self, trans_status: str) -> PaymentStatus:

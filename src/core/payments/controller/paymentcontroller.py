@@ -6,6 +6,7 @@ from typing import List
 from decimal import Decimal
 import logging
 from fastapi_jwt_auth.exceptions import MissingTokenError
+from datetime import datetime
 
 from core.exceptions.PaymentException import PaymentNotFoundException
 from core.payments.dto.paymentdto import PaymentDto
@@ -247,7 +248,7 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
 
             # Use NLU's receipt generation method
             nlu_system = LebeNLUSystem()
-            receipt_url = nlu_system._generate_receipt_after_payment(
+            receipt_url = nlu_system.generate_receipt_after_payment(
                 transaction_id=payment.transaction_id,
                 user_id=payment.phone_number,
                 intent=intent,

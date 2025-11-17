@@ -353,7 +353,7 @@ class LebeNLUSystem:
             # Fallback for unhandled intents
             return self.response_formatter.format_response(intent, "error", message="Intent not supported")
         
-    def _generate_receipt_after_payment(self, transaction_id: str, user_id: str, intent: str, 
+    def generate_receipt_after_payment(self, transaction_id: str, user_id: str, intent: str, 
                                   amount: Decimal, status: str, sender: str, receiver: str, 
                                   payment_method: str, timestamp: datetime) -> str:
         """Generate receipt image and save to Azure Blob Storage"""

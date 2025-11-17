@@ -21,7 +21,11 @@ class Payment(Base):
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod), nullable=False)
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False)
 
-    transaction_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    # Transaction IDs - tracks both CTM and MTC legs
+    transaction_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)  # Original CTM transaction
+    ctm_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # CTM (Customer to Merchant) transaction ID
+    mtc_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # MTC (Merchant to Customer) transaction ID
+
     service_name: Mapped[Optional[str]] = mapped_column(String)
     intent: Mapped[Optional[str]] = mapped_column(String)
     customer_email: Mapped[Optional[str]] = mapped_column(String)

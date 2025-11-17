@@ -284,8 +284,30 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
             logger.info(f"[CALLBACK] WhatsApp notification sent to {normalized_phone}")
 
         else:
-            # Send failure notification
-            failure_message = (
+            # Generate failure receipt using NLU system's method
+            logger.info(f"[CALLBACK] Generating receipt for failed payment: {payment.transaction_id}")
+
+            # Use the intent stored in the payment record
+            intent = payment.intent or "payment"
+
+            # Use NLU's receipt generation method with FAILED status
+            nlu_system = LebeNLUSystem()
+            receipt_url = nlu_system.generate_receipt_after_payment(
+                transaction_id=payment.transaction_id,
+                user_id=payment.phone_number,
+                intent=intent,
+                amount=payment.amount_paid,
+                status='FAILED',
+                sender=payment.phone_number,
+                receiver=payment.phone_number,
+                payment_method=payment.payment_method.name,
+                timestamp=payment.updated_on or datetime.now()
+            )
+
+            logger.info(f"[CALLBACK] Failure receipt saved to Azure Storage: {receipt_url}")
+
+            # Send failure receipt image with caption
+            failure_caption = (
                 f"❌ Payment Failed\n\n"
                 f"{payment.service_name}\n"
                 f"Amount: GHS {payment.amount_paid}\n"
@@ -294,10 +316,11 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
                 f"Please try again or contact support if the issue persists."
             )
 
-            whatsapp_service.send_message(
+            whatsapp_service.send_message_receipt(
                 phone_number_id=phone_number_id,
                 recipient_phone=normalized_phone,
-                message_text=failure_message
+                image_url=receipt_url,
+                caption=failure_caption
             )
 
             logger.info(f"[CALLBACK] Failure notification sent to {normalized_phone}")

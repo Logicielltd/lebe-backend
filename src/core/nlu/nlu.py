@@ -358,8 +358,8 @@ class LebeNLUSystem:
                                   payment_method: str, timestamp: datetime) -> str:
         """Generate receipt image and save to Azure Blob Storage"""
         try:
-            
-            print(f"[RECEIPT] Generating receipt for transaction: {transaction_id}")
+
+            logger.info(f"[RECEIPT] Generating receipt for transaction: {transaction_id}")
             
             # Map intent to transaction type for receipt
             transaction_type_map = {
@@ -414,11 +414,11 @@ class LebeNLUSystem:
                 content_type="image/png"
             )
             
-            print(f"[RECEIPT] Receipt saved to Azure Storage: {blob_url}")
+            logger.info(f"[RECEIPT] Receipt saved to Azure Storage: {blob_url}")
             return blob_url
-            
+
         except Exception as e:
-            print(f"[RECEIPT] Error generating/saving receipt: {str(e)}")
+            logger.error(f"[RECEIPT] Error generating/saving receipt: {str(e)}")
             # Return a fallback or empty string if receipt generation fails
             return ""
 

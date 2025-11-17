@@ -215,6 +215,7 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
     from core.webhooks.service.whatsapp_service import WhatsAppService
     from core.payments.model.payment import Payment
     from core.nlu.nlu import LebeNLUSystem
+    from utilities.phone_utils import normalize_ghana_phone_number
 
     try:
         # Get WhatsApp phone number ID from environment
@@ -231,6 +232,9 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
         if not payment:
             logger.error(f"Payment not found for notification: {callback_response.trans_ref}")
             return
+
+        # Normalize phone number for WhatsApp (must be in format 233XXXXXXXXX)
+        normalized_phone = normalize_ghana_phone_number(payment.phone_number)
 
         # Determine status from callback
         status_code = callback_response.trans_status[:3] if callback_response.trans_status else None
@@ -272,12 +276,12 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
 
             whatsapp_service.send_message_receipt(
                 phone_number_id=phone_number_id,
-                recipient_phone=payment.phone_number,
+                recipient_phone=normalized_phone,
                 image_url=receipt_url,
                 caption=success_caption
             )
 
-            logger.info(f"[CALLBACK] WhatsApp notification sent to {payment.phone_number}")
+            logger.info(f"[CALLBACK] WhatsApp notification sent to {normalized_phone}")
 
         else:
             # Send failure notification
@@ -292,11 +296,11 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
 
             whatsapp_service.send_message(
                 phone_number_id=phone_number_id,
-                recipient_phone=payment.phone_number,
+                recipient_phone=normalized_phone,
                 message_text=failure_message
             )
 
-            logger.info(f"[CALLBACK] Failure notification sent to {payment.phone_number}")
+            logger.info(f"[CALLBACK] Failure notification sent to {normalized_phone}")
 
     except Exception as e:
         logger.error(f"[CALLBACK] Error sending payment notification: {str(e)}", exc_info=True)

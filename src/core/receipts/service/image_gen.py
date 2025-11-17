@@ -97,14 +97,6 @@ class ReceiptGenerator:
         icon_y = card_top + 50
         r = 30
         draw.ellipse([center_x - r, icon_y - r, center_x + r, icon_y + r], fill=accent_color)
-
-
-        # icon_to_use = self.failed_icon if is_failed else self.success_icon
-        # # Calculate position to center the icon
-        # icon_x = center_x - icon_to_use.width // 2
-        # icon_y_pos = icon_y - icon_to_use.height // 2
-        # # Paste the icon onto the image
-        # image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
             
         #Use image icon instead of drawn lines
         if (is_failed and self.failed_icon) or (not is_failed and self.success_icon):

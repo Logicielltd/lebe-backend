@@ -4,6 +4,9 @@ import base64
 from datetime import datetime
 from typing import Dict, Any
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ReceiptGenerator:
     def __init__(self):
@@ -23,10 +26,10 @@ class ReceiptGenerator:
             icon = icon.resize((26, 26), Image.Resampling.LANCZOS)
             return icon
         except FileNotFoundError:
-            print(f"Warning: Icon file {icon_path} not found. Using fallback drawing.")
+            logger.warning(f"Icon file {icon_path} not found. Using fallback drawing.")
             return None
         except Exception as e:
-            print(f"Warning: Could not load icon {icon_path}: {e}. Using fallback drawing.")
+            logger.warning(f"Could not load icon {icon_path}: {e}. Using fallback drawing.")
             return None
 
     def generate_receipt_image(self, receipt_data: Dict[str, Any]) -> str:
@@ -65,7 +68,8 @@ class ReceiptGenerator:
         light_gray_bg = "#F6F8FA"
         border_color = "#E0E0E0"
 
-        # Fonts (try Poppins, fallback to Arial)
+        # Fonts (try Poppins, fallback to Arial, fallback to default)
+        default_font = ImageFont.load_default()
         try:
             title_font = ImageFont.truetype("Poppins-SemiBold.ttf", 24)
             subtitle_font = ImageFont.truetype("Poppins-Regular.ttf", 16)
@@ -73,11 +77,19 @@ class ReceiptGenerator:
             regular_font = ImageFont.truetype("Poppins-Regular.ttf", 14)
             small_font = ImageFont.truetype("Poppins-Regular.ttf", 12)
         except:
-            title_font = ImageFont.truetype("arialbd.ttf", 24)
-            subtitle_font = ImageFont.truetype("arial.ttf", 16)
-            bold_font = ImageFont.truetype("arialbd.ttf", 14)
-            regular_font = ImageFont.truetype("arial.ttf", 14)
-            small_font = ImageFont.truetype("arial.ttf", 12)
+            try:
+                title_font = ImageFont.truetype("arialbd.ttf", 24)
+                subtitle_font = ImageFont.truetype("arial.ttf", 16)
+                bold_font = ImageFont.truetype("arialbd.ttf", 14)
+                regular_font = ImageFont.truetype("arial.ttf", 14)
+                small_font = ImageFont.truetype("arial.ttf", 12)
+            except:
+                # Fallback to PIL's default font when no TTF fonts are available
+                title_font = default_font
+                subtitle_font = default_font
+                bold_font = default_font
+                regular_font = default_font
+                small_font = default_font
 
         # Draw rounded card background
         card_margin = 20
@@ -223,6 +235,7 @@ class ReceiptGenerator:
         danger_color = "#d32f2f"
 
         # Fonts
+        default_font = ImageFont.load_default()
         try:
             title_font = ImageFont.truetype("Poppins-SemiBold.ttf", 24)
             subtitle_font = ImageFont.truetype("Poppins-Regular.ttf", 16)
@@ -230,11 +243,19 @@ class ReceiptGenerator:
             regular_font = ImageFont.truetype("Poppins-Regular.ttf", 14)
             small_font = ImageFont.truetype("Poppins-Regular.ttf", 12)
         except:
-            title_font = ImageFont.truetype("arialbd.ttf", 24)
-            subtitle_font = ImageFont.truetype("arial.ttf", 16)
-            bold_font = ImageFont.truetype("arialbd.ttf", 14)
-            regular_font = ImageFont.truetype("arial.ttf", 14)
-            small_font = ImageFont.truetype("arial.ttf", 12)
+            try:
+                title_font = ImageFont.truetype("arialbd.ttf", 24)
+                subtitle_font = ImageFont.truetype("arial.ttf", 16)
+                bold_font = ImageFont.truetype("arialbd.ttf", 14)
+                regular_font = ImageFont.truetype("arial.ttf", 14)
+                small_font = ImageFont.truetype("arial.ttf", 12)
+            except:
+                # Fallback to PIL's default font when no TTF fonts are available
+                title_font = default_font
+                subtitle_font = default_font
+                bold_font = default_font
+                regular_font = default_font
+                small_font = default_font
 
         # Card
         card_margin = 20

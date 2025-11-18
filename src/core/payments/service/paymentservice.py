@@ -126,45 +126,68 @@ class PaymentService:
         Two-stage transaction: CTM first, then MTC after CTM succeeds.
         """
         try:
-            logger.info(f"Callback details - Trans_ref: {callback_response.trans_ref}, Trans_id: {callback_response.trans_id}, Status: {callback_response.trans_status}, Message: {callback_response.message}")
+            logger.info(f"[CALLBACK_START] Received callback - Trans_ref: {callback_response.trans_ref}, Trans_id: {callback_response.trans_id}, Status: {callback_response.trans_status}, Message: {callback_response.message}")
 
             # Validate callback data
+            logger.debug(f"[CALLBACK_VALIDATION] Checking if trans_ref is present: {callback_response.trans_ref is not None}")
             if not callback_response.trans_ref:
+                logger.error("[CALLBACK_VALIDATION_FAILED] Missing trans_ref in callback")
                 raise ValueError("Transaction reference (trans_ref) is required")
+            logger.info(f"[CALLBACK_VALIDATION_SUCCESS] trans_ref validation passed: {callback_response.trans_ref}")
 
             trans_ref_str = str(callback_response.trans_ref)
+            logger.debug(f"[CALLBACK_CONVERSION] Converted trans_ref to string: '{trans_ref_str}'")
 
             # Find payment by looking up both ctm_transaction_id and transaction_id
+            logger.debug(f"[DB_QUERY_START] Searching for payment with trans_ref_str: '{trans_ref_str}'")
+            logger.debug(f"[DB_QUERY_FILTERS] Looking for payment where: transaction_id='{trans_ref_str}' OR ctm_transaction_id='{trans_ref_str}' OR mtc_transaction_id='{trans_ref_str}'")
             payment = self.db.query(Payment).filter(
                 (Payment.transaction_id == trans_ref_str) |
                 (Payment.ctm_transaction_id == trans_ref_str) |
                 (Payment.mtc_transaction_id == trans_ref_str)
             ).first()
+            logger.debug(f"[DB_QUERY_END] Query completed, payment found: {payment is not None}")
 
             if not payment:
-                logger.error(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
+                logger.error(f"[PAYMENT_NOT_FOUND] Payment not found for Transaction ID: {callback_response.trans_ref}")
                 raise PaymentNotFoundException(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
 
+            logger.info(f"[PAYMENT_FOUND] Payment found - ID: {payment.id}, transaction_id: {payment.transaction_id}, ctm_transaction_id: {payment.ctm_transaction_id}, mtc_transaction_id: {payment.mtc_transaction_id}")
+
             # Determine which leg of the transaction this callback is for
+            logger.debug(f"[CALLBACK_TYPE_CHECK_START] Determining callback type")
+            logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.transaction_id='{payment.transaction_id}'")
+            logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.ctm_transaction_id='{payment.ctm_transaction_id}'")
+            logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.mtc_transaction_id='{payment.mtc_transaction_id}'")
+
             is_ctm_callback = (trans_ref_str == payment.transaction_id or trans_ref_str == payment.ctm_transaction_id)
             is_mtc_callback = (trans_ref_str == payment.mtc_transaction_id)
 
+            logger.info(f"[CALLBACK_TYPE_DETERMINED] is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}")
+
             incoming_status = self._determine_payment_status(callback_response.trans_status)
-            logger.info(f"Payment ID: {payment.id} | Current Status: {payment.status} | Incoming Status: {incoming_status}")
+            logger.info(f"[CALLBACK_STATUS_ANALYSIS] Payment ID: {payment.id} | Current Status: {payment.status} | Incoming Status: {incoming_status} | Callback Status Code: {callback_response.trans_status}")
 
             if is_ctm_callback:
+                logger.info(f"[CALLBACK_HANDLER_START] Handling CTM callback for payment ID: {payment.id}")
                 # Handle CTM (Customer to Merchant) callback
                 self._handle_ctm_callback(payment, callback_response, incoming_status)
+                logger.info(f"[CALLBACK_HANDLER_END] CTM callback handling completed for payment ID: {payment.id}")
             elif is_mtc_callback:
+                logger.info(f"[CALLBACK_HANDLER_START] Handling MTC callback for payment ID: {payment.id}")
                 # Handle MTC (Merchant to Customer) callback
                 self._handle_mtc_callback(payment, callback_response, incoming_status)
+                logger.info(f"[CALLBACK_HANDLER_END] MTC callback handling completed for payment ID: {payment.id}")
             else:
-                logger.error(f"Unable to determine callback type for transaction {callback_response.trans_ref}")
+                logger.error(f"[CALLBACK_TYPE_ERROR] Unable to determine callback type for transaction {callback_response.trans_ref}. is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}")
                 raise ValueError("Unable to determine if callback is for CTM or MTC")
 
+            logger.info(f"[CALLBACK_COMPLETE] Callback processing completed successfully for trans_ref: {callback_response.trans_ref}")
+
         except Exception as e:
+            logger.error(f"[CALLBACK_ERROR] Exception occurred during callback processing: {str(e)}", exc_info=True)
             self.db.rollback()
-            logger.error("Unexpected error during callback processing", exc_info=True)
+            logger.error("[CALLBACK_ROLLBACK] Database transaction rolled back")
             raise
     
     def _handle_ctm_callback(self, payment: Payment, callback_response: Any, incoming_status: PaymentStatus) -> None:
@@ -173,24 +196,31 @@ class PaymentService:
         If successful, sets status to CTM_SUCCESS and initiates MTC.
         If failed, sets status to CTM_FAILED.
         """
+        logger.info(f"[CTM_CALLBACK_HANDLER_START] Processing CTM callback for payment ID: {payment.id}, transaction_id: {payment.transaction_id}")
+        logger.debug(f"[CTM_CALLBACK_HANDLER_STATUS] Current payment status: {payment.status}, Incoming status: {incoming_status}")
+
         if incoming_status == PaymentStatus.SUCCESS:
-            logger.info(f"CTM callback confirmed success for transaction {payment.transaction_id}")
+            logger.info(f"[CTM_CALLBACK_SUCCESS] CTM callback confirmed success for transaction {payment.transaction_id}")
+            logger.debug(f"[CTM_CALLBACK_SUCCESS_DETAIL] Updating payment status to CTM_SUCCESS")
             payment.status = PaymentStatus.CTM_SUCCESS
             payment.updated_on = datetime.now()
             self.db.add(payment)
             self.db.commit()
+            logger.info(f"[CTM_STATUS_UPDATED] Payment status updated to CTM_SUCCESS for payment ID: {payment.id}")
 
             # Now initiate MTC (Merchant to Customer) to send money to receiver
-            logger.info(f"Initiating MTC for transaction {payment.transaction_id}")
+            logger.info(f"[CTM_CALLBACK_INITIATING_MTC] Initiating MTC for transaction {payment.transaction_id}")
             self._initiate_mtc(payment)
+            logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC initiated) for payment ID: {payment.id}")
         else:
             # CTM failed
-            logger.warning(f"CTM callback confirmed failure for transaction {payment.transaction_id}")
+            logger.warning(f"[CTM_CALLBACK_FAILURE] CTM callback confirmed failure for transaction {payment.transaction_id}")
+            logger.debug(f"[CTM_CALLBACK_FAILURE_DETAIL] Incoming status was: {incoming_status}")
             payment.status = PaymentStatus.CTM_FAILED
             payment.updated_on = datetime.now()
             self.db.add(payment)
             self.db.commit()
-            logger.info(f"Payment marked as CTM_FAILED for payment ID: {payment.id}")
+            logger.info(f"[CTM_CALLBACK_HANDLER_END] Payment marked as CTM_FAILED for payment ID: {payment.id}")
 
     def _handle_mtc_callback(self, payment: Payment, callback_response: Any, incoming_status: PaymentStatus) -> None:
         """
@@ -198,18 +228,24 @@ class PaymentService:
         If successful, sets status to SUCCESS and creates invoice.
         If failed, sets status to MTC_FAILED.
         """
+        logger.info(f"[MTC_CALLBACK_HANDLER_START] Processing MTC callback for payment ID: {payment.id}, mtc_transaction_id: {payment.mtc_transaction_id}")
+        logger.debug(f"[MTC_CALLBACK_HANDLER_STATUS] Current payment status: {payment.status}, Incoming status: {incoming_status}")
+
         if incoming_status == PaymentStatus.SUCCESS:
-            logger.info(f"MTC callback confirmed success for transaction {payment.transaction_id}")
+            logger.info(f"[MTC_CALLBACK_SUCCESS] MTC callback confirmed success for transaction {payment.transaction_id}")
+            logger.info(f"[MTC_CALLBACK_SUCCESS_DETAIL] Both CTM and MTC legs completed, marking payment as SUCCESS")
             # MTC succeeded - both legs are complete, mark as SUCCESS
             self._handle_success(payment, {"resp_code": "000", "resp_desc": "Payment successful"})
+            logger.info(f"[MTC_CALLBACK_HANDLER_END] MTC callback handler completed successfully for payment ID: {payment.id}")
         else:
             # MTC failed
-            logger.warning(f"MTC callback confirmed failure for transaction {payment.transaction_id}")
+            logger.warning(f"[MTC_CALLBACK_FAILURE] MTC callback confirmed failure for transaction {payment.transaction_id}")
+            logger.debug(f"[MTC_CALLBACK_FAILURE_DETAIL] Incoming status was: {incoming_status}")
             payment.status = PaymentStatus.MTC_FAILED
             payment.updated_on = datetime.now()
             self.db.add(payment)
             self.db.commit()
-            logger.info(f"Payment marked as MTC_FAILED for payment ID: {payment.id}")
+            logger.info(f"[MTC_CALLBACK_HANDLER_END] Payment marked as MTC_FAILED for payment ID: {payment.id}")
 
     def _initiate_mtc(self, payment: Payment) -> None:
         """
@@ -235,13 +271,14 @@ class PaymentService:
             http_response = self.payment_gateway_client.process_payment(mtc_request)
             logger.info(f"Received MTC response from Orchard API: status_code={http_response.status_code}")
 
-            # Process MTC response (same as CTM - should get 015 meaning request accepted)
+            # Process MTC response - should get 027 meaning request accepted
             if http_response.status_code == 200:
                 response_data = http_response.json()
-                if response_data and response_data.get("resp_code") == "027":
-                    logger.info(f"MTC request accepted for processing (resp_code: 015) for transactionId: {mtc_transaction_id}")
+                resp_code = response_data.get("resp_code") if response_data else None
+                if response_data and resp_code == "027":
+                    logger.info(f"[MTC_RESPONSE_SUCCESS] MTC request accepted for processing (resp_code: {resp_code}) for transactionId: {mtc_transaction_id}")
                     # MTC is now processing, waiting for callback
-                    logger.info(f"Awaiting MTC callback for transaction {mtc_transaction_id}")
+                    logger.info(f"[MTC_PROCESSING] Awaiting MTC callback for transaction {mtc_transaction_id}")
                 else:
                     logger.warning(f"MTC failed with response code: {response_data.get('resp_code')}")
                     payment.status = PaymentStatus.MTC_FAILED

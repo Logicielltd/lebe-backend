@@ -245,8 +245,6 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
 
         if is_success:
             # Generate receipt using NLU system's method
-            logger.info(f"[CALLBACK] Generating receipt for successful payment: {payment.transaction_id}")
-
             # Use the intent stored in the payment record
             intent = payment.intent or "payment"
 
@@ -264,8 +262,6 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
                 timestamp=payment.updated_on or datetime.now()
             )
 
-            logger.info(f"[CALLBACK] Receipt saved to Azure Storage: {receipt_url}")
-
             # Send receipt image with caption containing all transaction details
             success_caption = (
                 f"✅ Payment Successful!\n\n"
@@ -281,12 +277,8 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
                 caption=success_caption
             )
 
-            logger.info(f"[CALLBACK] WhatsApp notification sent to {normalized_phone}")
-
         else:
             # Generate failure receipt using NLU system's method
-            logger.info(f"[CALLBACK] Generating receipt for failed payment: {payment.transaction_id}")
-
             # Use the intent stored in the payment record
             intent = payment.intent or "payment"
 
@@ -304,8 +296,6 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
                 timestamp=payment.updated_on or datetime.now()
             )
 
-            logger.info(f"[CALLBACK] Failure receipt saved to Azure Storage: {receipt_url}")
-
             # Send failure receipt image with caption
             failure_caption = (
                 f"❌ Payment Failed\n\n"
@@ -322,8 +312,6 @@ def _send_payment_notification_to_user(callback_response: PaymentCallbackRespons
                 image_url=receipt_url,
                 caption=failure_caption
             )
-
-            logger.info(f"[CALLBACK] Failure notification sent to {normalized_phone}")
 
     except Exception as e:
         logger.error(f"[CALLBACK] Error sending payment notification: {str(e)}", exc_info=True)

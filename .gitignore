@@ -10,6 +10,7 @@ __pycache__/
 .Python
 .claude
 CLAUDE.md
+/lebe_env
 build/
 develop-eggs/
 dist/

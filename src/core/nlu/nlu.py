@@ -479,24 +479,3 @@ class LebeNLUSystem:
             return None
         finally:
             db.close()
-
-# Usage example
-# if __name__ == "__main__":
-#     nlu_system = LebeNLUSystem()
-    
-#     # Simulate user onboarding
-#     nlu_system.initialize_user("user123", "1234")
-    
-#     # Simulate conversation
-#     test_messages = [
-#         "Hello",
-#         "I want to send money",
-#         "Send 50 cedis to 0234567890",
-#         "1234"  # PIN
-#     ]
-    
-#     user_id = "user123"
-#     for message in test_messages:
-#         print(f"User: {message}")
-#         response = nlu_system.process_message(user_id, message)
-#         print(f"Lebe: {response}\n")

@@ -238,7 +238,7 @@ class PaymentService:
             # Process MTC response (same as CTM - should get 015 meaning request accepted)
             if http_response.status_code == 200:
                 response_data = http_response.json()
-                if response_data and response_data.get("resp_code") == "015":
+                if response_data and response_data.get("resp_code") == "027":
                     logger.info(f"MTC request accepted for processing (resp_code: 015) for transactionId: {mtc_transaction_id}")
                     # MTC is now processing, waiting for callback
                     logger.info(f"Awaiting MTC callback for transaction {mtc_transaction_id}")

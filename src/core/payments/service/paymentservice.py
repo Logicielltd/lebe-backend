@@ -271,13 +271,14 @@ class PaymentService:
             http_response = self.payment_gateway_client.process_payment(mtc_request)
             logger.info(f"Received MTC response from Orchard API: status_code={http_response.status_code}")
 
-            # Process MTC response - should get 027 meaning request accepted
+            # Process MTC response - should get 015 or 027 meaning request accepted
             if http_response.status_code == 200:
                 response_data = http_response.json()
                 resp_code = response_data.get("resp_code") if response_data else None
-                if response_data and resp_code == "027":
+                # Both 015 (request received for processing) and 027 (request successfully completed) are valid
+                if response_data and resp_code in ["015", "027"]:
                     logger.info(f"[MTC_RESPONSE_SUCCESS] MTC request accepted for processing (resp_code: {resp_code}) for transactionId: {mtc_transaction_id}")
-                    # MTC is now processing, waiting for callback
+                    # MTC is now processing, waiting for callback or status check
                     logger.info(f"[MTC_PROCESSING] Awaiting MTC callback for transaction {mtc_transaction_id}")
 
                     # Schedule background job to check MTC status (uses env variables for interval and attempts)
@@ -351,7 +352,7 @@ class PaymentService:
         elif status_code == "001":
             return PaymentStatus.FAILED
         else:
-            logger.warn(f"Unknown status code received: {trans_status}")
+            logger.warning(f"Unknown status code received: {trans_status}")
             return PaymentStatus.FAILED
     
     def get_payment_by_id(self, id: int) -> Payment:
@@ -549,7 +550,7 @@ class PaymentService:
         )
     
     def _handle_gateway_failure(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
-        logger.warn(f"Handling gateway failure for transactionId: {payment.transaction_id}. Response code: {response.get('resp_code')}, description: {response.get('resp_desc')}")
+        logger.warning(f"Handling gateway failure for transactionId: {payment.transaction_id}. Response code: {response.get('resp_code')}, description: {response.get('resp_desc')}")
 
         payment.status = PaymentStatus.FAILED
         self.db.add(payment)

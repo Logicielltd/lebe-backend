@@ -32,15 +32,30 @@ from sqlalchemy import inspect
 
 from loguru import logger
 import logging
+from contextlib import asynccontextmanager
 
 
-# Initialize FastAPI
+# Initialize FastAPI with lifespan event handler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application startup and shutdown"""
+    # Startup
+    logger.info("[APP_STARTUP] Application starting...")
+    yield
+    # Shutdown
+    logger.info("[APP_SHUTDOWN] Application shutting down...")
+    try:
+        from core.payments.service.payment_check_service import PaymentCheckService
+        PaymentCheckService.shutdown_scheduler()
+    except Exception as e:
+        logger.error(f"[APP_SHUTDOWN_ERROR] Error shutting down scheduler: {str(e)}")
 
-app = FastAPI( 
+
+app = FastAPI(
     title=settings.SERVICE_NAME,
     version="1.0",
     description="""**Lebe Core API** An AI focused app infrastructure deployed with python.
-    
+
     Default Endpoints:
     - Authentication
     - File and Document Management
@@ -55,6 +70,7 @@ app = FastAPI(
     license_info={
         "name": "MIT",
     },
+    lifespan=lifespan
 )
 
 

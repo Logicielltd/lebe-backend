@@ -279,6 +279,15 @@ class PaymentService:
                     logger.info(f"[MTC_RESPONSE_SUCCESS] MTC request accepted for processing (resp_code: {resp_code}) for transactionId: {mtc_transaction_id}")
                     # MTC is now processing, waiting for callback
                     logger.info(f"[MTC_PROCESSING] Awaiting MTC callback for transaction {mtc_transaction_id}")
+
+                    # Schedule background job to check MTC status (uses env variables for interval and attempts)
+                    try:
+                        from core.payments.service.payment_check_service import PaymentCheckService
+                        check_service = PaymentCheckService(self.db)
+                        check_service.schedule_payment_status_check(payment.id)
+                        logger.info(f"[MTC_BACKGROUND_JOB_SCHEDULED] Status check scheduled for payment {payment.id}")
+                    except Exception as e:
+                        logger.error(f"[MTC_BACKGROUND_JOB_ERROR] Failed to schedule background check: {str(e)}", exc_info=True)
                 else:
                     logger.warning(f"MTC failed with response code: {response_data.get('resp_code')}")
                     payment.status = PaymentStatus.MTC_FAILED
@@ -484,9 +493,9 @@ class PaymentService:
     def _handle_pending_payment(self, payment: Payment, response: Dict[str, Any]) -> PaymentResultResponse:
         """
         Handle response code 015: Request received for processing.
-        Payment is PENDING - waiting for callback from Orchard API.
+        Payment is PENDING - schedule background job to check status instead of waiting for callback.
         """
-        logger.info(f"Payment request accepted, awaiting callback for transactionId: {payment.transaction_id}")
+        logger.info(f"Payment request accepted (resp_code: 015), scheduling status checks for transactionId: {payment.transaction_id}")
         payment.status = PaymentStatus.PENDING
 
         logger.info(f"Persisting pending payment for transactionId: {payment.transaction_id}")
@@ -494,6 +503,15 @@ class PaymentService:
         self.db.commit()
 
         logger.info(f"Payment persisted with PENDING status for paymentId: {payment.id}, transactionId: {payment.transaction_id}")
+
+        # Schedule background job to check CTM status (uses env variables for interval and attempts)
+        try:
+            from core.payments.service.payment_check_service import PaymentCheckService
+            check_service = PaymentCheckService(self.db)
+            check_service.schedule_payment_status_check(payment.id)
+            logger.info(f"[CTM_BACKGROUND_JOB_SCHEDULED] Status check scheduled for payment {payment.id}")
+        except Exception as e:
+            logger.error(f"[CTM_BACKGROUND_JOB_ERROR] Failed to schedule background check: {str(e)}", exc_info=True)
 
         return PaymentResultResponse(
             payment_id=payment.id,

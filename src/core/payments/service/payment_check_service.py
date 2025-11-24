@@ -128,7 +128,7 @@ class PaymentCheckService:
                 db.close()
                 return
 
-            logger.info(f"[PAYMENT_CHECK_STATUS] Current status: {payment.status} | MTC Transaction ID: {payment.mtc_transaction_id}")
+            logger.info(f"[PAYMENT_CHECK_STATUS] Current status: {payment.status} | Transaction ID: {payment.transaction_id} | MTC Transaction ID: {payment.mtc_transaction_id}")
 
             # If already SUCCESS, stop checking
             if payment.status == PaymentStatus.SUCCESS:
@@ -137,12 +137,30 @@ class PaymentCheckService:
                 db.close()
                 return
 
-            # If MTC_PROCESSING, try to query Orchard API for status
-            if payment.status == PaymentStatus.MTC_PROCESSING and payment.mtc_transaction_id:
-                logger.info(f"[PAYMENT_CHECK_QUERY_API] Querying Orchard API for MTC transaction: {payment.mtc_transaction_id}")
+            # Query Orchard API for either CTM or MTC status based on payment status
+            transaction_id_to_check = None
+            check_type = None
+
+            if payment.status == PaymentStatus.PENDING:
+                # Check CTM status using main transaction_id
+                if payment.transaction_id:
+                    transaction_id_to_check = payment.transaction_id
+                    check_type = "CTM"
+                else:
+                    logger.warning(f"[PAYMENT_CHECK_MISSING_TXN_ID] Payment {payment_id} is PENDING but has no transaction_id")
+            elif payment.status == PaymentStatus.MTC_PROCESSING:
+                # Check MTC status using mtc_transaction_id
+                if payment.mtc_transaction_id:
+                    transaction_id_to_check = payment.mtc_transaction_id
+                    check_type = "MTC"
+                else:
+                    logger.warning(f"[PAYMENT_CHECK_MISSING_MTC_TXN_ID] Payment {payment_id} is MTC_PROCESSING but has no mtc_transaction_id")
+
+            if transaction_id_to_check:
+                logger.info(f"[PAYMENT_CHECK_QUERY_API] Querying Orchard API for {check_type} transaction: {transaction_id_to_check}")
 
                 # Query Orchard API for transaction status
-                status = self._query_orchard_transaction_status(payment.mtc_transaction_id)
+                status = self._query_orchard_transaction_status(transaction_id_to_check)
 
                 if status == "SUCCESS":
                     logger.info(f"[PAYMENT_CHECK_API_SUCCESS] Orchard API confirms payment success for {payment_id} on attempt {current_attempt}")
@@ -231,6 +249,27 @@ class PaymentCheckService:
                         # Still processing, will retry on next interval
                         remaining_attempts = max_attempts - current_attempt
                         logger.info(f"[PAYMENT_CHECK_CONTINUE] Payment {payment_id} still processing. {remaining_attempts} attempts remaining")
+            else:
+                # Can't query API (no valid transaction ID), check if max attempts reached
+                logger.warning(f"[PAYMENT_CHECK_NO_TRANSACTION_ID] Cannot query for payment {payment_id} - no valid transaction ID to check")
+
+                if current_attempt >= max_attempts:
+                    # Max attempts reached, mark as failed
+                    total_wait_seconds = check_interval_seconds * max_attempts
+                    logger.warning(f"[PAYMENT_CHECK_MAX_ATTEMPTS] Payment {payment_id} reached max attempts ({max_attempts}) after {total_wait_seconds}s")
+
+                    if payment.status == PaymentStatus.PENDING:
+                        payment.status = PaymentStatus.CTM_FAILED
+                        logger.warning(f"[PAYMENT_CHECK_CTM_TIMEOUT] Payment {payment_id} CTM timeout after {total_wait_seconds}s")
+                    else:
+                        payment.status = PaymentStatus.MTC_FAILED
+                        logger.warning(f"[PAYMENT_CHECK_MTC_TIMEOUT] Payment {payment_id} MTC timeout after {total_wait_seconds}s")
+
+                    payment.updated_on = datetime.now()
+                    db.add(payment)
+                    db.commit()
+                    logger.warning(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked as failed due to timeout")
+                    self._stop_check_job(payment_id)
 
             logger.info(f"[PAYMENT_CHECK_END] Status check completed for payment {payment_id} (Attempt {current_attempt}/{max_attempts})")
 
@@ -277,46 +316,65 @@ class PaymentCheckService:
         try:
             logger.info(f"[ORCHARD_QUERY_START] Querying transaction status for: {transaction_id}")
 
+            # Log request details
+            logger.info(f"[ORCHARD_REQUEST] Endpoint: POST /checkTransaction")
+            logger.info(f"[ORCHARD_REQUEST] Transaction ID to check: {transaction_id}")
+            logger.debug(f"[ORCHARD_REQUEST] Using API Key: {self.payment_gateway_client.client_id[:20]}...")
+
             # Call Orchard API checkTransaction endpoint
             response = self.payment_gateway_client.check_transaction_status(transaction_id)
 
-            logger.info(f"[ORCHARD_QUERY_RESPONSE] HTTP status code: {response.status_code}")
+            logger.info(f"[ORCHARD_RESPONSE_HTTP] HTTP Status Code: {response.status_code}")
+            logger.debug(f"[ORCHARD_RESPONSE_HEADERS] Response Headers: {dict(response.headers)}")
 
             if response.status_code == 200:
+                # Parse response
                 response_data = response.json()
-                logger.debug(f"[ORCHARD_QUERY_DATA] Response body: {response_data}")
+                logger.info(f"[ORCHARD_RESPONSE_BODY] Raw Response: {response_data}")
 
-                # Extract trans_status from response
-                # Format: "000/01" where first 3 digits determine success
+                # Extract fields from response
                 trans_status = response_data.get("trans_status")
                 trans_ref = response_data.get("trans_ref")
                 trans_id = response_data.get("trans_id")
                 message = response_data.get("message")
 
-                logger.info(f"[ORCHARD_QUERY_RESULT] trans_status: {trans_status}, trans_ref: {trans_ref}, trans_id: {trans_id}, message: {message}")
+                logger.info(f"[ORCHARD_RESPONSE_PARSED] trans_status: '{trans_status}'")
+                logger.info(f"[ORCHARD_RESPONSE_PARSED] trans_ref: '{trans_ref}'")
+                logger.info(f"[ORCHARD_RESPONSE_PARSED] trans_id: '{trans_id}'")
+                logger.info(f"[ORCHARD_RESPONSE_PARSED] message: '{message}'")
+
+                # Validate we have required fields
+                if not trans_status:
+                    logger.error(f"[ORCHARD_RESPONSE_MISSING_FIELD] Missing trans_status in response for transaction {transaction_id}")
+                    logger.error(f"[ORCHARD_RESPONSE_DEBUG] Full response: {response_data}")
+                    return "PENDING"
 
                 # Extract first 3 digits from trans_status (e.g., "000" from "000/01")
-                if trans_status:
-                    status_code = trans_status[:3] if len(trans_status) >= 3 else trans_status
+                status_code = trans_status[:3] if len(trans_status) >= 3 else trans_status
+                logger.info(f"[ORCHARD_STATUS_CODE_EXTRACTED] Extracted code: '{status_code}' from '{trans_status}'")
 
-                    if status_code == "000":
-                        logger.info(f"[ORCHARD_QUERY_SUCCESS] Transaction {transaction_id} is SUCCESS (status: {trans_status})")
-                        return "SUCCESS"
-                    elif status_code == "001":
-                        logger.warning(f"[ORCHARD_QUERY_FAILED] Transaction {transaction_id} is FAILED (status: {trans_status})")
-                        return "FAILED"
-                    else:
-                        logger.warning(f"[ORCHARD_QUERY_UNKNOWN] Transaction {transaction_id} returned unknown status: {trans_status}")
-                        return "PENDING"
+                # Determine result
+                if status_code == "000":
+                    logger.info(f"[ORCHARD_QUERY_SUCCESS] ✅ Transaction {transaction_id} is SUCCESS")
+                    logger.info(f"[ORCHARD_DECISION] Result: SUCCESS - Status code 000 indicates successful transaction")
+                    return "SUCCESS"
+                elif status_code == "001":
+                    logger.warning(f"[ORCHARD_QUERY_FAILED] ❌ Transaction {transaction_id} is FAILED")
+                    logger.warning(f"[ORCHARD_DECISION] Result: FAILED - Status code 001 indicates transaction failure")
+                    return "FAILED"
                 else:
-                    logger.warning(f"[ORCHARD_QUERY_NO_STATUS] No trans_status in response for transaction {transaction_id}")
+                    logger.warning(f"[ORCHARD_QUERY_UNKNOWN] ⚠️ Transaction {transaction_id} returned unknown status code: {status_code}")
+                    logger.warning(f"[ORCHARD_DECISION] Result: PENDING - Unknown status code, will retry")
                     return "PENDING"
             else:
-                logger.error(f"[ORCHARD_QUERY_HTTP_ERROR] API returned HTTP status {response.status_code}: {response.text}")
+                logger.error(f"[ORCHARD_RESPONSE_HTTP_ERROR] ❌ API returned HTTP {response.status_code}")
+                logger.error(f"[ORCHARD_RESPONSE_BODY_ERROR] Error Response: {response.text}")
+                logger.error(f"[ORCHARD_DECISION] Result: PENDING - HTTP error, will retry")
                 return "PENDING"
 
         except Exception as e:
-            logger.error(f"[ORCHARD_QUERY_ERROR] Error querying Orchard API: {str(e)}", exc_info=True)
+            logger.error(f"[ORCHARD_QUERY_EXCEPTION] ❌ Exception querying Orchard API: {str(e)}", exc_info=True)
+            logger.error(f"[ORCHARD_DECISION] Result: PENDING - Exception occurred, will retry")
             return "PENDING"
 
     @staticmethod

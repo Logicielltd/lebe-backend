@@ -173,6 +173,7 @@ class PaymentCheckService:
                         payment.updated_on = datetime.now()
                         db.add(payment)
                         db.commit()
+                        db.refresh(payment)  # Refresh to ensure object is in sync with database
                         logger.info(f"[PAYMENT_CHECK_STATUS_UPDATED] Payment {payment_id} marked CTM_SUCCESS")
 
                         # Initiate MTC for this payment
@@ -183,9 +184,12 @@ class PaymentCheckService:
                             logger.info(f"[PAYMENT_CHECK_MTC_INITIATED] MTC initiated from background check for payment {payment_id}")
                         except Exception as e:
                             logger.error(f"[PAYMENT_CHECK_MTC_ERROR] Error initiating MTC: {str(e)}", exc_info=True)
-                            payment.status = PaymentStatus.CTM_FAILED
-                            db.add(payment)
-                            db.commit()
+                            # Reload payment from DB to get current state
+                            payment = db.query(Payment).filter(Payment.id == payment_id).first()
+                            if payment:
+                                payment.status = PaymentStatus.CTM_FAILED
+                                db.add(payment)
+                                db.commit()
 
                         # Stop this job - MTC job will be scheduled by _initiate_mtc
                         self._stop_check_job(payment_id)
@@ -197,6 +201,7 @@ class PaymentCheckService:
                         payment.updated_on = datetime.now()
                         db.add(payment)
                         db.commit()
+                        db.refresh(payment)  # Refresh to ensure object is in sync with database
                         logger.info(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked SUCCESS")
                         self._stop_check_job(payment_id)
                     else:

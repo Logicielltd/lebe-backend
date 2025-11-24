@@ -8,13 +8,19 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Database URL from environment variable
+
+# Base class (must be defined before models for Alembic)
+
+Base = declarative_base()
+
+# Database URL
 DATABASE_URL = os.getenv("SQLALCHEMY_DATABASE_URL")
 
 if not DATABASE_URL:
     raise ValueError("SQLALCHEMY_DATABASE_URL is not set in environment variables")
 
-# Create SQLAlchemy engine
+# SQLAlchemy Engine
+
 engine = create_engine(
     DATABASE_URL,
     pool_size=20,
@@ -22,13 +28,13 @@ engine = create_engine(
     pool_pre_ping=True
 )
 
-# Create a SessionLocal class
+# SessionLocal
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Create a Base class for declarative models
-Base = declarative_base()
 
-# Dependency for FastAPI (if you're using it)
+# Dependency for FastAPI
+
 def get_db() -> Generator:
     db = SessionLocal()
     try:

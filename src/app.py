@@ -28,25 +28,24 @@ from utilities.dbconfig import Base, engine
 from config import settings
 from utilities.exceptions import DatabaseValidationError
 from fastapi.exceptions import RequestValidationError
-# from core.middleware.logmiddleware import LoggingMiddleware
-from core.auditlogging.service.logservice import logging_service
-from config import settings
-import logging
-from loguru import logger
 from sqlalchemy import inspect
 
-# Initialize FastAPI app
+from loguru import logger
+import logging
+
+
+# Initialize FastAPI
+
 app = FastAPI( 
     title=settings.SERVICE_NAME,
     version="1.0",
     description="""**Lebe Core API** An AI focused app infrastructure deployed with python.
     
-    Default Endpoints
-    
-    "Authentication",
-    "File and Document Management",
-    "Message and Task Queuing",
-    "Notifications",
+    Default Endpoints:
+    - Authentication
+    - File and Document Management
+    - Message and Task Queuing
+    - Notifications
     """,
     contact={
         "name": "API Support",
@@ -58,24 +57,17 @@ app = FastAPI(
     },
 )
 
-def tables_exist():
-    inspector = inspect(engine)
-    existing_tables = inspector.get_table_names()
-    return len(existing_tables) > 0
 
-# Initialize database tables only if they don't exist
-# if not tables_exist():
-#     print("Initializing database tables...")
-#     Base.metadata.create_all(bind=engine)
-#     print("Database tables initialized successfully.")
-# else:
-#     print("Database tables already exist.")
+# REMOVE auto table creation (Alembic will handle this)
 
-print("Initializing database tables...")
-Base.metadata.create_all(bind=engine)
-print("Database tables initialized successfully.")
 
-# Add middleware for CORS
+# print("Initializing database tables...")
+# Base.metadata.create_all(bind=engine)
+# print("Database tables initialized successfully.")
+
+# -----------------------------------------------------------
+# Middleware (CORS)
+# -----------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -84,22 +76,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# # Add logging middleware
-# app.add_middleware(LoggingMiddleware)
 
-# # Configure loguru
-# logger.add(
-#     "logs/api.log",
-#     rotation="500 MB",
-#     retention="10 days",
-#     level=settings.LOG_LEVEL,
-#     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-# )
+# Exception Handlers
 
 app.add_exception_handler(DatabaseValidationError, exceptions.database_validation_exception_handler)
 app.add_exception_handler(RequestValidationError, exceptions.validation_exception_handler)
 
-# Register the routes
+# Routes Registration
+
 app.include_router(base_routes, prefix="/api/v1", tags=["Base Routes"])
 app.include_router(storage_routes, prefix="/api/v1/storage", tags=["Storage Routes"])
 app.include_router(auth_routes, prefix="/api/v1/auth", tags=["Auth Routes"])
@@ -115,7 +99,8 @@ app.include_router(beneficiary_routes, prefix="/api/v1/beneficiaries", tags=["Be
 app.include_router(webhooks_routes, prefix="/api/v1/webhooks", tags=["Webhooks Routes"])
 app.include_router(nlu_routes, prefix="/api/v1/nlu", tags=["NLU Routes"])
 
-# AuthJWT Configuration
+# JWT Authentication Settings
+
 class JWTSettings(BaseSettings):
     authjwt_secret_key: str = settings.SECRET_KEY
     authjwt_algorithm: str = settings.ALGORITHM
@@ -126,14 +111,3 @@ class JWTSettings(BaseSettings):
 @AuthJWT.load_config
 def get_config():
     return JWTSettings()
-
-# # Run the app (if using `uvicorn`)
-# if __name__ == "__main__":
-#     import uvicorn
-
-#     uvicorn.run(
-#         "main:app",
-#         host="127.0.0.1",
-#         port=3090,
-#         reload=settings.DEBUG,
-#     )

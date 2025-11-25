@@ -70,6 +70,9 @@ class PaymentService:
         if not payment.transaction_id:
             payment.transaction_id = str(UniqueIdGenerator.generate())
 
+        # Set ctm_transaction_id to match transaction_id for CTM leg tracking
+        payment.ctm_transaction_id = payment.transaction_id
+
         try:
             # Save payment record to database (status: PENDING)
             payment.status = PaymentStatus.PENDING

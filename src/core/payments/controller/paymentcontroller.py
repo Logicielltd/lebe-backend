@@ -188,7 +188,21 @@ def handle_payment_callback(
         logger.info(f"Callback processed successfully for transaction: {callback_response.trans_ref}")
 
         # Send WhatsApp notification after successful callback processing
-        _send_payment_notification_to_user(callback_response, db)
+        from core.payments.model.payment import Payment
+        payment = db.query(Payment).filter(
+            (Payment.transaction_id == str(callback_response.trans_ref)) |
+            (Payment.ctm_transaction_id == str(callback_response.trans_ref)) |
+            (Payment.mtc_transaction_id == str(callback_response.trans_ref))
+        ).first()
+
+        if payment:
+            status_code = callback_response.trans_status[:3] if callback_response.trans_status else None
+            is_success = status_code == "000"
+            payment_service.send_payment_notification(
+                payment,
+                is_success=is_success,
+                failure_reason=callback_response.message if not is_success else None
+            )
 
         return {"message": "Callback processed successfully"}
     except PaymentNotFoundException as ex:
@@ -200,119 +214,3 @@ def handle_payment_callback(
     except Exception as ex:
         logger.error("Unexpected error during callback processing", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process callback. Please try again or contact support.")
-
-
-def _send_payment_notification_to_user(callback_response: PaymentCallbackResponse, db: Session):
-    """
-    Generate receipt and send WhatsApp notification to user after payment callback
-
-    Args:
-        callback_response: The payment callback response
-        db: Database session
-    """
-    import os
-    from datetime import datetime
-    from core.webhooks.service.whatsapp_service import WhatsAppService
-    from core.payments.model.payment import Payment
-    from core.nlu.nlu import LebeNLUSystem
-    from utilities.phone_utils import normalize_ghana_phone_number
-
-    try:
-        # Get WhatsApp phone number ID from environment
-        phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
-        if not phone_number_id:
-            logger.warning("WHATSAPP_PHONE_NUMBER_ID not set in environment variables")
-            return
-
-        # Get payment record
-        payment = db.query(Payment).filter(
-            Payment.transaction_id == str(callback_response.trans_ref)
-        ).first()
-
-        if not payment:
-            logger.error(f"Payment not found for notification: {callback_response.trans_ref}")
-            return
-
-        # Normalize phone number for WhatsApp (must be in format 233XXXXXXXXX)
-        normalized_phone = normalize_ghana_phone_number(payment.phone_number)
-
-        # Determine status from callback
-        status_code = callback_response.trans_status[:3] if callback_response.trans_status else None
-        is_success = status_code == "000"
-
-        # Initialize WhatsApp service
-        whatsapp_service = WhatsAppService()
-
-        if is_success:
-            # Generate receipt using NLU system's method
-            # Use the intent stored in the payment record
-            intent = payment.intent or "payment"
-
-            # Use NLU's receipt generation method
-            nlu_system = LebeNLUSystem()
-            receipt_url = nlu_system.generate_receipt_after_payment(
-                transaction_id=payment.transaction_id,
-                user_id=payment.phone_number,
-                intent=intent,
-                amount=payment.amount_paid,
-                status='SUCCESS',
-                sender=payment.phone_number,
-                receiver=payment.phone_number,
-                payment_method=payment.payment_method.name,
-                timestamp=payment.updated_on or datetime.now()
-            )
-
-            # Send receipt image with caption containing all transaction details
-            success_caption = (
-                f"✅ Payment Successful!\n\n"
-                f"{payment.service_name}\n"
-                f"Amount: GHS {payment.amount_paid}\n"
-                f"Transaction ID: {payment.transaction_id}"
-            )
-
-            whatsapp_service.send_message_receipt(
-                phone_number_id=phone_number_id,
-                recipient_phone=normalized_phone,
-                image_url=receipt_url,
-                caption=success_caption
-            )
-
-        else:
-            # Generate failure receipt using NLU system's method
-            # Use the intent stored in the payment record
-            intent = payment.intent or "payment"
-
-            # Use NLU's receipt generation method with FAILED status
-            nlu_system = LebeNLUSystem()
-            receipt_url = nlu_system.generate_receipt_after_payment(
-                transaction_id=payment.transaction_id,
-                user_id=payment.phone_number,
-                intent=intent,
-                amount=payment.amount_paid,
-                status='FAILED',
-                sender=payment.phone_number,
-                receiver=payment.phone_number,
-                payment_method=payment.payment_method.name,
-                timestamp=payment.updated_on or datetime.now()
-            )
-
-            # Send failure receipt image with caption
-            failure_caption = (
-                f"❌ Payment Failed\n\n"
-                f"{payment.service_name}\n"
-                f"Amount: GHS {payment.amount_paid}\n"
-                f"Transaction ID: {payment.transaction_id}\n\n"
-                f"Reason: {callback_response.message}\n\n"
-                f"Please try again or contact support if the issue persists."
-            )
-
-            whatsapp_service.send_message_receipt(
-                phone_number_id=phone_number_id,
-                recipient_phone=normalized_phone,
-                image_url=receipt_url,
-                caption=failure_caption
-            )
-
-    except Exception as e:
-        logger.error(f"[CALLBACK] Error sending payment notification: {str(e)}", exc_info=True)
-        # Don't raise exception - notification failure shouldn't break callback processing

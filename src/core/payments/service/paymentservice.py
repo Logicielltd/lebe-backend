@@ -567,9 +567,9 @@ class PaymentService:
     def _handle_system_error(self, payment: Payment, exception: Exception) -> PaymentResultResponse:
         logger.error(f"System error processing payment for transactionId: {payment.transaction_id}. Error: {str(exception)}")
         # Transaction will auto-rollback
-        
+
         logger.info(f"Returning SYSTEM_ERROR for transactionId: {payment.transaction_id}")
-        
+
         return PaymentResultResponse(
             payment_id=None,  # No persisted ID
             status=PaymentStatus.FAILED,
@@ -578,3 +578,105 @@ class PaymentService:
             transaction_id=payment.transaction_id,
             payment_method=payment.payment_method
         )
+
+    def send_payment_notification(self, payment: Payment, is_success: bool, failure_reason: str = None) -> None:
+        """
+        Generate receipt and send WhatsApp notification to user after payment success/failure.
+        Called from both callback processing and background status checks.
+
+        Args:
+            payment: The payment record
+            is_success: Whether payment succeeded
+            failure_reason: Reason for failure (if applicable)
+        """
+        import os
+        from core.webhooks.service.whatsapp_service import WhatsAppService
+        from core.nlu.nlu import LebeNLUSystem
+        from utilities.phone_utils import normalize_ghana_phone_number
+
+        try:
+            # Get WhatsApp phone number ID from environment
+            phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
+            if not phone_number_id:
+                logger.warning("WHATSAPP_PHONE_NUMBER_ID not set in environment variables")
+                return
+
+            # Normalize phone number for WhatsApp (must be in format 233XXXXXXXXX)
+            normalized_phone = normalize_ghana_phone_number(payment.phone_number)
+
+            # Initialize WhatsApp service
+            whatsapp_service = WhatsAppService()
+
+            if is_success:
+                # Generate receipt using NLU system's method
+                intent = payment.intent or "payment"
+
+                # Use NLU's receipt generation method
+                nlu_system = LebeNLUSystem()
+                receipt_url = nlu_system.generate_receipt_after_payment(
+                    transaction_id=payment.transaction_id,
+                    user_id=payment.phone_number,
+                    intent=intent,
+                    amount=payment.amount_paid,
+                    status='SUCCESS',
+                    sender=payment.phone_number,
+                    receiver=payment.phone_number,
+                    payment_method=payment.payment_method.name,
+                    timestamp=payment.updated_on or datetime.now()
+                )
+
+                # Send receipt image with caption containing all transaction details
+                success_caption = (
+                    f"✅ Payment Successful!\n\n"
+                    f"{payment.service_name}\n"
+                    f"Amount: GHS {payment.amount_paid}\n"
+                    f"Transaction ID: {payment.transaction_id}"
+                )
+
+                whatsapp_service.send_message_receipt(
+                    phone_number_id=phone_number_id,
+                    recipient_phone=normalized_phone,
+                    image_url=receipt_url,
+                    caption=success_caption
+                )
+                logger.info(f"[NOTIFICATION] Success receipt sent for payment {payment.id}")
+
+            else:
+                # Generate failure receipt using NLU system's method
+                intent = payment.intent or "payment"
+
+                # Use NLU's receipt generation method with FAILED status
+                nlu_system = LebeNLUSystem()
+                receipt_url = nlu_system.generate_receipt_after_payment(
+                    transaction_id=payment.transaction_id,
+                    user_id=payment.phone_number,
+                    intent=intent,
+                    amount=payment.amount_paid,
+                    status='FAILED',
+                    sender=payment.phone_number,
+                    receiver=payment.phone_number,
+                    payment_method=payment.payment_method.name,
+                    timestamp=payment.updated_on or datetime.now()
+                )
+
+                # Send failure receipt image with caption
+                failure_caption = (
+                    f"❌ Payment Failed\n\n"
+                    f"{payment.service_name}\n"
+                    f"Amount: GHS {payment.amount_paid}\n"
+                    f"Transaction ID: {payment.transaction_id}\n\n"
+                    f"Reason: {failure_reason or 'Unknown error'}\n\n"
+                    f"Please try again or contact support if the issue persists."
+                )
+
+                whatsapp_service.send_message_receipt(
+                    phone_number_id=phone_number_id,
+                    recipient_phone=normalized_phone,
+                    image_url=receipt_url,
+                    caption=failure_caption
+                )
+                logger.info(f"[NOTIFICATION] Failure receipt sent for payment {payment.id}")
+
+        except Exception as e:
+            logger.error(f"[NOTIFICATION_ERROR] Error sending payment notification for payment {payment.id}: {str(e)}", exc_info=True)
+            # Don't raise exception - notification failure shouldn't break payment processing

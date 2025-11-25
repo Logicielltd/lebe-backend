@@ -203,6 +203,16 @@ class PaymentCheckService:
                         db.commit()
                         db.refresh(payment)  # Refresh to ensure object is in sync with database
                         logger.info(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked SUCCESS")
+
+                        # Send WhatsApp notification with receipt
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(payment, is_success=True)
+                            logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Success notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_NOTIFICATION_ERROR] Failed to send success notification for payment {payment_id}: {str(e)}", exc_info=True)
+
                         self._stop_check_job(payment_id)
                     else:
                         # Unexpected status, mark as success anyway

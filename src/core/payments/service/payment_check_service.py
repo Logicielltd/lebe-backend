@@ -191,8 +191,8 @@ class PaymentCheckService:
                                 db.add(payment)
                                 db.commit()
 
-                        # Stop this job - MTC job will be scheduled by _initiate_mtc
-                        self._stop_check_job(payment_id)
+                        # Continue job - it will now check MTC status since payment.status is MTC_PROCESSING
+                        logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check MTC status for payment {payment_id}")
 
                     elif payment.status == PaymentStatus.MTC_PROCESSING:
                         # This is MTC success - final success

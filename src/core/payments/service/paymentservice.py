@@ -283,15 +283,8 @@ class PaymentService:
                     logger.info(f"[MTC_RESPONSE_SUCCESS] MTC request accepted for processing (resp_code: {resp_code}) for transactionId: {mtc_transaction_id}")
                     # MTC is now processing, waiting for callback or status check
                     logger.info(f"[MTC_PROCESSING] Awaiting MTC callback for transaction {mtc_transaction_id}")
-
-                    # Schedule background job to check MTC status (uses env variables for interval and attempts)
-                    try:
-                        from core.payments.service.payment_check_service import PaymentCheckService
-                        check_service = PaymentCheckService(self.db)
-                        check_service.schedule_payment_status_check(payment.id)
-                        logger.info(f"[MTC_BACKGROUND_JOB_SCHEDULED] Status check scheduled for payment {payment.id}")
-                    except Exception as e:
-                        logger.error(f"[MTC_BACKGROUND_JOB_ERROR] Failed to schedule background check: {str(e)}", exc_info=True)
+                    # Note: The existing check job will continue running and will check MTC status
+                    # since payment status is now MTC_PROCESSING (see payment_check_service.py line 151-157)
                 else:
                     logger.warning(f"MTC failed with response code: {response_data.get('resp_code')}")
                     payment.status = PaymentStatus.MTC_FAILED

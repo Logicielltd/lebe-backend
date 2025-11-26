@@ -137,6 +137,14 @@ class PaymentCheckService:
                 db.close()
                 return
 
+            # If terminal failed state, stop checking
+            if payment.status in [PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED, PaymentStatus.FAILED]:
+                logger.info(f"[PAYMENT_CHECK_TERMINAL_FAILED] Payment {payment_id} in terminal failed state: {payment.status}")
+                logger.info(f"[PAYMENT_CHECK_TERMINAL_FAILED_STOP] Stopping job - no further checks needed")
+                self._stop_check_job(payment_id)
+                db.close()
+                return
+
             # Query Orchard API for either CTM or MTC status based on payment status
             transaction_id_to_check = None
             check_type = None
@@ -155,13 +163,6 @@ class PaymentCheckService:
                     check_type = "MTC"
                 else:
                     logger.warning(f"[PAYMENT_CHECK_MISSING_MTC_TXN_ID] Payment {payment_id} is MTC_PROCESSING but has no mtc_transaction_id")
-            elif payment.status == PaymentStatus.REVERSAL_PROCESSING:
-                # Check reversal status using reversal_transaction_id
-                if payment.reversal_transaction_id:
-                    transaction_id_to_check = payment.reversal_transaction_id
-                    check_type = "REVERSAL"
-                else:
-                    logger.warning(f"[PAYMENT_CHECK_MISSING_REVERSAL_TXN_ID] Payment {payment_id} is REVERSAL_PROCESSING but has no reversal_transaction_id")
 
             if transaction_id_to_check:
                 logger.info(f"[PAYMENT_CHECK_QUERY_API] Querying Orchard API for {check_type} transaction: {transaction_id_to_check}")
@@ -222,18 +223,6 @@ class PaymentCheckService:
 
                         self._stop_check_job(payment_id)
 
-                    elif payment.status == PaymentStatus.REVERSAL_PROCESSING:
-                        # This is reversal success - refund completed
-                        logger.info(f"[PAYMENT_CHECK_REVERSAL_SUCCESS] Reversal confirmed successful for payment {payment_id}")
-                        payment.status = PaymentStatus.REVERSAL_SUCCESS
-                        payment.updated_on = datetime.now()
-                        db.add(payment)
-                        db.commit()
-                        db.refresh(payment)  # Refresh to ensure object is in sync with database
-                        logger.info(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked REVERSAL_SUCCESS (refund completed)")
-
-                        # Refund notification is already sent when reversal was initiated
-                        self._stop_check_job(payment_id)
                     else:
                         # Unexpected status, mark as success anyway
                         logger.warning(f"[PAYMENT_CHECK_UNEXPECTED_STATUS] Payment {payment_id} in status {payment.status}, marking SUCCESS")

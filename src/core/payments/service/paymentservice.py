@@ -338,19 +338,48 @@ class PaymentService:
     def _initiate_reversal(self, payment: Payment) -> None:
         """
         Initiate reversal transaction when MTC fails.
+        Creates a NEW Payment record to represent the refund (MTC to sender).
         Sends money back from merchant account to sender's account.
         """
         try:
-            # Generate unique transaction ID for reversal
-            reversal_transaction_id = str(UniqueIdGenerator.generate())
-            payment.reversal_transaction_id = reversal_transaction_id
-            payment.status = PaymentStatus.REVERSAL_PROCESSING
+            # Mark the original payment as MTC_FAILED (terminal state)
+            payment.status = PaymentStatus.MTC_FAILED
             payment.updated_on = datetime.now()
             self.db.add(payment)
             self.db.commit()
+            logger.info(f"[REVERSAL_ORIGINAL_MARKED_FAILED] Original payment {payment.id} marked MTC_FAILED")
+
+            # Generate unique transaction ID for reversal
+            reversal_transaction_id = str(UniqueIdGenerator.generate())
+
+            # Create NEW Payment record for the reversal transaction
+            reversal_payment = Payment(
+                bill_id=payment.bill_id,
+                amount_paid=payment.amount_paid,
+                payment_method=payment.payment_method,
+                status=PaymentStatus.PENDING,  # Start fresh lifecycle
+                transaction_id=reversal_transaction_id,  # The reversal has its own transaction ID
+                ctm_transaction_id=reversal_transaction_id,  # For reversal, the transaction ID is the MTC
+                mtc_transaction_id=None,  # Reversal payments don't have a second leg
+                original_payment_id=payment.id,  # Link back to original payment
+                service_name=payment.service_name,
+                intent=payment.intent or "reversal",
+                customer_email=payment.customer_email,
+                customer_name=payment.customer_name,
+                sender_phone=payment.sender_phone,  # Sender gets the refund
+                receiver_phone=payment.receiver_phone,
+                bank_code=payment.bank_code,
+                network=payment.network,
+                date_paid=datetime.now(),
+                updated_on=datetime.now()
+            )
+            self.db.add(reversal_payment)
+            self.db.flush()  # Flush to get the reversal_payment.id
+            self.db.commit()
+            logger.info(f"[REVERSAL_NEW_PAYMENT_CREATED] New reversal payment created with id={reversal_payment.id}, transaction_id={reversal_transaction_id}")
 
             # Build reversal payment request (send money back to sender)
-            reversal_request = self._build_reversal_payment_request(payment, reversal_transaction_id)
+            reversal_request = self._build_reversal_payment_request(reversal_payment, reversal_transaction_id)
             logger.info(f"Built reversal payment request for transaction: {reversal_transaction_id}")
 
             # Send to Orchard API
@@ -364,32 +393,29 @@ class PaymentService:
                 resp_code = response_data.get("resp_code") if response_data else None
                 if response_data and resp_code in ["015", "027"]:
                     logger.info(f"[REVERSAL_RESPONSE_SUCCESS] Reversal request accepted for processing (resp_code: {resp_code}) for transactionId: {reversal_transaction_id}")
-                    logger.info(f"[REVERSAL_PROCESSING] Awaiting reversal callback for transaction {reversal_transaction_id}")
+                    logger.info(f"[REVERSAL_PROCESSING] Awaiting reversal callback for reversal payment {reversal_payment.id}")
 
-                    # Schedule background job to check reversal status
+                    # Schedule background job to check REVERSAL PAYMENT status (not original payment)
                     try:
                         from core.payments.service.payment_check_service import PaymentCheckService
                         check_service = PaymentCheckService(self.db)
-                        check_service.schedule_payment_status_check(payment.id)
-                        logger.info(f"[REVERSAL_BACKGROUND_JOB_SCHEDULED] Status check scheduled for reversal of payment {payment.id}")
+                        check_service.schedule_payment_status_check(reversal_payment.id)
+                        logger.info(f"[REVERSAL_BACKGROUND_JOB_SCHEDULED] Status check scheduled for reversal payment {reversal_payment.id}")
                     except Exception as e:
                         logger.error(f"[REVERSAL_BACKGROUND_JOB_ERROR] Failed to schedule background check: {str(e)}", exc_info=True)
                 else:
                     logger.warning(f"Reversal failed with response code: {response_data.get('resp_code')}")
-                    payment.status = PaymentStatus.REVERSAL_FAILED
-                    self.db.add(payment)
+                    reversal_payment.status = PaymentStatus.FAILED
+                    self.db.add(reversal_payment)
                     self.db.commit()
             else:
                 logger.error(f"Reversal gateway returned HTTP status: {http_response.status_code}")
-                payment.status = PaymentStatus.REVERSAL_FAILED
-                self.db.add(payment)
+                reversal_payment.status = PaymentStatus.FAILED
+                self.db.add(reversal_payment)
                 self.db.commit()
 
         except Exception as e:
-            logger.error(f"Error initiating reversal for transaction {payment.transaction_id}: {str(e)}", exc_info=True)
-            payment.status = PaymentStatus.REVERSAL_FAILED
-            self.db.add(payment)
-            self.db.commit()
+            logger.error(f"Error initiating reversal for payment {payment.id}: {str(e)}", exc_info=True)
             raise
 
     def _build_reversal_payment_request(self, payment: Payment, reversal_transaction_id: str) -> Dict[str, Any]:

@@ -25,7 +25,9 @@ class Payment(Base):
     transaction_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)  # Original CTM transaction
     ctm_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # CTM (Customer to Merchant) transaction ID
     mtc_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # MTC (Merchant to Customer) transaction ID
-    reversal_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # Reversal transaction ID (refund when MTC fails)
+
+    # Reversal tracking - for reversal payments, links back to the original failed payment
+    original_payment_id: Mapped[Optional[int]] = mapped_column(Integer)  # Links reversal payment to original payment
 
     service_name: Mapped[Optional[str]] = mapped_column(String)
     intent: Mapped[Optional[str]] = mapped_column(String)

@@ -1,61 +1,47 @@
-from enum import Enum
 import re
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class Network(str, Enum):
-    """Network enumeration matching Orchard API spec"""
+class Network:
+    """Network type enumeration"""
     MTN = "MTN"
-    VOD = "VOD"
-    AIR = "AIR"
-    BNK = "BNK"
-    MAS = "MAS"
-    VIS = "VIS"
+    VOD = "VOD"  # Vodafone/Telecel
+    AIR = "AIR"  # AirtelTigo (includes former Glo)
+    BNK = "BNK"  # Bank
+    MAS = "MAS"  # Mastercard
+    VIS = "VIS"  # Visa
 
 
-class AccountType(str, Enum):
+class AccountType:
     """Account type enumeration"""
-    MOBILE_MONEY = "mobile_money"
-    BANK_ACCOUNT = "bank_account"
-    CARD = "card"
+    MOBILE_MONEY = "MOBILE_MONEY"
+    BANK_ACCOUNT = "BANK_ACCOUNT"
+    CARD = "CARD"
 
 
-# Valid bank codes in Ghana
+# Ghana Bank Codes
 BANK_CODES = {
-    "RPB": "REPUBLIC BANK",
-    "ADB": "ADB",
-    "VOD": "VODAFONE CASH",
-    "ZEE": "ZEEPAY GHANA",
-    "ABS": "ABSA BANK",
-    "FNB": "FNB",
-    "CBG": "CBG",
-    "GHL": "GHL BANK",
-    "AIR": "AIRTELTIGO MONEY",
-    "UMB": "UMB",
-    "SIS": "SERVICES INTEGRITY SAVINGS & LOANS",
-    "FBN": "FBN BANK",
-    "UBA": "UBA",
-    "CAL": "CAL BANK",
-    "SGB": "SG",
-    "ARB": "APEX BANK",
-    "BOG": "BANK OF GHANA",
-    "OMN": "OMNI BANK",
-    "STB": "STANBIC BANK",
-    "FAB": "FAB",
-    "NIB": "NIB",
-    "GMO": "G-MONEY",
-    "BOA": "BOA",
-    "ECO": "ECOBANK GHANA",
-    "GTB": "GT BANK",
-    "MTN": "MTN MOBILE MONEY",
-    "FIB": "FIDELITY BANK",
-    "ZEB": "ZENITH BANK",
-    "SCB": "STANDARD CHARTERED",
-    "PRB": "PBL",
-    "ACB": "ACCESS BANK",
-    "GCB": "GCB BANK",
+    'GCB': 'Ghana Commercial Bank',
+    'CBG': 'Consolidated Bank Ghana',
+    'FBG': 'Fidelity Bank Ghana',
+    'EBG': 'Ecobank Ghana',
+    'SCB': 'Standard Chartered Bank Ghana',
+    'ADB': 'Agricultural Development Bank',
+    'NIB': 'National Investment Bank',
+    'CAL': 'CAL Bank',
+    'UBA': 'United Bank for Africa Ghana',
+    'GTB': 'Guaranty Trust Bank Ghana',
+    'PBL': 'Prudential Bank Limited',
+    'ZEN': 'Zenith Bank Ghana',
+    'SBG': 'Stanbic Bank Ghana',
+    'ABG': 'Absa Bank Ghana',
+    'FNB': 'First National Bank Ghana',
+    'RBG': 'Republic Bank Ghana',
+    'BOA': 'Bank of Africa Ghana',
+    'OMF': 'OmniBSIC Bank',
+    'ARB': 'ARB Apex Bank',
 }
 
 
@@ -65,67 +51,100 @@ class NetworkDetector:
     Handles Ghana-specific mobile money networks.
     """
 
+    # Network prefix mappings for Ghana
+    NETWORK_PREFIXES = {
+        Network.MTN: ['024', '025', '053', '054', '055', '059'],
+        Network.VOD: ['020', '050'],
+        Network.AIR: ['023', '026', '027', '056', '057', '058'],  # Includes former Glo (023, 058)
+    }
+
     @staticmethod
     def detect_network_from_phone(phone_number: str) -> tuple:
         """
         Detect network from Ghana phone number.
 
+        Args:
+            phone_number: Phone number to detect network from
+
         Returns:
             Tuple of (detected_network, message)
 
         Example:
-            - 024x, 025x, 055x, 056x -> MTN
-            - 020x, 050x -> VOD (Vodafone)
-            - 027x, 057x -> AIR (AirtelTigo)
+            - 024x, 025x, 053x, 054x, 055x, 059x -> MTN
+            - 020x, 050x -> VOD (Vodafone/Telecel)
+            - 023x, 026x, 027x, 056x, 057x, 058x -> AIR (AirtelTigo, includes former Glo)
         """
+        # Input validation
+        if not phone_number:
+            logger.warning("[NETWORK_DETECTOR] Empty phone number provided")
+            return None, "Phone number cannot be empty"
+
         # Remove any non-digit characters
         cleaned = re.sub(r'\D', '', phone_number)
 
-        # Handle country code (if present)
-        if cleaned.startswith('233'):
-            cleaned = '0' + cleaned[3:]
-        elif cleaned.startswith('233'):
-            cleaned = '0' + cleaned[3:]
+        if not cleaned:
+            logger.warning(f"[NETWORK_DETECTOR] No valid digits in phone number: {phone_number}")
+            return None, "No valid digits in phone number"
 
-        # Ensure it starts with 0
-        if not cleaned.startswith('0'):
+        # Handle country code (if present)
+        if cleaned.startswith('233') and len(cleaned) > 3:
+            cleaned = '0' + cleaned[3:]
+        elif not cleaned.startswith('0'):
             cleaned = '0' + cleaned
+
+        # Validate length before extracting prefix
+        if len(cleaned) < 3:
+            logger.warning(f"[NETWORK_DETECTOR] Phone number too short: {phone_number}")
+            return None, f"Phone number too short: {phone_number}"
 
         # Extract first 3 digits (0XX)
         prefix = cleaned[:3]
 
         logger.info(f"[NETWORK_DETECTOR] Detecting network from phone: {phone_number} -> prefix: {prefix}")
 
-        # MTN prefixes
-        if prefix in ['024', '025', '055', '056']:
-            return Network.MTN, "MTN"
+        # Check against all network prefixes
+        for network, prefixes in NetworkDetector.NETWORK_PREFIXES.items():
+            if prefix in prefixes:
+                network_name = {
+                    Network.MTN: "MTN",
+                    Network.VOD: "Vodafone",
+                    Network.AIR: "AirtelTigo",
+                }.get(network, network)
+                
+                logger.info(f"[NETWORK_DETECTOR] Detected network: {network_name}")
+                return network, network_name
 
-        # Vodafone prefixes
-        elif prefix in ['020', '050']:
-            return Network.VOD, "Vodafone"
-
-        # AirtelTigo prefixes
-        elif prefix in ['027', '057']:
-            return Network.AIR, "AirtelTigo"
-
-        else:
-            logger.warning(f"[NETWORK_DETECTOR] Unknown network prefix: {prefix}")
-            return None, f"Unknown network for phone: {phone_number}"
+        # Unknown prefix
+        logger.warning(f"[NETWORK_DETECTOR] Unknown network prefix: {prefix}")
+        return None, f"Unknown network for phone: {phone_number} (prefix: {prefix})"
 
     @staticmethod
     def validate_customer_number(customer_number: str, network: Network) -> tuple:
         """
         Validate customer number format based on network.
 
+        Args:
+            customer_number: Customer account/phone number
+            network: Network type
+
         Returns:
             Tuple of (is_valid, message)
         """
+        if not customer_number:
+            return False, "Customer number cannot be empty"
+
+        if not network:
+            return False, "Network must be specified"
+
         cleaned = re.sub(r'\D', '', customer_number)
 
+        if not cleaned:
+            return False, "No valid digits in customer number"
+
         # Handle country code
-        if cleaned.startswith('233'):
+        if cleaned.startswith('233') and len(cleaned) > 3:
             cleaned = '0' + cleaned[3:]
-        elif not cleaned.startswith('0'):
+        elif not cleaned.startswith('0') and network in [Network.MTN, Network.VOD, Network.AIR]:
             cleaned = '0' + cleaned
 
         logger.info(f"[NETWORK_DETECTOR] Validating customer_number: {customer_number} for network: {network}")
@@ -133,27 +152,35 @@ class NetworkDetector:
         # For mobile money networks, validate phone format
         if network in [Network.MTN, Network.VOD, Network.AIR]:
             # Ghana mobile numbers are 10 digits (0 + 9 digits)
-            if len(cleaned) == 10 and cleaned.startswith('0'):
-                # Verify the prefix matches the network
-                prefix = cleaned[:3]
+            if len(cleaned) != 10:
+                return False, "Invalid phone number format (must be 10 digits starting with 0)"
 
-                if network == Network.MTN and prefix in ['024', '025', '055', '056']:
-                    return True, "Valid MTN number"
-                elif network == Network.VOD and prefix in ['020', '050']:
-                    return True, "Valid Vodafone number"
-                elif network == Network.AIR and prefix in ['027', '057']:
-                    return True, "Valid AirtelTigo number"
+            if not cleaned.startswith('0'):
+                return False, "Phone number must start with 0"
+
+            # Verify the prefix matches the network
+            prefix = cleaned[:3]
+
+            # Check if prefix matches the specified network
+            if network in NetworkDetector.NETWORK_PREFIXES:
+                if prefix in NetworkDetector.NETWORK_PREFIXES[network]:
+                    network_names = {
+                        Network.MTN: "MTN",
+                        Network.VOD: "Vodafone",
+                        Network.AIR: "AirtelTigo",
+                    }
+                    return True, f"Valid {network_names.get(network, network)} number"
                 else:
                     return False, f"Phone number prefix doesn't match {network} network"
             else:
-                return False, "Invalid phone number format (must be 10 digits starting with 0)"
+                return False, f"Unknown mobile network: {network}"
 
         elif network == Network.BNK:
             # Bank account numbers - minimal validation
-            if len(cleaned) >= 10:
+            if len(cleaned) >= 10 and len(cleaned) <= 20:
                 return True, "Valid bank account number format"
             else:
-                return False, "Bank account number too short"
+                return False, "Bank account number must be between 10-20 digits"
 
         elif network in [Network.MAS, Network.VIS]:
             # Card numbers - basic validation (16 digits)
@@ -170,9 +197,15 @@ class NetworkDetector:
         """
         Validate bank code against known banks in Ghana.
 
+        Args:
+            bank_code: Bank code to validate
+
         Returns:
             Tuple of (is_valid, bank_name_or_error)
         """
+        if not bank_code:
+            return False, "Bank code cannot be empty"
+
         code_upper = bank_code.upper().strip()
 
         if code_upper in BANK_CODES:
@@ -186,6 +219,12 @@ class NetworkDetector:
     def determine_account_type(network: Network) -> AccountType:
         """
         Determine account type based on network.
+
+        Args:
+            network: Network type
+
+        Returns:
+            AccountType enum value
         """
         if network in [Network.MTN, Network.VOD, Network.AIR]:
             return AccountType.MOBILE_MONEY
@@ -194,4 +233,29 @@ class NetworkDetector:
         elif network in [Network.MAS, Network.VIS]:
             return AccountType.CARD
         else:
+            logger.warning(f"[NETWORK_DETECTOR] Unknown network type: {network}, defaulting to MOBILE_MONEY")
             return AccountType.MOBILE_MONEY  # Default
+
+    @staticmethod
+    def get_all_supported_prefixes() -> dict:
+        """
+        Get all supported network prefixes.
+
+        Returns:
+            Dictionary mapping network to list of prefixes
+        """
+        return NetworkDetector.NETWORK_PREFIXES.copy()
+
+    @staticmethod
+    def is_valid_ghana_phone(phone_number: str) -> bool:
+        """
+        Quick check if a phone number is a valid Ghana mobile number.
+
+        Args:
+            phone_number: Phone number to validate
+
+        Returns:
+            True if valid Ghana mobile number, False otherwise
+        """
+        network, _ = NetworkDetector.detect_network_from_phone(phone_number)
+        return network is not None

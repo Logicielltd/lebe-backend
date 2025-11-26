@@ -17,6 +17,11 @@ class PaymentStatus(str, Enum):
     MTC_SUCCESS = "MTC_SUCCESS"
     MTC_FAILED = "MTC_FAILED"
 
+    # Reversal (when MTC fails, refund money back to sender)
+    REVERSAL_PROCESSING = "REVERSAL_PROCESSING"
+    REVERSAL_SUCCESS = "REVERSAL_SUCCESS"
+    REVERSAL_FAILED = "REVERSAL_FAILED"
+
     # Final states
     SUCCESS = "SUCCESS"  # Both CTM and MTC succeeded
     FAILED = "FAILED"    # Either CTM or MTC failed

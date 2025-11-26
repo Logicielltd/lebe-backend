@@ -308,21 +308,119 @@ class PaymentService:
         """
         Build MTC (Merchant to Customer) payment request.
         MTC sends money from merchant account to customer/receiver.
+        Detects the correct network based on receiver's phone number.
         """
         from utilities.phone_utils import convert_to_local_ghana_format
+        from core.beneficiaries.utility.network_detector import NetworkDetector
+
         amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
+
+        # Detect network from receiver's phone number
+        detected_network, network_message = NetworkDetector.detect_network_from_phone(payment.receiver_phone)
+        network_to_use = detected_network if detected_network else payment.network.value
+
+        logger.info(f"[MTC_NETWORK_DETECTION] Receiver phone: {payment.receiver_phone} -> Detected network: {detected_network} ({network_message})")
+
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": convert_to_local_ghana_format(payment.receiver_phone),  # MTC: receiver (in 0xxx format)
             "exttrid": mtc_transaction_id,
-            "nw": payment.network.value,
+            "nw": network_to_use,  # Use detected network instead of stored network
             "reference": f"Payout for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
             "trans_type": "MTC"  # Merchant to Customer
         }
-        logger.info(f"Built MTC payment request: trans_type=MTC")
+        logger.info(f"Built MTC payment request: trans_type=MTC, network={network_to_use}")
+        return request_data
+
+    def _initiate_reversal(self, payment: Payment) -> None:
+        """
+        Initiate reversal transaction when MTC fails.
+        Sends money back from merchant account to sender's account.
+        """
+        try:
+            # Generate unique transaction ID for reversal
+            reversal_transaction_id = str(UniqueIdGenerator.generate())
+            payment.reversal_transaction_id = reversal_transaction_id
+            payment.status = PaymentStatus.REVERSAL_PROCESSING
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+
+            # Build reversal payment request (send money back to sender)
+            reversal_request = self._build_reversal_payment_request(payment, reversal_transaction_id)
+            logger.info(f"Built reversal payment request for transaction: {reversal_transaction_id}")
+
+            # Send to Orchard API
+            logger.info(f"Sending reversal request to Orchard API for transaction: {reversal_transaction_id}")
+            http_response = self.payment_gateway_client.process_payment(reversal_request)
+            logger.info(f"Received reversal response from Orchard API: status_code={http_response.status_code}")
+
+            # Process reversal response
+            if http_response.status_code == 200:
+                response_data = http_response.json()
+                resp_code = response_data.get("resp_code") if response_data else None
+                if response_data and resp_code in ["015", "027"]:
+                    logger.info(f"[REVERSAL_RESPONSE_SUCCESS] Reversal request accepted for processing (resp_code: {resp_code}) for transactionId: {reversal_transaction_id}")
+                    logger.info(f"[REVERSAL_PROCESSING] Awaiting reversal callback for transaction {reversal_transaction_id}")
+
+                    # Schedule background job to check reversal status
+                    try:
+                        from core.payments.service.payment_check_service import PaymentCheckService
+                        check_service = PaymentCheckService(self.db)
+                        check_service.schedule_payment_status_check(payment.id)
+                        logger.info(f"[REVERSAL_BACKGROUND_JOB_SCHEDULED] Status check scheduled for reversal of payment {payment.id}")
+                    except Exception as e:
+                        logger.error(f"[REVERSAL_BACKGROUND_JOB_ERROR] Failed to schedule background check: {str(e)}", exc_info=True)
+                else:
+                    logger.warning(f"Reversal failed with response code: {response_data.get('resp_code')}")
+                    payment.status = PaymentStatus.REVERSAL_FAILED
+                    self.db.add(payment)
+                    self.db.commit()
+            else:
+                logger.error(f"Reversal gateway returned HTTP status: {http_response.status_code}")
+                payment.status = PaymentStatus.REVERSAL_FAILED
+                self.db.add(payment)
+                self.db.commit()
+
+        except Exception as e:
+            logger.error(f"Error initiating reversal for transaction {payment.transaction_id}: {str(e)}", exc_info=True)
+            payment.status = PaymentStatus.REVERSAL_FAILED
+            self.db.add(payment)
+            self.db.commit()
+            raise
+
+    def _build_reversal_payment_request(self, payment: Payment, reversal_transaction_id: str) -> Dict[str, Any]:
+        """
+        Build reversal payment request (refund to sender).
+        Sends money back to sender when MTC fails.
+        Detects the correct network based on sender's phone number.
+        """
+        from utilities.phone_utils import convert_to_local_ghana_format
+        from core.beneficiaries.utility.network_detector import NetworkDetector
+
+        amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
+
+        # Detect network from sender's phone number (who we're refunding)
+        detected_network, network_message = NetworkDetector.detect_network_from_phone(payment.sender_phone)
+        network_to_use = detected_network if detected_network else payment.network.value
+
+        logger.info(f"[REVERSAL_NETWORK_DETECTION] Sender phone: {payment.sender_phone} -> Detected network: {detected_network} ({network_message})")
+
+        request_data = {
+            "amount": str(amount.quantize(Decimal('0.00'))),
+            "customer_number": convert_to_local_ghana_format(payment.sender_phone),  # Reversal: refund to sender
+            "exttrid": reversal_transaction_id,
+            "nw": network_to_use,  # Use detected network instead of stored network
+            "reference": f"Reversal for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
+            "service_id": self.service_id,
+            "ts": self.payment_gateway_client.get_current_timestamp(),
+            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "trans_type": "MTC"  # Reversal is also an MTC (Merchant to Customer)
+        }
+        logger.info(f"Built reversal payment request: trans_type=MTC (refund), network={network_to_use}")
         return request_data
 
     def _should_skip_callback_processing(self, payment: Payment, incoming_status: PaymentStatus) -> bool:
@@ -442,12 +540,20 @@ class PaymentService:
         # Build base request (all transaction types need these)
         # Ensure amount_paid is a Decimal before formatting
         from utilities.phone_utils import convert_to_local_ghana_format
+        from core.beneficiaries.utility.network_detector import NetworkDetector
+
+        # Detect network from sender's phone number
+        detected_network, network_message = NetworkDetector.detect_network_from_phone(payment.sender_phone)
+        network_to_use = detected_network if detected_network else payment.network.value
+
+        logger.info(f"[CTM_NETWORK_DETECTION] Sender phone: {payment.sender_phone} -> Detected network: {detected_network} ({network_message})")
+
         amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": convert_to_local_ghana_format(payment.sender_phone),  # CTM: sender (in 0xxx format)
             "exttrid": payment.transaction_id,  # Keep as string, not int
-            "nw": payment.network.value,
+            "nw": network_to_use,  # Use detected network instead of stored network
             "reference": f"{intent.replace('_', ' ').title()}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),

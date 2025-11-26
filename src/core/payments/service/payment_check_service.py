@@ -155,6 +155,13 @@ class PaymentCheckService:
                     check_type = "MTC"
                 else:
                     logger.warning(f"[PAYMENT_CHECK_MISSING_MTC_TXN_ID] Payment {payment_id} is MTC_PROCESSING but has no mtc_transaction_id")
+            elif payment.status == PaymentStatus.REVERSAL_PROCESSING:
+                # Check reversal status using reversal_transaction_id
+                if payment.reversal_transaction_id:
+                    transaction_id_to_check = payment.reversal_transaction_id
+                    check_type = "REVERSAL"
+                else:
+                    logger.warning(f"[PAYMENT_CHECK_MISSING_REVERSAL_TXN_ID] Payment {payment_id} is REVERSAL_PROCESSING but has no reversal_transaction_id")
 
             if transaction_id_to_check:
                 logger.info(f"[PAYMENT_CHECK_QUERY_API] Querying Orchard API for {check_type} transaction: {transaction_id_to_check}")
@@ -214,6 +221,19 @@ class PaymentCheckService:
                             logger.error(f"[PAYMENT_CHECK_NOTIFICATION_ERROR] Failed to send success notification for payment {payment_id}: {str(e)}", exc_info=True)
 
                         self._stop_check_job(payment_id)
+
+                    elif payment.status == PaymentStatus.REVERSAL_PROCESSING:
+                        # This is reversal success - refund completed
+                        logger.info(f"[PAYMENT_CHECK_REVERSAL_SUCCESS] Reversal confirmed successful for payment {payment_id}")
+                        payment.status = PaymentStatus.REVERSAL_SUCCESS
+                        payment.updated_on = datetime.now()
+                        db.add(payment)
+                        db.commit()
+                        db.refresh(payment)  # Refresh to ensure object is in sync with database
+                        logger.info(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked REVERSAL_SUCCESS (refund completed)")
+
+                        # Refund notification is already sent when reversal was initiated
+                        self._stop_check_job(payment_id)
                     else:
                         # Unexpected status, mark as success anyway
                         logger.warning(f"[PAYMENT_CHECK_UNEXPECTED_STATUS] Payment {payment_id} in status {payment.status}, marking SUCCESS")
@@ -231,8 +251,31 @@ class PaymentCheckService:
                         payment.status = PaymentStatus.CTM_FAILED
                         logger.warning(f"[PAYMENT_CHECK_CTM_FAILED] Payment {payment_id} CTM failed")
                     else:
-                        payment.status = PaymentStatus.MTC_FAILED
+                        # MTC failed - initiate reversal and send failure notification
                         logger.warning(f"[PAYMENT_CHECK_MTC_FAILED] Payment {payment_id} MTC failed")
+                        payment.status = PaymentStatus.MTC_FAILED
+
+                        # Initiate reversal transaction (refund to sender)
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service._initiate_reversal(payment)
+                            logger.info(f"[REVERSAL_INITIATED] Reversal initiated for failed payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[REVERSAL_ERROR] Error initiating reversal: {str(e)}", exc_info=True)
+
+                        # Send failure notification with receipt
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(
+                                payment,
+                                is_success=False,
+                                failure_reason="Payout failed. Reversal being processed."
+                            )
+                            logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Failure notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_NOTIFICATION_ERROR] Failed to send failure notification: {str(e)}", exc_info=True)
 
                     payment.updated_on = datetime.now()
                     db.add(payment)

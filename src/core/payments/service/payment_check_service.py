@@ -255,9 +255,22 @@ class PaymentCheckService:
                         logger.warning(f"[PAYMENT_CHECK_REVERSAL_FAILED] Reversal payment {payment_id} failed")
                         payment.status = PaymentStatus.FAILED
                     elif payment.status == PaymentStatus.PENDING:
-                        # CTM failed
-                        payment.status = PaymentStatus.CTM_FAILED
+                        # CTM failed - send notification to user
                         logger.warning(f"[PAYMENT_CHECK_CTM_FAILED] Payment {payment_id} CTM failed")
+                        payment.status = PaymentStatus.CTM_FAILED
+
+                        # Send failure notification for CTM
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(
+                                payment,
+                                is_success=False,
+                                failure_reason="Payment collection failed. No money was deducted from your account."
+                            )
+                            logger.info(f"[PAYMENT_CHECK_CTM_NOTIFICATION] CTM failure notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_CTM_NOTIFICATION_ERROR] Failed to send CTM failure notification: {str(e)}", exc_info=True)
                     else:
                         # MTC failed - initiate reversal and send failure notification
                         logger.warning(f"[PAYMENT_CHECK_MTC_FAILED] Payment {payment_id} MTC failed")
@@ -308,6 +321,19 @@ class PaymentCheckService:
                         elif payment.status == PaymentStatus.PENDING:
                             payment.status = PaymentStatus.CTM_FAILED
                             logger.warning(f"[PAYMENT_CHECK_CTM_TIMEOUT] Payment {payment_id} CTM timeout after {total_wait_seconds}s")
+
+                            # Send timeout notification for CTM
+                            try:
+                                from core.payments.service.paymentservice import PaymentService
+                                payment_service = PaymentService(db)
+                                payment_service.send_payment_notification(
+                                    payment,
+                                    is_success=False,
+                                    failure_reason="Payment request timed out. No money was deducted from your account."
+                                )
+                                logger.info(f"[PAYMENT_CHECK_CTM_TIMEOUT_NOTIFICATION] CTM timeout notification sent for payment {payment_id}")
+                            except Exception as e:
+                                logger.error(f"[PAYMENT_CHECK_CTM_TIMEOUT_NOTIFICATION_ERROR] Failed to send CTM timeout notification: {str(e)}", exc_info=True)
                         else:
                             payment.status = PaymentStatus.MTC_FAILED
                             logger.warning(f"[PAYMENT_CHECK_MTC_TIMEOUT] Payment {payment_id} MTC timeout after {total_wait_seconds}s")
@@ -348,6 +374,21 @@ class PaymentCheckService:
                     db.add(payment)
                     db.commit()
                     logger.warning(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked as failed due to timeout")
+
+                    # Send notification for CTM timeout (no transaction ID case)
+                    if payment.status == PaymentStatus.CTM_FAILED:
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(
+                                payment,
+                                is_success=False,
+                                failure_reason="Payment request timed out. No money was deducted from your account."
+                            )
+                            logger.info(f"[PAYMENT_CHECK_CTM_TIMEOUT_NOTIFICATION] CTM timeout notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_CTM_TIMEOUT_NOTIFICATION_ERROR] Failed to send CTM timeout notification: {str(e)}", exc_info=True)
+
                     self._stop_check_job(payment_id)
 
             logger.info(f"[PAYMENT_CHECK_END] Status check completed for payment {payment_id} (Attempt {current_attempt}/{max_attempts})")

@@ -173,8 +173,20 @@ class PaymentCheckService:
                 if status == "SUCCESS":
                     logger.info(f"[PAYMENT_CHECK_API_SUCCESS] Orchard API confirms payment success for {payment_id} on attempt {current_attempt}")
 
-                    # Check if this is CTM or MTC based on current payment status
-                    if payment.status == PaymentStatus.PENDING:
+                    # Check if this is a reversal payment (has original_payment_id set)
+                    is_reversal = payment.original_payment_id is not None
+
+                    if is_reversal:
+                        # This is a reversal payment - it's just a single MTC, no second stage
+                        logger.info(f"[PAYMENT_CHECK_REVERSAL_SUCCESS] Reversal payment {payment_id} confirmed successful (refund to original sender)")
+                        payment.status = PaymentStatus.SUCCESS
+                        payment.updated_on = datetime.now()
+                        db.add(payment)
+                        db.commit()
+                        db.refresh(payment)
+                        logger.info(f"[PAYMENT_CHECK_UPDATED] Reversal payment {payment_id} marked SUCCESS")
+                        self._stop_check_job(payment_id)
+                    elif payment.status == PaymentStatus.PENDING:
                         # This is CTM success - initiate MTC
                         logger.info(f"[PAYMENT_CHECK_CTM_SUCCESS] CTM confirmed successful for payment {payment_id}, initiating MTC")
                         payment.status = PaymentStatus.CTM_SUCCESS
@@ -235,8 +247,15 @@ class PaymentCheckService:
                 elif status == "FAILED":
                     logger.warning(f"[PAYMENT_CHECK_API_FAILED] Orchard API confirms payment failed for {payment_id}")
 
-                    # Determine if it's CTM or MTC failure
-                    if payment.status == PaymentStatus.PENDING:
+                    # Check if this is a reversal payment
+                    is_reversal = payment.original_payment_id is not None
+
+                    if is_reversal:
+                        # Reversal payment failed - just mark as failed, don't create another reversal
+                        logger.warning(f"[PAYMENT_CHECK_REVERSAL_FAILED] Reversal payment {payment_id} failed")
+                        payment.status = PaymentStatus.FAILED
+                    elif payment.status == PaymentStatus.PENDING:
+                        # CTM failed
                         payment.status = PaymentStatus.CTM_FAILED
                         logger.warning(f"[PAYMENT_CHECK_CTM_FAILED] Payment {payment_id} CTM failed")
                     else:
@@ -279,8 +298,14 @@ class PaymentCheckService:
                         total_wait_seconds = check_interval_seconds * max_attempts
                         logger.warning(f"[PAYMENT_CHECK_MAX_ATTEMPTS] Payment {payment_id} reached max attempts ({max_attempts}) after {total_wait_seconds}s")
 
-                        # Determine if it's CTM or MTC timeout
-                        if payment.status == PaymentStatus.PENDING:
+                        # Check if this is a reversal payment
+                        is_reversal = payment.original_payment_id is not None
+
+                        if is_reversal:
+                            # Reversal timeout - just mark as failed
+                            payment.status = PaymentStatus.FAILED
+                            logger.warning(f"[PAYMENT_CHECK_REVERSAL_TIMEOUT] Reversal payment {payment_id} timeout after {total_wait_seconds}s")
+                        elif payment.status == PaymentStatus.PENDING:
                             payment.status = PaymentStatus.CTM_FAILED
                             logger.warning(f"[PAYMENT_CHECK_CTM_TIMEOUT] Payment {payment_id} CTM timeout after {total_wait_seconds}s")
                         else:
@@ -305,7 +330,14 @@ class PaymentCheckService:
                     total_wait_seconds = check_interval_seconds * max_attempts
                     logger.warning(f"[PAYMENT_CHECK_MAX_ATTEMPTS] Payment {payment_id} reached max attempts ({max_attempts}) after {total_wait_seconds}s")
 
-                    if payment.status == PaymentStatus.PENDING:
+                    # Check if this is a reversal payment
+                    is_reversal = payment.original_payment_id is not None
+
+                    if is_reversal:
+                        # Reversal timeout - just mark as failed
+                        payment.status = PaymentStatus.FAILED
+                        logger.warning(f"[PAYMENT_CHECK_REVERSAL_TIMEOUT] Reversal payment {payment_id} timeout after {total_wait_seconds}s")
+                    elif payment.status == PaymentStatus.PENDING:
                         payment.status = PaymentStatus.CTM_FAILED
                         logger.warning(f"[PAYMENT_CHECK_CTM_TIMEOUT] Payment {payment_id} CTM timeout after {total_wait_seconds}s")
                     else:

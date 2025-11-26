@@ -291,17 +291,50 @@ class PaymentService:
                     payment.status = PaymentStatus.MTC_FAILED
                     self.db.add(payment)
                     self.db.commit()
+                    # Initiate reversal for failed MTC
+                    self._initiate_reversal(payment)
+                    # Send failure notification
+                    try:
+                        self.send_payment_notification(
+                            payment,
+                            is_success=False,
+                            failure_reason="Payout request rejected. Reversal being processed."
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send failure notification: {str(e)}", exc_info=True)
             else:
                 logger.error(f"MTC gateway returned HTTP status: {http_response.status_code}")
                 payment.status = PaymentStatus.MTC_FAILED
                 self.db.add(payment)
                 self.db.commit()
+                # Initiate reversal for failed MTC
+                self._initiate_reversal(payment)
+                # Send failure notification
+                try:
+                    self.send_payment_notification(
+                        payment,
+                        is_success=False,
+                        failure_reason="Payout request failed. Reversal being processed."
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send failure notification: {str(e)}", exc_info=True)
 
         except Exception as e:
             logger.error(f"Error initiating MTC for transaction {payment.transaction_id}: {str(e)}", exc_info=True)
             payment.status = PaymentStatus.MTC_FAILED
             self.db.add(payment)
             self.db.commit()
+            # Initiate reversal for failed MTC
+            try:
+                self._initiate_reversal(payment)
+                # Send failure notification
+                self.send_payment_notification(
+                    payment,
+                    is_success=False,
+                    failure_reason="Payout request error. Reversal being processed."
+                )
+            except Exception as reversal_error:
+                logger.error(f"Error initiating reversal after MTC exception: {str(reversal_error)}", exc_info=True)
             raise
 
     def _build_mtc_payment_request(self, payment: Payment, mtc_transaction_id: str) -> Dict[str, Any]:

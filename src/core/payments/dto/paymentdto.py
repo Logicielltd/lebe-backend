@@ -18,7 +18,9 @@ class PaymentDto(BaseModel):
     serviceName: Optional[str] = None
     customerEmail: Optional[str] = None
     customerName: Optional[str] = None
-    phoneNumber: Optional[str] = None
+    phoneNumber: Optional[str] = None  # Legacy field for backwards compatibility
+    senderPhone: Optional[str] = None  # Customer initiating payment
+    receiverPhone: Optional[str] = None  # Recipient of payment
     bankCode: Optional[str] = None
     network: Optional[Network] = None
     amountPaid: Optional[Decimal] = None

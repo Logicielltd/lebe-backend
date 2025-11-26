@@ -55,7 +55,8 @@ class PaymentService:
             'intent': intent,
             'customer_email': payment_dto.customerEmail,
             'customer_name': payment_dto.customerName,
-            'phone_number': payment_dto.phoneNumber,
+            'sender_phone': payment_dto.senderPhone or payment_dto.phoneNumber,
+            'receiver_phone': payment_dto.receiverPhone,
             'bank_code': payment_dto.bankCode,
             'network': payment_dto.network,
         }
@@ -308,10 +309,11 @@ class PaymentService:
         Build MTC (Merchant to Customer) payment request.
         MTC sends money from merchant account to customer/receiver.
         """
+        from utilities.phone_utils import convert_to_local_ghana_format
         amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
-            "customer_number": payment.phone_number,  # Receiver's phone number
+            "customer_number": convert_to_local_ghana_format(payment.receiver_phone),  # MTC: receiver (in 0xxx format)
             "exttrid": mtc_transaction_id,
             "nw": payment.network.value,
             "reference": f"Payout for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
@@ -398,13 +400,13 @@ class PaymentService:
     def _validate_payment(self, payment: Payment) -> None:
         if not payment.payment_method:
             raise PaymentValidationException("Payment method is required")
-        
+
         if not payment.network:
             raise PaymentValidationException("Network is required")
 
         if payment.payment_method == PaymentMethod.MOBILE_MONEY:
-            if not payment.phone_number:
-                raise PaymentValidationException("Phone number is required for mobile money payments")
+            if not payment.sender_phone:
+                raise PaymentValidationException("Sender phone number is required for mobile money payments")
             # Valid networks for mobile money: MTN, VOD (Vodafone), AIR (AirtelTigo)
             if payment.network not in [Network.MTN, Network.VOD, Network.AIR]:
                 raise PaymentValidationException(f"Invalid network for mobile money payment: {payment.network}")
@@ -439,10 +441,11 @@ class PaymentService:
 
         # Build base request (all transaction types need these)
         # Ensure amount_paid is a Decimal before formatting
+        from utilities.phone_utils import convert_to_local_ghana_format
         amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
-            "customer_number": payment.phone_number,
+            "customer_number": convert_to_local_ghana_format(payment.sender_phone),  # CTM: sender (in 0xxx format)
             "exttrid": payment.transaction_id,  # Keep as string, not int
             "nw": payment.network.value,
             "reference": f"{intent.replace('_', ' ').title()}",
@@ -602,7 +605,8 @@ class PaymentService:
                 return
 
             # Normalize phone number for WhatsApp (must be in format 233XXXXXXXXX)
-            normalized_phone = normalize_ghana_phone_number(payment.phone_number)
+            # Use sender_phone since we're notifying the person who initiated the payment
+            normalized_phone = normalize_ghana_phone_number(payment.sender_phone)
 
             # Initialize WhatsApp service
             whatsapp_service = WhatsAppService()
@@ -615,12 +619,12 @@ class PaymentService:
                 nlu_system = LebeNLUSystem()
                 receipt_url = nlu_system.generate_receipt_after_payment(
                     transaction_id=payment.transaction_id,
-                    user_id=payment.phone_number,
+                    user_id=payment.sender_phone,
                     intent=intent,
                     amount=payment.amount_paid,
                     status='SUCCESS',
-                    sender=payment.phone_number,
-                    receiver=payment.phone_number,
+                    sender=payment.sender_phone,
+                    receiver=payment.receiver_phone,
                     payment_method=payment.payment_method.name,
                     timestamp=payment.updated_on or datetime.now()
                 )
@@ -649,12 +653,12 @@ class PaymentService:
                 nlu_system = LebeNLUSystem()
                 receipt_url = nlu_system.generate_receipt_after_payment(
                     transaction_id=payment.transaction_id,
-                    user_id=payment.phone_number,
+                    user_id=payment.sender_phone,
                     intent=intent,
                     amount=payment.amount_paid,
                     status='FAILED',
-                    sender=payment.phone_number,
-                    receiver=payment.phone_number,
+                    sender=payment.sender_phone,
+                    receiver=payment.receiver_phone,
                     payment_method=payment.payment_method.name,
                     timestamp=payment.updated_on or datetime.now()
                 )

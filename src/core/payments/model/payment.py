@@ -30,7 +30,10 @@ class Payment(Base):
     intent: Mapped[Optional[str]] = mapped_column(String)
     customer_email: Mapped[Optional[str]] = mapped_column(String)
     customer_name: Mapped[Optional[str]] = mapped_column(String)
-    phone_number: Mapped[Optional[str]] = mapped_column(String)
+
+    # Phone numbers - sender is the customer paying (CTM), receiver is who gets the money (MTC)
+    sender_phone: Mapped[Optional[str]] = mapped_column(String)  # Customer initiating payment (in 0xxx format)
+    receiver_phone: Mapped[Optional[str]] = mapped_column(String)  # Recipient of payment (in 0xxx format)
 
     bank_code: Mapped[Optional[str]] = mapped_column(String)
     network: Mapped[Optional[Network]] = mapped_column(Enum(Network))

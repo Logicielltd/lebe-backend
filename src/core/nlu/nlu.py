@@ -217,7 +217,8 @@ class LebeNLUSystem:
             # Create PaymentDto based on intent
             if intent == "buy_airtime":
                 payment_dto = PaymentDto(
-                    phoneNumber=slots.get('phone_number'),
+                    senderPhone=user_id,  # User initiating the payment
+                    receiverPhone=user_id,  # Airtime for themselves
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     serviceName="Airtime Top-Up",
@@ -227,7 +228,8 @@ class LebeNLUSystem:
 
             elif intent == "send_money":
                 payment_dto = PaymentDto(
-                    phoneNumber=slots.get('recipient'),
+                    senderPhone=user_id,  # User initiating the payment
+                    receiverPhone=slots.get('recipient'),  # Recipient gets the money
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     customerName=slots.get('recipient_name', 'Unknown'),
@@ -238,7 +240,8 @@ class LebeNLUSystem:
 
             elif intent == "pay_bill":
                 payment_dto = PaymentDto(
-                    phoneNumber=user_id,  # Use user's phone
+                    senderPhone=user_id,  # User initiating the payment
+                    receiverPhone=user_id,  # Bill payment from user's account
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     serviceName=f"Bill Payment: {slots.get('bill_type')}",
@@ -248,7 +251,8 @@ class LebeNLUSystem:
 
             elif intent == "get_loan":
                 payment_dto = PaymentDto(
-                    phoneNumber=user_id,  # User's phone for payout
+                    senderPhone=user_id,  # User receiving payout (merchant → user)
+                    receiverPhone=user_id,  # Payout to user's account
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     serviceName="Loan Disbursement",

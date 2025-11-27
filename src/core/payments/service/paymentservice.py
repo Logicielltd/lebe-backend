@@ -212,10 +212,15 @@ class PaymentService:
             self.db.commit()
             logger.info(f"[CTM_STATUS_UPDATED] Payment status updated to CTM_SUCCESS for payment ID: {payment.id}")
 
-            # Now initiate MTC (Merchant to Customer) to send money to receiver
-            logger.info(f"[CTM_CALLBACK_INITIATING_MTC] Initiating MTC for transaction {payment.transaction_id}")
-            self._initiate_mtc(payment)
-            logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC initiated) for payment ID: {payment.id}")
+            # Check if MTC was already initiated by background job to prevent duplicate MTC initiation
+            if payment.mtc_transaction_id is not None:
+                logger.info(f"[CTM_CALLBACK_MTC_ALREADY_INITIATED] MTC already initiated with transaction ID {payment.mtc_transaction_id}, skipping duplicate MTC initiation for payment {payment.id}")
+                logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC already initiated) for payment ID: {payment.id}")
+            else:
+                # Now initiate MTC (Merchant to Customer) to send money to receiver
+                logger.info(f"[CTM_CALLBACK_INITIATING_MTC] Initiating MTC for transaction {payment.transaction_id}")
+                self._initiate_mtc(payment)
+                logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC initiated) for payment ID: {payment.id}")
         else:
             # CTM failed
             logger.warning(f"[CTM_CALLBACK_FAILURE] CTM callback confirmed failure for transaction {payment.transaction_id}")

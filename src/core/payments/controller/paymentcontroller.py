@@ -268,13 +268,29 @@ def handle_payment_callback(
         ).first()
 
         if payment:
+            from core.payments.model.paymentstatus import PaymentStatus
+
             status_code = callback_response.trans_status[:3] if callback_response.trans_status else None
             is_success = status_code == "000"
-            payment_service.send_payment_notification(
-                payment,
-                is_success=is_success,
-                failure_reason=callback_response.message if not is_success else None
-            )
+
+            # Only send notification if payment is not already in terminal state
+            # This prevents duplicate notifications if background job already processed it
+            if payment.status not in [PaymentStatus.SUCCESS, PaymentStatus.FAILED, PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED]:
+                payment_service.send_payment_notification(
+                    payment,
+                    is_success=is_success,
+                    failure_reason=callback_response.message if not is_success else None
+                )
+                logger.info(f"[CALLBACK_NOTIFICATION] Notification sent for payment {payment.id}")
+            else:
+                logger.info(f"[CALLBACK_SKIP_NOTIFICATION] Payment {payment.id} already in terminal state {payment.status.name}, skipping duplicate notification")
+
+            # Stop the background check job now that callback has arrived
+            # This prevents job from running again if it's still scheduled
+            from core.payments.service.payment_check_service import PaymentCheckService
+            check_service = PaymentCheckService(db)
+            check_service._stop_check_job(payment.id)
+            logger.info(f"[CALLBACK_JOB_STOPPED] Background job stopped for payment {payment.id} - callback processed")
 
         return {"message": "Callback processed successfully"}
     except PaymentNotFoundException as ex:

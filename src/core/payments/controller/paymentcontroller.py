@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 from fastapi_jwt_auth import AuthJWT
 import jwt
 from sqlalchemy.orm import Session
@@ -171,76 +171,100 @@ def get_payment_status(
             detail="Error checking payment status. Please try again."
         )
 
-@payment_routes.post("/retry-mtc/{mtc_transaction_id}")
-def retry_mtc(
-    mtc_transaction_id: str = Path(..., description="MTC Transaction ID to retry"),
+@payment_routes.post("/send-money")
+def send_money_direct(
+    amount: Decimal = Query(..., description="Amount in GHS to send"),
+    phone_number: str = Query(..., description="Receiver phone number (0XXXXXXXXX or 233XXXXXXXXX)"),
+    reference: str = Query("Direct Payout", description="Optional reference description"),
     db: Session = Depends(get_db)
 ):
     """
-    Manually retry MTC using the MTC transaction ID.
-    Only allowed when payment status is MTC_FAILED.
-    Used when MTC failed due to insufficient balance or network issues.
+    Send money directly to a phone number using MTC (Merchant to Customer).
+    Single-stage transaction - no CTM required.
+    Useful for payouts, refunds, or direct transfers.
 
     Args:
-        mtc_transaction_id: The MTC transaction ID to retry
+        amount: Amount in GHS to send
+        phone_number: Receiver phone number (0XXXXXXXXX or 233XXXXXXXXX format)
+        reference: Optional reference description
 
     Returns:
-        - success: Boolean indicating if MTC was sent successfully
+        - success: Boolean indicating if MTC was initiated successfully
         - message: Status message
-        - payment_id: Payment ID associated with this MTC
+        - payment_id: Payment ID created
+        - transaction_id: MTC transaction ID
         - payment_status: Current payment status
     """
     from core.payments.model.payment import Payment
     from core.payments.model.paymentstatus import PaymentStatus
+    from utilities.uniqueidgenerator import UniqueIdGenerator
 
     try:
-        # Get the payment by mtc_transaction_id
-        payment = db.query(Payment).filter(Payment.mtc_transaction_id == mtc_transaction_id).first()
-
-        if not payment:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Payment with MTC transaction ID '{mtc_transaction_id}' not found"
-            )
-
-        # Strict validation: Only allow retry if status is MTC_FAILED
-        if payment.status != PaymentStatus.MTC_FAILED:
+        # Validate inputs
+        if not amount or amount <= 0:
             raise HTTPException(
                 status_code=400,
-                detail=f"Cannot retry MTC. Payment status is '{payment.status.name}'. Only MTC_FAILED payments can be retried."
+                detail="Amount must be greater than 0"
             )
 
-        # Validate receiver phone exists
-        if not payment.receiver_phone:
+        if not phone_number:
             raise HTTPException(
                 status_code=400,
-                detail="Payment record is missing receiver phone number. Cannot process MTC."
+                detail="Phone number is required"
             )
 
-        logger.info(f"[RETRY_MTC] Retrying MTC {mtc_transaction_id} for payment {payment.id}: Amount={payment.amount_paid}, Receiver={payment.receiver_phone}")
+        logger.info(f"[SEND_MONEY_DIRECT] Creating direct MTC payout: Amount={amount}, Phone={phone_number}, Reference={reference}")
 
-        # Call PaymentService to initiate MTC
+        # Create MTC transaction IDs
+        mtc_transaction_id = str(UniqueIdGenerator.generate())
+
+        # Create Payment record for direct MTC (skip CTM, go straight to MTC_PROCESSING)
+        payment = Payment(
+            bill_id=0,
+            amount_paid=Decimal(str(amount)),
+            payment_method="DIRECT_PAYOUT",
+            status=PaymentStatus.MTC_PROCESSING,  # Start as MTC_PROCESSING (no CTM)
+            transaction_id=mtc_transaction_id,
+            mtc_transaction_id=mtc_transaction_id,
+            receiver_phone=phone_number,
+            intent="direct_payout",
+            service_name=reference
+        )
+
+        db.add(payment)
+        db.commit()
+        db.refresh(payment)
+        logger.info(f"[SEND_MONEY_DIRECT] Payment record created: ID={payment.id}, Amount={amount}, Phone={phone_number}")
+
+        # Initiate MTC directly
         payment_service = PaymentService(db)
         payment_service._initiate_mtc(payment)
+        logger.info(f"[SEND_MONEY_DIRECT] MTC initiated for payment {payment.id}")
+
+        # Schedule status check job
+        from core.payments.service.payment_check_service import PaymentCheckService
+        check_service = PaymentCheckService(db)
+        check_service.schedule_payment_status_check(payment.id)
 
         return {
             "success": True,
-            "message": f"MTC retry initiated successfully",
+            "message": "Direct MTC payout initiated successfully",
             "payment_id": payment.id,
-            "mtc_transaction_id": payment.mtc_transaction_id,
+            "transaction_id": mtc_transaction_id,
             "payment_status": payment.status.name,
-            "amount": str(payment.amount_paid),
-            "receiver_phone": payment.receiver_phone,
+            "amount": str(amount),
+            "receiver_phone": phone_number,
+            "reference": reference,
             "timestamp": datetime.now().isoformat()
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error retrying MTC {mtc_transaction_id}: {str(e)}", exc_info=True)
+        logger.error(f"Error sending money directly: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Error retrying MTC: {str(e)}"
+            detail=f"Error sending money: {str(e)}"
         )
 
 @payment_routes.post("/callback")

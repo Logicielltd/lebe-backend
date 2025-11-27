@@ -171,6 +171,78 @@ def get_payment_status(
             detail="Error checking payment status. Please try again."
         )
 
+@payment_routes.post("/retry-mtc/{mtc_transaction_id}")
+def retry_mtc(
+    mtc_transaction_id: str = Path(..., description="MTC Transaction ID to retry"),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually retry MTC using the MTC transaction ID.
+    Only allowed when payment status is MTC_FAILED.
+    Used when MTC failed due to insufficient balance or network issues.
+
+    Args:
+        mtc_transaction_id: The MTC transaction ID to retry
+
+    Returns:
+        - success: Boolean indicating if MTC was sent successfully
+        - message: Status message
+        - payment_id: Payment ID associated with this MTC
+        - payment_status: Current payment status
+    """
+    from core.payments.model.payment import Payment
+    from core.payments.model.paymentstatus import PaymentStatus
+
+    try:
+        # Get the payment by mtc_transaction_id
+        payment = db.query(Payment).filter(Payment.mtc_transaction_id == mtc_transaction_id).first()
+
+        if not payment:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Payment with MTC transaction ID '{mtc_transaction_id}' not found"
+            )
+
+        # Strict validation: Only allow retry if status is MTC_FAILED
+        if payment.status != PaymentStatus.MTC_FAILED:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot retry MTC. Payment status is '{payment.status.name}'. Only MTC_FAILED payments can be retried."
+            )
+
+        # Validate receiver phone exists
+        if not payment.receiver_phone:
+            raise HTTPException(
+                status_code=400,
+                detail="Payment record is missing receiver phone number. Cannot process MTC."
+            )
+
+        logger.info(f"[RETRY_MTC] Retrying MTC {mtc_transaction_id} for payment {payment.id}: Amount={payment.amount_paid}, Receiver={payment.receiver_phone}")
+
+        # Call PaymentService to initiate MTC
+        payment_service = PaymentService(db)
+        payment_service._initiate_mtc(payment)
+
+        return {
+            "success": True,
+            "message": f"MTC retry initiated successfully",
+            "payment_id": payment.id,
+            "mtc_transaction_id": payment.mtc_transaction_id,
+            "payment_status": payment.status.name,
+            "amount": str(payment.amount_paid),
+            "receiver_phone": payment.receiver_phone,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrying MTC {mtc_transaction_id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrying MTC: {str(e)}"
+        )
+
 @payment_routes.post("/callback")
 def handle_payment_callback(
     callback_response: PaymentCallbackResponse,

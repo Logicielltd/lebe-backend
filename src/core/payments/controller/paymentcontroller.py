@@ -180,7 +180,7 @@ def send_money_direct(
 ):
     """
     Send money directly to a phone number using MTC (Merchant to Customer).
-    Single-stage transaction - no CTM required.
+    No database records created - direct payout to Orchard API.
     Useful for payouts, refunds, or direct transfers.
 
     Args:
@@ -189,15 +189,15 @@ def send_money_direct(
         reference: Optional reference description
 
     Returns:
-        - success: Boolean indicating if MTC was initiated successfully
-        - message: Status message
-        - payment_id: Payment ID created
+        - success: Boolean indicating if MTC was sent to gateway
         - transaction_id: MTC transaction ID
-        - payment_status: Current payment status
+        - resp_code: Orchard response code (015 = accepted for processing)
+        - message: Status message
+        - receiver_phone: Phone number money was sent to
     """
-    from core.payments.model.payment import Payment
-    from core.payments.model.paymentstatus import PaymentStatus
     from utilities.uniqueidgenerator import UniqueIdGenerator
+    from utilities.phone_utils import convert_to_local_ghana_format
+    from core.beneficiaries.utility.network_detector import NetworkDetector
 
     try:
         # Validate inputs
@@ -213,55 +213,65 @@ def send_money_direct(
                 detail="Phone number is required"
             )
 
-        logger.info(f"[SEND_MONEY_DIRECT] Creating direct MTC payout: Amount={amount}, Phone={phone_number}, Reference={reference}")
+        logger.info(f"[SEND_MONEY_DIRECT] Direct MTC payout: Amount={amount}, Phone={phone_number}, Reference={reference}")
 
-        # Create MTC transaction IDs
+        # Generate transaction ID
         mtc_transaction_id = str(UniqueIdGenerator.generate())
 
-        # Create Payment record for direct MTC (skip CTM, go straight to MTC_PROCESSING)
-        payment = Payment(
-            bill_id=0,
-            amount_paid=Decimal(str(amount)),
-            payment_method="DIRECT_PAYOUT",
-            status=PaymentStatus.MTC_PROCESSING,  # Start as MTC_PROCESSING (no CTM)
-            transaction_id=mtc_transaction_id,
-            mtc_transaction_id=mtc_transaction_id,
-            receiver_phone=phone_number,
-            intent="direct_payout",
-            service_name=reference
-        )
+        # Detect network from phone
+        detected_network, network_message = NetworkDetector.detect_network_from_phone(phone_number)
+        logger.info(f"[SEND_MONEY_DIRECT_NETWORK] Phone: {phone_number} -> Network: {detected_network} ({network_message})")
 
-        db.add(payment)
-        db.commit()
-        db.refresh(payment)
-        logger.info(f"[SEND_MONEY_DIRECT] Payment record created: ID={payment.id}, Amount={amount}, Phone={phone_number}")
-
-        # Initiate MTC directly
-        payment_service = PaymentService(db)
-        payment_service._initiate_mtc(payment)
-        logger.info(f"[SEND_MONEY_DIRECT] MTC initiated for payment {payment.id}")
-
-        # Schedule status check job
-        from core.payments.service.payment_check_service import PaymentCheckService
-        check_service = PaymentCheckService(db)
-        check_service.schedule_payment_status_check(payment.id)
-
-        return {
-            "success": True,
-            "message": "Direct MTC payout initiated successfully",
-            "payment_id": payment.id,
-            "transaction_id": mtc_transaction_id,
-            "payment_status": payment.status.name,
-            "amount": str(amount),
-            "receiver_phone": phone_number,
+        # Build MTC request
+        amount_decimal = Decimal(str(amount))
+        mtc_request = {
+            "amount": str(amount_decimal.quantize(Decimal('0.00'))),
+            "customer_number": convert_to_local_ghana_format(phone_number),
+            "exttrid": mtc_transaction_id,
+            "nw": detected_network,
             "reference": reference,
-            "timestamp": datetime.now().isoformat()
+            "service_id": "4892",
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "callback_url": "https://lebe-dcahe0a8cjecffcm.canadacentral-01.azurewebsites.netapi/api/v1/payment/callback",
+            "trans_type": "MTC"
         }
+
+        logger.info(f"[SEND_MONEY_DIRECT_REQUEST] Sending MTC request: {mtc_request}")
+
+        # Send to Orchard API
+        payment_service = PaymentService(db)
+        response = payment_service.payment_gateway_client.process_payment(mtc_request)
+
+        logger.info(f"[SEND_MONEY_DIRECT_RESPONSE] Orchard response: status_code={response.status_code}")
+
+        if response.status_code == 200:
+            response_data = response.json()
+            resp_code = response_data.get("resp_code")
+
+            return {
+                "success": True,
+                "message": f"Payout sent successfully (resp_code: {resp_code})",
+                "transaction_id": mtc_transaction_id,
+                "resp_code": resp_code,
+                "resp_desc": response_data.get("resp_desc"),
+                "amount": str(amount),
+                "receiver_phone": convert_to_local_ghana_format(phone_number),
+                "network": detected_network,
+                "reference": reference,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            error_msg = response.text
+            logger.error(f"[SEND_MONEY_DIRECT_ERROR] Gateway error: {error_msg}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Gateway error: {error_msg}"
+            )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error sending money directly: {str(e)}", exc_info=True)
+        logger.error(f"Error sending money: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error sending money: {str(e)}"

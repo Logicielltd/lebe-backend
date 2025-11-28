@@ -209,19 +209,31 @@ class PaymentCheckService:
                             payment_service = PaymentService(db)
 
                             if payment.intent == "buy_airtime":
-                                # Initiate ATP for airtime
-                                logger.info(f"[PAYMENT_CHECK_ATP_INITIATING] Initiating ATP from background check for payment {payment_id}")
-                                payment_service._initiate_atp(payment)
-                                logger.info(f"[PAYMENT_CHECK_ATP_INITIATED] ATP initiated from background check for payment {payment_id}")
-                                # Continue job - it will now check ATP status since payment.status is ATP_PROCESSING
-                                logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check ATP status for payment {payment_id}")
+                                # Check if ATP was already initiated by callback to prevent duplicate ATP initiation
+                                if payment.atp_transaction_id is not None:
+                                    logger.info(f"[PAYMENT_CHECK_ATP_ALREADY_INITIATED] ATP already initiated with transaction ID {payment.atp_transaction_id}, skipping duplicate ATP initiation for payment {payment_id}")
+                                    # Continue job - it will now check ATP status since payment.status is ATP_PROCESSING
+                                    logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check ATP status for payment {payment_id}")
+                                else:
+                                    # Initiate ATP for airtime
+                                    logger.info(f"[PAYMENT_CHECK_ATP_INITIATING] Initiating ATP from background check for payment {payment_id}")
+                                    payment_service._initiate_atp(payment)
+                                    logger.info(f"[PAYMENT_CHECK_ATP_INITIATED] ATP initiated from background check for payment {payment_id}")
+                                    # Continue job - it will now check ATP status since payment.status is ATP_PROCESSING
+                                    logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check ATP status for payment {payment_id}")
                             else:
-                                # Initiate MTC for send_money and other intents
-                                logger.info(f"[PAYMENT_CHECK_MTC_INITIATING] Initiating MTC from background check for payment {payment_id}")
-                                payment_service._initiate_mtc(payment)
-                                logger.info(f"[PAYMENT_CHECK_MTC_INITIATED] MTC initiated from background check for payment {payment_id}")
-                                # Continue job - it will now check MTC status since payment.status is MTC_PROCESSING
-                                logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check MTC status for payment {payment_id}")
+                                # Check if MTC was already initiated by callback to prevent duplicate MTC initiation
+                                if payment.mtc_transaction_id is not None:
+                                    logger.info(f"[PAYMENT_CHECK_MTC_ALREADY_INITIATED] MTC already initiated with transaction ID {payment.mtc_transaction_id}, skipping duplicate MTC initiation for payment {payment_id}")
+                                    # Continue job - it will now check MTC status since payment.status is MTC_PROCESSING
+                                    logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check MTC status for payment {payment_id}")
+                                else:
+                                    # Initiate MTC for send_money and other intents
+                                    logger.info(f"[PAYMENT_CHECK_MTC_INITIATING] Initiating MTC from background check for payment {payment_id}")
+                                    payment_service._initiate_mtc(payment)
+                                    logger.info(f"[PAYMENT_CHECK_MTC_INITIATED] MTC initiated from background check for payment {payment_id}")
+                                    # Continue job - it will now check MTC status since payment.status is MTC_PROCESSING
+                                    logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check MTC status for payment {payment_id}")
                         except Exception as e:
                             logger.error(f"[PAYMENT_CHECK_SECOND_STAGE_ERROR] Error initiating second stage: {str(e)}", exc_info=True)
                             # Reload payment from DB to get current state

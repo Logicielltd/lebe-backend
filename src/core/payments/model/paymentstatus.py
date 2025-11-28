@@ -22,7 +22,12 @@ class PaymentStatus(str, Enum):
     ATP_SUCCESS = "ATP_SUCCESS"
     ATP_FAILED = "ATP_FAILED"
 
-    # Reversal (when MTC or ATP fails, refund money back to sender)
+    # BLP (Bill Payment) - Bill payment after CTM succeeds
+    BLP_PROCESSING = "BLP_PROCESSING"
+    BLP_SUCCESS = "BLP_SUCCESS"
+    BLP_FAILED = "BLP_FAILED"
+
+    # Reversal (when MTC, ATP, or BLP fails, refund money back to sender)
     REVERSAL_PROCESSING = "REVERSAL_PROCESSING"
     REVERSAL_SUCCESS = "REVERSAL_SUCCESS"
     REVERSAL_FAILED = "REVERSAL_FAILED"

@@ -138,7 +138,7 @@ class PaymentCheckService:
                 return
 
             # If terminal failed state, stop checking
-            if payment.status in [PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED, PaymentStatus.ATP_FAILED, PaymentStatus.FAILED]:
+            if payment.status in [PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED, PaymentStatus.ATP_FAILED, PaymentStatus.BLP_FAILED, PaymentStatus.FAILED]:
                 logger.info(f"[PAYMENT_CHECK_TERMINAL_FAILED] Payment {payment_id} in terminal failed state: {payment.status}")
                 logger.info(f"[PAYMENT_CHECK_TERMINAL_FAILED_STOP] Stopping job - no further checks needed")
                 self._stop_check_job(payment_id)
@@ -170,6 +170,13 @@ class PaymentCheckService:
                     check_type = "ATP"
                 else:
                     logger.warning(f"[PAYMENT_CHECK_MISSING_ATP_TXN_ID] Payment {payment_id} is ATP_PROCESSING but has no atp_transaction_id")
+            elif payment.status == PaymentStatus.BLP_PROCESSING:
+                # Check BLP status using blp_transaction_id
+                if payment.blp_transaction_id:
+                    transaction_id_to_check = payment.blp_transaction_id
+                    check_type = "BLP"
+                else:
+                    logger.warning(f"[PAYMENT_CHECK_MISSING_BLP_TXN_ID] Payment {payment_id} is BLP_PROCESSING but has no blp_transaction_id")
 
             if transaction_id_to_check:
                 logger.info(f"[PAYMENT_CHECK_QUERY_API] Querying Orchard API for {check_type} transaction: {transaction_id_to_check}")
@@ -221,6 +228,19 @@ class PaymentCheckService:
                                     logger.info(f"[PAYMENT_CHECK_ATP_INITIATED] ATP initiated from background check for payment {payment_id}")
                                     # Continue job - it will now check ATP status since payment.status is ATP_PROCESSING
                                     logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check ATP status for payment {payment_id}")
+                            elif payment.intent == "pay_bill":
+                                # Check if BLP was already initiated by callback to prevent duplicate BLP initiation
+                                if payment.blp_transaction_id is not None:
+                                    logger.info(f"[PAYMENT_CHECK_BLP_ALREADY_INITIATED] BLP already initiated with transaction ID {payment.blp_transaction_id}, skipping duplicate BLP initiation for payment {payment_id}")
+                                    # Continue job - it will now check BLP status since payment.status is BLP_PROCESSING
+                                    logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check BLP status for payment {payment_id}")
+                                else:
+                                    # Initiate BLP for bill payment
+                                    logger.info(f"[PAYMENT_CHECK_BLP_INITIATING] Initiating BLP from background check for payment {payment_id}")
+                                    payment_service._initiate_blp(payment)
+                                    logger.info(f"[PAYMENT_CHECK_BLP_INITIATED] BLP initiated from background check for payment {payment_id}")
+                                    # Continue job - it will now check BLP status since payment.status is BLP_PROCESSING
+                                    logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check BLP status for payment {payment_id}")
                             else:
                                 # Check if MTC was already initiated by callback to prevent duplicate MTC initiation
                                 if payment.mtc_transaction_id is not None:
@@ -267,6 +287,27 @@ class PaymentCheckService:
                     elif payment.status == PaymentStatus.ATP_PROCESSING:
                         # This is ATP success - final success
                         logger.info(f"[PAYMENT_CHECK_ATP_SUCCESS] ATP confirmed successful for payment {payment_id}")
+                        payment.status = PaymentStatus.SUCCESS
+                        payment.updated_on = datetime.now()
+                        db.add(payment)
+                        db.commit()
+                        db.refresh(payment)  # Refresh to ensure object is in sync with database
+                        logger.info(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked SUCCESS")
+
+                        # Send WhatsApp notification with receipt
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(payment, is_success=True)
+                            logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Success notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_NOTIFICATION_ERROR] Failed to send success notification for payment {payment_id}: {str(e)}", exc_info=True)
+
+                        self._stop_check_job(payment_id)
+
+                    elif payment.status == PaymentStatus.BLP_PROCESSING:
+                        # This is BLP success - final success
+                        logger.info(f"[PAYMENT_CHECK_BLP_SUCCESS] BLP confirmed successful for payment {payment_id}")
                         payment.status = PaymentStatus.SUCCESS
                         payment.updated_on = datetime.now()
                         db.add(payment)
@@ -369,6 +410,33 @@ class PaymentCheckService:
                                 payment,
                                 is_success=False,
                                 failure_reason="Airtime request failed. Refund being processed."
+                            )
+                            logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Failure notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_NOTIFICATION_ERROR] Failed to send failure notification: {str(e)}", exc_info=True)
+
+                    elif payment.status == PaymentStatus.BLP_PROCESSING:
+                        # BLP failed - initiate reversal and send failure notification
+                        logger.warning(f"[PAYMENT_CHECK_BLP_FAILED] Payment {payment_id} BLP failed")
+                        payment.status = PaymentStatus.BLP_FAILED
+
+                        # Initiate reversal transaction (refund to sender)
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service._initiate_reversal(payment)
+                            logger.info(f"[REVERSAL_INITIATED] Reversal initiated for failed payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[REVERSAL_ERROR] Error initiating reversal: {str(e)}", exc_info=True)
+
+                        # Send failure notification with receipt
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(
+                                payment,
+                                is_success=False,
+                                failure_reason="Bill payment failed. Refund being processed."
                             )
                             logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Failure notification sent for payment {payment_id}")
                         except Exception as e:

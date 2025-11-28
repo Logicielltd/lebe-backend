@@ -150,12 +150,13 @@ class PaymentService:
 
             # Find payment by looking up both ctm_transaction_id and transaction_id
             logger.debug(f"[DB_QUERY_START] Searching for payment with trans_ref_str: '{trans_ref_str}'")
-            logger.debug(f"[DB_QUERY_FILTERS] Looking for payment where: transaction_id='{trans_ref_str}' OR ctm_transaction_id='{trans_ref_str}' OR mtc_transaction_id='{trans_ref_str}' OR atp_transaction_id='{trans_ref_str}'")
+            logger.debug(f"[DB_QUERY_FILTERS] Looking for payment where: transaction_id='{trans_ref_str}' OR ctm_transaction_id='{trans_ref_str}' OR mtc_transaction_id='{trans_ref_str}' OR atp_transaction_id='{trans_ref_str}' OR blp_transaction_id='{trans_ref_str}'")
             payment = self.db.query(Payment).filter(
                 (Payment.transaction_id == trans_ref_str) |
                 (Payment.ctm_transaction_id == trans_ref_str) |
                 (Payment.mtc_transaction_id == trans_ref_str) |
-                (Payment.atp_transaction_id == trans_ref_str)
+                (Payment.atp_transaction_id == trans_ref_str) |
+                (Payment.blp_transaction_id == trans_ref_str)
             ).first()
             logger.debug(f"[DB_QUERY_END] Query completed, payment found: {payment is not None}")
 
@@ -163,7 +164,7 @@ class PaymentService:
                 logger.error(f"[PAYMENT_NOT_FOUND] Payment not found for Transaction ID: {callback_response.trans_ref}")
                 raise PaymentNotFoundException(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
 
-            logger.info(f"[PAYMENT_FOUND] Payment found - ID: {payment.id}, transaction_id: {payment.transaction_id}, ctm_transaction_id: {payment.ctm_transaction_id}, mtc_transaction_id: {payment.mtc_transaction_id}, atp_transaction_id: {payment.atp_transaction_id}")
+            logger.info(f"[PAYMENT_FOUND] Payment found - ID: {payment.id}, transaction_id: {payment.transaction_id}, ctm_transaction_id: {payment.ctm_transaction_id}, mtc_transaction_id: {payment.mtc_transaction_id}, atp_transaction_id: {payment.atp_transaction_id}, blp_transaction_id: {payment.blp_transaction_id}")
 
             # Determine which leg of the transaction this callback is for
             logger.debug(f"[CALLBACK_TYPE_CHECK_START] Determining callback type")
@@ -171,12 +172,14 @@ class PaymentService:
             logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.ctm_transaction_id='{payment.ctm_transaction_id}'")
             logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.mtc_transaction_id='{payment.mtc_transaction_id}'")
             logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.atp_transaction_id='{payment.atp_transaction_id}'")
+            logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.blp_transaction_id='{payment.blp_transaction_id}'")
 
             is_ctm_callback = (trans_ref_str == payment.transaction_id or trans_ref_str == payment.ctm_transaction_id)
             is_mtc_callback = (trans_ref_str == payment.mtc_transaction_id)
             is_atp_callback = (trans_ref_str == payment.atp_transaction_id)
+            is_blp_callback = (trans_ref_str == payment.blp_transaction_id)
 
-            logger.info(f"[CALLBACK_TYPE_DETERMINED] is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}, is_atp_callback={is_atp_callback}")
+            logger.info(f"[CALLBACK_TYPE_DETERMINED] is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}, is_atp_callback={is_atp_callback}, is_blp_callback={is_blp_callback}")
 
             incoming_status = self._determine_payment_status(callback_response.trans_status)
             logger.info(f"[CALLBACK_STATUS_ANALYSIS] Payment ID: {payment.id} | Current Status: {payment.status} | Incoming Status: {incoming_status} | Callback Status Code: {callback_response.trans_status}")
@@ -191,14 +194,19 @@ class PaymentService:
                 # Handle ATP (Airtime Top-Up) callback
                 self._handle_atp_callback(payment, callback_response, incoming_status)
                 logger.info(f"[CALLBACK_HANDLER_END] ATP callback handling completed for payment ID: {payment.id}")
+            elif is_blp_callback:
+                logger.info(f"[CALLBACK_HANDLER_START] Handling BLP callback for payment ID: {payment.id}")
+                # Handle BLP (Bill Payment) callback
+                self._handle_blp_callback(payment, callback_response, incoming_status)
+                logger.info(f"[CALLBACK_HANDLER_END] BLP callback handling completed for payment ID: {payment.id}")
             elif is_mtc_callback:
                 logger.info(f"[CALLBACK_HANDLER_START] Handling MTC callback for payment ID: {payment.id}")
                 # Handle MTC (Merchant to Customer) callback
                 self._handle_mtc_callback(payment, callback_response, incoming_status)
                 logger.info(f"[CALLBACK_HANDLER_END] MTC callback handling completed for payment ID: {payment.id}")
             else:
-                logger.error(f"[CALLBACK_TYPE_ERROR] Unable to determine callback type for transaction {callback_response.trans_ref}. is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}, is_atp_callback={is_atp_callback}")
-                raise ValueError("Unable to determine if callback is for CTM, MTC, or ATP")
+                logger.error(f"[CALLBACK_TYPE_ERROR] Unable to determine callback type for transaction {callback_response.trans_ref}. is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}, is_atp_callback={is_atp_callback}, is_blp_callback={is_blp_callback}")
+                raise ValueError("Unable to determine if callback is for CTM, MTC, ATP, or BLP")
 
             logger.info(f"[CALLBACK_COMPLETE] Callback processing completed successfully for trans_ref: {callback_response.trans_ref}")
 
@@ -237,7 +245,18 @@ class PaymentService:
                     logger.info(f"[CTM_CALLBACK_INITIATING_ATP] Initiating ATP for transaction {payment.transaction_id}")
                     self._initiate_atp(payment)
                     logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (ATP initiated) for payment ID: {payment.id}")
+            elif payment.intent == "pay_bill":
+                # Check if BLP was already initiated by background job
+                if payment.blp_transaction_id is not None:
+                    logger.info(f"[CTM_CALLBACK_BLP_ALREADY_INITIATED] BLP already initiated with transaction ID {payment.blp_transaction_id}, skipping duplicate BLP initiation for payment {payment.id}")
+                    logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (BLP already initiated) for payment ID: {payment.id}")
+                else:
+                    # Initiate BLP (Bill Payment) to pay bill from merchant account
+                    logger.info(f"[CTM_CALLBACK_INITIATING_BLP] Initiating BLP for transaction {payment.transaction_id}")
+                    self._initiate_blp(payment)
+                    logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (BLP initiated) for payment ID: {payment.id}")
             else:
+                # Default to MTC for send_money and other intents
                 # Check if MTC was already initiated by background job to prevent duplicate MTC initiation
                 if payment.mtc_transaction_id is not None:
                     logger.info(f"[CTM_CALLBACK_MTC_ALREADY_INITIATED] MTC already initiated with transaction ID {payment.mtc_transaction_id}, skipping duplicate MTC initiation for payment {payment.id}")
@@ -306,6 +325,31 @@ class PaymentService:
             self.db.add(payment)
             self.db.commit()
             logger.info(f"[ATP_CALLBACK_HANDLER_END] Payment marked as ATP_FAILED for payment ID: {payment.id}")
+
+    def _handle_blp_callback(self, payment: Payment, callback_response: Any, incoming_status: PaymentStatus) -> None:
+        """
+        Handle BLP (Bill Payment) callback.
+        If successful, sets status to SUCCESS and creates invoice.
+        If failed, sets status to BLP_FAILED.
+        """
+        logger.info(f"[BLP_CALLBACK_HANDLER_START] Processing BLP callback for payment ID: {payment.id}, blp_transaction_id: {payment.blp_transaction_id}")
+        logger.debug(f"[BLP_CALLBACK_HANDLER_STATUS] Current payment status: {payment.status}, Incoming status: {incoming_status}")
+
+        if incoming_status == PaymentStatus.SUCCESS:
+            logger.info(f"[BLP_CALLBACK_SUCCESS] BLP callback confirmed success for transaction {payment.transaction_id}")
+            logger.info(f"[BLP_CALLBACK_SUCCESS_DETAIL] Both CTM and BLP legs completed, marking payment as SUCCESS")
+            # BLP succeeded - both legs are complete, mark as SUCCESS
+            self._handle_success(payment, {"resp_code": "000", "resp_desc": "Bill payment processed successfully"})
+            logger.info(f"[BLP_CALLBACK_HANDLER_END] BLP callback handler completed successfully for payment ID: {payment.id}")
+        else:
+            # BLP failed
+            logger.warning(f"[BLP_CALLBACK_FAILURE] BLP callback confirmed failure for transaction {payment.transaction_id}")
+            logger.debug(f"[BLP_CALLBACK_FAILURE_DETAIL] Incoming status was: {incoming_status}")
+            payment.status = PaymentStatus.BLP_FAILED
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+            logger.info(f"[BLP_CALLBACK_HANDLER_END] Payment marked as BLP_FAILED for payment ID: {payment.id}")
 
     def _initiate_mtc(self, payment: Payment) -> None:
         """
@@ -508,6 +552,90 @@ class PaymentService:
                 logger.error(f"Error initiating reversal after ATP exception: {str(reversal_error)}", exc_info=True)
             raise
 
+    def _initiate_blp(self, payment: Payment) -> None:
+        """
+        Initiate BLP (Bill Payment) transaction after CTM succeeds.
+        Send bill payment from merchant account using customer's account number.
+        """
+        try:
+            # Generate unique transaction ID for BLP
+            blp_transaction_id = str(UniqueIdGenerator.generate())
+            payment.blp_transaction_id = blp_transaction_id
+            payment.status = PaymentStatus.BLP_PROCESSING
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+
+            # Build BLP payment request
+            blp_request = self._build_blp_payment_request(payment, blp_transaction_id)
+            logger.info(f"Built BLP payment request for transaction: {blp_transaction_id}")
+
+            # Send to Orchard API
+            logger.info(f"Sending BLP request to Orchard API for transaction: {blp_transaction_id}")
+            http_response = self.payment_gateway_client.process_payment(blp_request)
+            logger.info(f"Received BLP response from Orchard API: status_code={http_response.status_code}")
+
+            # Process BLP response - should get 015 or 027 meaning request accepted
+            if http_response.status_code == 200:
+                response_data = http_response.json()
+                resp_code = response_data.get("resp_code") if response_data else None
+                # Both 015 (request received for processing) and 027 (request successfully completed) are valid
+                if response_data and resp_code in ["015", "027"]:
+                    logger.info(f"[BLP_RESPONSE_SUCCESS] BLP request accepted for processing (resp_code: {resp_code}) for transactionId: {blp_transaction_id}")
+                    # BLP is now processing, waiting for callback or status check
+                    logger.info(f"[BLP_PROCESSING] Awaiting BLP callback for transaction {blp_transaction_id}")
+                    # Note: The existing check job will continue running and will check BLP status
+                else:
+                    logger.warning(f"BLP failed with response code: {response_data.get('resp_code')}")
+                    payment.status = PaymentStatus.BLP_FAILED
+                    self.db.add(payment)
+                    self.db.commit()
+                    # Initiate reversal for failed BLP
+                    self._initiate_reversal(payment)
+                    # Send failure notification
+                    try:
+                        self.send_payment_notification(
+                            payment,
+                            is_success=False,
+                            failure_reason="Bill payment request rejected. Reversal being processed."
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send failure notification: {str(e)}", exc_info=True)
+            else:
+                logger.error(f"BLP gateway returned HTTP status: {http_response.status_code}")
+                payment.status = PaymentStatus.BLP_FAILED
+                self.db.add(payment)
+                self.db.commit()
+                # Initiate reversal for failed BLP
+                self._initiate_reversal(payment)
+                # Send failure notification
+                try:
+                    self.send_payment_notification(
+                        payment,
+                        is_success=False,
+                        failure_reason="Bill payment request failed. Reversal being processed."
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send failure notification: {str(e)}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Error initiating BLP for transaction {payment.transaction_id}: {str(e)}", exc_info=True)
+            payment.status = PaymentStatus.BLP_FAILED
+            self.db.add(payment)
+            self.db.commit()
+            # Initiate reversal for failed BLP
+            try:
+                self._initiate_reversal(payment)
+                # Send failure notification
+                self.send_payment_notification(
+                    payment,
+                    is_success=False,
+                    failure_reason="Bill payment request error. Reversal being processed."
+                )
+            except Exception as reversal_error:
+                logger.error(f"Error initiating reversal after BLP exception: {str(reversal_error)}", exc_info=True)
+            raise
+
     def _build_atp_payment_request(self, payment: Payment, atp_transaction_id: str) -> Dict[str, Any]:
         """
         Build ATP (Airtime Top-Up) payment request.
@@ -537,6 +665,34 @@ class PaymentService:
             "trans_type": "ATP"  # Airtime Top-Up
         }
         logger.info(f"Built ATP payment request: trans_type=ATP, network={network_to_use}")
+        return request_data
+
+    def _build_blp_payment_request(self, payment: Payment, blp_transaction_id: str) -> Dict[str, Any]:
+        """
+        Build BLP (Bill Payment) payment request.
+        BLP sends bill payment from merchant account to customer's utility bill.
+        Uses account_number (smart card number) and utility network codes.
+        """
+        amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
+
+        # For BLP, the network field contains the utility provider code (GOT, DST, ECG, GHW, etc.)
+        # This is stored in payment.network during the initial payment creation
+        utility_network = payment.network.value if payment.network else "GOT"
+
+        logger.info(f"[BLP_REQUEST] Building BLP request for account: {payment.receiver_phone} (stored as account_number), utility: {utility_network}")
+
+        request_data = {
+            "amount": str(amount.quantize(Decimal('0.00'))),
+            "account_number": payment.receiver_phone,  # BLP uses account_number (smart card number)
+            "exttrid": blp_transaction_id,
+            "nw": utility_network,  # Bill payment network codes: GOT, DST, ECG, GHW, etc.
+            "reference": f"Bill payment for {payment.intent.replace('_', ' ').title() if payment.intent else 'Bill Payment'}",
+            "service_id": self.service_id,
+            "ts": self.payment_gateway_client.get_current_timestamp(),
+            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "trans_type": "BLP"  # Bill Payment
+        }
+        logger.info(f"Built BLP payment request: trans_type=BLP, network={utility_network}")
         return request_data
 
     def _initiate_reversal(self, payment: Payment) -> None:

@@ -26,6 +26,7 @@ class Payment(Base):
     ctm_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # CTM (Customer to Merchant) transaction ID
     mtc_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # MTC (Merchant to Customer) transaction ID for send_money
     atp_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # ATP (Airtime Top-Up) transaction ID for buy_airtime
+    blp_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # BLP (Bill Payment) transaction ID for pay_bill
 
     # Reversal tracking - for reversal payments, links back to the original failed payment
     original_payment_id: Mapped[Optional[int]] = mapped_column(Integer)  # Links reversal payment to original payment

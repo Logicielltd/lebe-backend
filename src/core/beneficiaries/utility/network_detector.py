@@ -21,27 +21,42 @@ class AccountType:
     CARD = "CARD"
 
 
-# Ghana Bank Codes
+# Ghana Bank Codes and Mobile Money Wallets
 BANK_CODES = {
-    'GCB': 'Ghana Commercial Bank',
+    # Banks
+    'GCB': 'GCB Bank',
     'CBG': 'Consolidated Bank Ghana',
-    'FBG': 'Fidelity Bank Ghana',
-    'EBG': 'Ecobank Ghana',
-    'SCB': 'Standard Chartered Bank Ghana',
-    'ADB': 'Agricultural Development Bank',
-    'NIB': 'National Investment Bank',
+    'FIB': 'Fidelity Bank',
+    'ECO': 'Ecobank Ghana',
+    'SCB': 'Standard Chartered',
+    'ADB': 'ADB',
+    'NIB': 'NIB',
     'CAL': 'CAL Bank',
-    'UBA': 'United Bank for Africa Ghana',
-    'GTB': 'Guaranty Trust Bank Ghana',
-    'PBL': 'Prudential Bank Limited',
-    'ZEN': 'Zenith Bank Ghana',
-    'SBG': 'Stanbic Bank Ghana',
-    'ABG': 'Absa Bank Ghana',
-    'FNB': 'First National Bank Ghana',
-    'RBG': 'Republic Bank Ghana',
-    'BOA': 'Bank of Africa Ghana',
-    'OMF': 'OmniBSIC Bank',
-    'ARB': 'ARB Apex Bank',
+    'UBA': 'UBA',
+    'GTB': 'GT Bank',
+    'PRB': 'PBL',  # Prudential Bank Limited
+    'ZEB': 'Zenith Bank',
+    'STB': 'Stanbic Bank',
+    'ABS': 'ABSA Bank',
+    'FNB': 'FNB',
+    'RPB': 'Republic Bank',
+    'BOA': 'BOA',
+    'OMN': 'Omni Bank',
+    'ARB': 'Apex Bank',
+    'ACB': 'Access Bank',
+    'SIS': 'Services Integrity Savings & Loans',
+    'FAB': 'FAB',
+    'BOG': 'Bank of Ghana',
+    'UMB': 'UMB',
+    'SGB': 'SG',
+    'GHL': 'GHL Bank',
+    'FBN': 'FBN Bank',
+    # Mobile Money Wallets
+    'MTN': 'MTN Mobile Money',
+    'VOD': 'Vodafone Cash',
+    'AIR': 'AirtelTigo Money',
+    'ZEE': 'Zeepay Ghana',
+    'GMO': 'G-Money',
 }
 
 

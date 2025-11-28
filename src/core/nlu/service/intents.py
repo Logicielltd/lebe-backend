@@ -129,6 +129,16 @@ class IntentDetector:
         SLOTS: {{"bill_type": "ECG", "account_number": "95200204493"}}
         MISSING:
 
+        User continues bill payment: "ECG, My account number is 95200204493 and I would like to send 1 cedi"
+        INTENT: pay_bill
+        SLOTS: {{"bill_type": "ECG", "account_number": "95200204493", "amount": "1"}}
+        MISSING:
+
+        User continues bill payment: "My smart card number is 95200204493"
+        INTENT: pay_bill
+        SLOTS: {{"account_number": "95200204493"}}
+        MISSING: bill_type
+
         User continues bill payment: "Just the card is 95200204493"
         INTENT: pay_bill
         SLOTS: {{"account_number": "95200204493"}}

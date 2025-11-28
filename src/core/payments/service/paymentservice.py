@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from enum import Enum
 import logging
+import os
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 from fastapi import HTTPException
@@ -725,6 +726,18 @@ class PaymentService:
 
         if not payment.network:
             raise PaymentValidationException("Network is required")
+
+        # Validate minimum amount for airtime transactions
+        if payment.intent == "buy_airtime":
+            min_airtime_amount = os.getenv("MIN_AIRTIME_AMOUNT", "0.2")
+            try:
+                min_amount = Decimal(str(min_airtime_amount))
+            except:
+                min_amount = Decimal("0.2")
+
+            amount = Decimal(str(payment.amount_paid)) if payment.amount_paid else Decimal("0")
+            if amount < min_amount:
+                raise PaymentValidationException(f"Airtime top-up amount must be at least GHS {min_amount}, got GHS {amount}")
 
         if payment.payment_method == PaymentMethod.MOBILE_MONEY:
             if not payment.sender_phone:

@@ -343,8 +343,8 @@ def handle_payment_callback(
         raise HTTPException(status_code=500, detail="Failed to process callback. Please try again or contact support.")
 
 # Test endpoints for debugging/Postman testing
-@payment_routes.get("/balance-check")
-def balance_check(db: Session = Depends(get_db)):
+@payment_routes.get("/check-wallet-balance")
+def check_wallet_balance(db: Session = Depends(get_db)):
     """
     Test endpoint to check merchant wallet balance.
     Returns wallet balance for all transaction types (payout, airtime, billpay, etc.)
@@ -361,17 +361,8 @@ def balance_check(db: Session = Depends(get_db)):
         logger.info("[TEST_BALANCE_CHECK] Testing wallet balance check endpoint")
         payment_service = PaymentService(db)
 
-        # Build balance check request (BLC - Balance Check)
-        balance_check_request = {
-            "service_id": payment_service.service_id,
-            "trans_type": "BLC",
-            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-        logger.info(f"[TEST_BALANCE_CHECK_REQUEST] Request: {balance_check_request}")
-
-        # Call Orchard API
-        http_response = payment_service.payment_gateway_client.process_payment(balance_check_request)
+        # Call Orchard API using dedicated balance check endpoint
+        http_response = payment_service.payment_gateway_client.check_wallet_balance()
 
         logger.info(f"[TEST_BALANCE_CHECK_RESPONSE] Status: {http_response.status_code}, Body: {http_response.text}")
 

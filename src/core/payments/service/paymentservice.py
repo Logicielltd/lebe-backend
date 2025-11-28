@@ -771,17 +771,10 @@ class PaymentService:
         Raises PaymentValidationException if insufficient balance.
         """
         try:
-            # Build balance check request (BLC - Balance Check)
-            balance_check_request = {
-                "service_id": self.service_id,
-                "trans_type": "BLC",
-                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-
             logger.info(f"[BALANCE_CHECK_START] Checking wallet balance for intent: {intent}, amount: {payment.amount_paid}")
 
-            # Call Orchard API to check balance
-            http_response = self.payment_gateway_client.process_payment(balance_check_request)
+            # Call Orchard API to check balance using dedicated endpoint
+            http_response = self.payment_gateway_client.check_wallet_balance()
 
             if http_response.status_code != 200:
                 logger.error(f"[BALANCE_CHECK_ERROR] Failed to retrieve balance: {http_response.text}")

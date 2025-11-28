@@ -141,3 +141,45 @@ class PaymentGatewayClient:
         except Exception as e:
             logger.error(f"Error checking transaction status: {e}", exc_info=True)
             raise PaymentGatewayException(f"Failed to check transaction status: {e}")
+
+    def check_wallet_balance(self) -> httpx.Response:
+        """
+        Check merchant wallet balance from Orchard API.
+        Uses the dedicated /check_wallet_balance endpoint.
+
+        Returns:
+            httpx.Response with wallet balance data
+        """
+        try:
+            request = {
+                "service_id": self.service_id,
+                "trans_type": "BLC"
+            }
+
+            # Use sorted JSON for consistent signature and request body
+            json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
+            signature = self._get_signature(json_payload)
+            logger.debug(f"Balance check request payload: {json_payload}")
+
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                    urljoin(self.base_url, "/check_wallet_balance"),
+                    headers={
+                        "Authorization": f"{self.client_id}:{signature}",
+                        "Content-Type": "application/json"
+                    },
+                    content=json_payload
+                )
+
+            logger.info(f"Wallet balance check response: status={response.status_code}, body={response.text}")
+            return response
+
+        except httpx.TimeoutException:
+            logger.error("Wallet balance check timeout")
+            raise PaymentGatewayException("Wallet balance check timeout")
+        except httpx.RequestError as e:
+            logger.error(f"Network error checking wallet balance: {e}")
+            raise PaymentGatewayException(f"Network error: {e}")
+        except Exception as e:
+            logger.error(f"Error checking wallet balance: {e}", exc_info=True)
+            raise PaymentGatewayException(f"Failed to check wallet balance: {e}")

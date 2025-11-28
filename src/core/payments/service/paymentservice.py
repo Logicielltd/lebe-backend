@@ -772,9 +772,11 @@ class PaymentService:
         """
         try:
             # Build balance check request
+            balance_check_transaction_id = str(UniqueIdGenerator.generate())
             balance_check_request = {
                 "service_id": self.service_id,
                 "trans_type": "BLC",
+                "exttrid": balance_check_transaction_id,
                 "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
 

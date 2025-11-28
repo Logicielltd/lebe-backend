@@ -904,7 +904,9 @@ class PaymentService:
             if not payment.sender_phone:
                 raise PaymentValidationException("Sender phone number is required for mobile money payments")
             # Valid networks for mobile money: MTN, VOD (Vodafone), AIR (AirtelTigo)
-            if payment.network not in [Network.MTN, Network.VOD, Network.AIR]:
+            # Also includes bill payment providers: GOT, DST, ECG, GHW, SFL, TLS, STT, BXO
+            valid_networks = [Network.MTN, Network.VOD, Network.AIR, Network.GOT, Network.DST, Network.ECG, Network.GHW, Network.SFL, Network.TLS, Network.STT, Network.BXO]
+            if payment.network not in valid_networks:
                 raise PaymentValidationException(f"Invalid network for mobile money payment: {payment.network}")
 
         elif payment.payment_method == PaymentMethod.CREDIT_DEBIT_CARD:

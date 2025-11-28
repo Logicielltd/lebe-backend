@@ -22,17 +22,20 @@ class SlotManager:
     def validate_slots(self, intent: str, slots: Dict) -> Dict:
         """Validate and clean extracted slots"""
         validated_slots = {}
-        
+
         for slot, value in slots.items():
             if value:
                 # Basic validation based on slot type
                 if "amount" in slot:
                     validated_slots[slot] = self._validate_amount(value)
+                elif "account_number" in slot:
+                    # Account numbers should not be validated - they can be in any format
+                    validated_slots[slot] = str(value).strip()
                 elif "phone" in slot or "recipient" in slot or "number" in slot:
                     validated_slots[slot] = self._validate_phone_number(value)
                 else:
                     validated_slots[slot] = str(value).strip()
-        
+
         return validated_slots
     
     def _validate_amount(self, amount: str) -> Optional[str]:

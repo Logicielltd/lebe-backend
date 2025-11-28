@@ -102,6 +102,6 @@ class SlotManager:
         return " ".join(prompts)
 
     def _generate_bill_type_prompt(self, bill_providers: Dict[str, str]) -> str:
-        """Generate prompt with list of available bill providers"""
-        providers_list = ", ".join([f"{name} ({code})" for name, code in bill_providers.items()])
-        return f"Which bill would you like to pay? Available options: {providers_list}"
+        """Generate prompt with list of available bill providers on separate lines"""
+        providers_list = "\n".join([f"• {name} ({code})" for name, code in bill_providers.items()])
+        return f"Which bill would you like to pay?\nAvailable options:\n{providers_list}"

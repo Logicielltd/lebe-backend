@@ -124,6 +124,21 @@ class IntentDetector:
         SLOTS: {{"amount": "1", "account_number": "95200204493"}}
         MISSING: bill_type
 
+        User continues bill payment: "ECG, the card number is 95200204493"
+        INTENT: pay_bill
+        SLOTS: {{"bill_type": "ECG", "account_number": "95200204493"}}
+        MISSING:
+
+        User continues bill payment: "Just the card is 95200204493"
+        INTENT: pay_bill
+        SLOTS: {{"account_number": "95200204493"}}
+        MISSING: bill_type
+
+        User continues bill payment: "95200204493"
+        INTENT: pay_bill
+        SLOTS: {{"account_number": "95200204493"}}
+        MISSING: bill_type
+
         User starts bill payment: "Pay my DStv bill, account 1234567890, amount is 50 cedis"
         INTENT: pay_bill
         SLOTS: {{"bill_type": "DStv", "account_number": "1234567890", "amount": "50"}}

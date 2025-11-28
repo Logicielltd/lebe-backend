@@ -144,11 +144,12 @@ class PaymentService:
 
             # Find payment by looking up both ctm_transaction_id and transaction_id
             logger.debug(f"[DB_QUERY_START] Searching for payment with trans_ref_str: '{trans_ref_str}'")
-            logger.debug(f"[DB_QUERY_FILTERS] Looking for payment where: transaction_id='{trans_ref_str}' OR ctm_transaction_id='{trans_ref_str}' OR mtc_transaction_id='{trans_ref_str}'")
+            logger.debug(f"[DB_QUERY_FILTERS] Looking for payment where: transaction_id='{trans_ref_str}' OR ctm_transaction_id='{trans_ref_str}' OR mtc_transaction_id='{trans_ref_str}' OR atp_transaction_id='{trans_ref_str}'")
             payment = self.db.query(Payment).filter(
                 (Payment.transaction_id == trans_ref_str) |
                 (Payment.ctm_transaction_id == trans_ref_str) |
-                (Payment.mtc_transaction_id == trans_ref_str)
+                (Payment.mtc_transaction_id == trans_ref_str) |
+                (Payment.atp_transaction_id == trans_ref_str)
             ).first()
             logger.debug(f"[DB_QUERY_END] Query completed, payment found: {payment is not None}")
 
@@ -156,7 +157,7 @@ class PaymentService:
                 logger.error(f"[PAYMENT_NOT_FOUND] Payment not found for Transaction ID: {callback_response.trans_ref}")
                 raise PaymentNotFoundException(f"Payment not found for Transaction ID: {callback_response.trans_ref}")
 
-            logger.info(f"[PAYMENT_FOUND] Payment found - ID: {payment.id}, transaction_id: {payment.transaction_id}, ctm_transaction_id: {payment.ctm_transaction_id}, mtc_transaction_id: {payment.mtc_transaction_id}")
+            logger.info(f"[PAYMENT_FOUND] Payment found - ID: {payment.id}, transaction_id: {payment.transaction_id}, ctm_transaction_id: {payment.ctm_transaction_id}, mtc_transaction_id: {payment.mtc_transaction_id}, atp_transaction_id: {payment.atp_transaction_id}")
 
             # Determine which leg of the transaction this callback is for
             logger.debug(f"[CALLBACK_TYPE_CHECK_START] Determining callback type")
@@ -751,7 +752,7 @@ class PaymentService:
         """
         # Map intent to transaction type
         transaction_type_map = {
-            "buy_airtime": "ATP",           # Airtime Top-Up
+            "buy_airtime": "CTM",           # First stage: Collect payment from customer
             "send_money": "CTM",            # Customer to Merchant
             "pay_bill": "CTM",              # Bill payment (also CTM)
             "get_loan": "MTC",              # Merchant to Customer (Payout)

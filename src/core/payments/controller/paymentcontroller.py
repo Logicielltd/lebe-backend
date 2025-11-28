@@ -341,3 +341,131 @@ def handle_payment_callback(
     except Exception as ex:
         logger.error("Unexpected error during callback processing", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to process callback. Please try again or contact support.")
+
+# Test endpoints for debugging/Postman testing
+@payment_routes.get("/balance-check")
+def balance_check(
+    db: Session = Depends(get_db),
+    authjwt: AuthJWT = Depends(validate_token)
+):
+    """
+    Test endpoint to check merchant wallet balance.
+    Returns wallet balance for all transaction types (payout, airtime, billpay, etc.)
+
+    Response includes:
+    - sms_bal: SMS balance
+    - payout_bal: Balance available for MTC (money transfer)
+    - billpay_bal: Balance for bill payments
+    - available_collect_bal: Available collection balance
+    - airtime_bal: Balance for airtime top-up
+    - actual_collect_bal: Actual collection balance
+    """
+    try:
+        logger.info("[TEST_BALANCE_CHECK] Testing wallet balance check endpoint")
+        payment_service = PaymentService(db)
+
+        from utilities.uniqueidgenerator import UniqueIdGenerator
+
+        # Build balance check request
+        balance_check_request = {
+            "service_id": payment_service.service_id,
+            "trans_type": "BLC",
+            "exttrid": str(UniqueIdGenerator.generate()),
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        logger.info(f"[TEST_BALANCE_CHECK_REQUEST] Request: {balance_check_request}")
+
+        # Call Orchard API
+        http_response = payment_service.payment_gateway_client.process_payment(balance_check_request)
+
+        logger.info(f"[TEST_BALANCE_CHECK_RESPONSE] Status: {http_response.status_code}, Body: {http_response.text}")
+
+        if http_response.status_code == 200:
+            balance_data = http_response.json()
+            return {
+                "status": "success",
+                "http_status": http_response.status_code,
+                "data": balance_data
+            }
+        else:
+            error_data = http_response.json()
+            return {
+                "status": "error",
+                "http_status": http_response.status_code,
+                "data": error_data
+            }
+
+    except Exception as e:
+        logger.error(f"[TEST_BALANCE_CHECK_ERROR] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error checking balance: {str(e)}")
+
+@payment_routes.post("/account-inquiry")
+def account_inquiry(
+    customer_number: str = Query(..., description="Customer phone number (e.g., 233200018204)"),
+    network: str = Query(..., description="Network code (e.g., MTN, VOD, AIR, BNK)"),
+    bank_code: str = Query(None, description="Bank code (required for BNK network)"),
+    db: Session = Depends(get_db),
+    authjwt: AuthJWT = Depends(validate_token)
+):
+    """
+    Test endpoint for Account Information Inquiry (AII).
+    Use this to verify account details before initiating transactions.
+
+    Parameters:
+    - customer_number: Phone number or account number (e.g., 233200018204)
+    - network: Network/Bank code (MTN, VOD, AIR for mobile, BNK for bank)
+    - bank_code: Bank code if network is BNK (e.g., VOD for a specific bank)
+
+    Example:
+    POST /api/v1/payment/test/account-inquiry?customer_number=233200018204&network=BNK&bank_code=VOD
+    """
+    try:
+        logger.info(f"[TEST_ACCOUNT_INQUIRY] Testing account inquiry for {customer_number} on {network}")
+        payment_service = PaymentService(db)
+
+        from utilities.uniqueidgenerator import UniqueIdGenerator
+
+        # Build account inquiry request
+        account_inquiry_request = {
+            "service_id": payment_service.service_id,
+            "trans_type": "AII",
+            "customer_number": customer_number,
+            "nw": network,
+            "exttrid": str(UniqueIdGenerator.generate()),
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        # Add bank code if provided and network is BNK
+        if network == "BNK" and bank_code:
+            account_inquiry_request["bank_code"] = bank_code
+
+        logger.info(f"[TEST_ACCOUNT_INQUIRY_REQUEST] Request: {account_inquiry_request}")
+
+        # Call Orchard API
+        http_response = payment_service.payment_gateway_client.process_payment(account_inquiry_request)
+
+        logger.info(f"[TEST_ACCOUNT_INQUIRY_RESPONSE] Status: {http_response.status_code}, Body: {http_response.text}")
+
+        if http_response.status_code == 200:
+            account_data = http_response.json()
+            return {
+                "status": "success",
+                "http_status": http_response.status_code,
+                "customer_number": customer_number,
+                "network": network,
+                "data": account_data
+            }
+        else:
+            error_data = http_response.json()
+            return {
+                "status": "error",
+                "http_status": http_response.status_code,
+                "customer_number": customer_number,
+                "network": network,
+                "data": error_data
+            }
+
+    except Exception as e:
+        logger.error(f"[TEST_ACCOUNT_INQUIRY_ERROR] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error during account inquiry: {str(e)}")

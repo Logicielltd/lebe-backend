@@ -163,11 +163,13 @@ class PaymentService:
             logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.transaction_id='{payment.transaction_id}'")
             logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.ctm_transaction_id='{payment.ctm_transaction_id}'")
             logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.mtc_transaction_id='{payment.mtc_transaction_id}'")
+            logger.debug(f"[CALLBACK_TYPE_CHECK] trans_ref_str='{trans_ref_str}' vs payment.atp_transaction_id='{payment.atp_transaction_id}'")
 
             is_ctm_callback = (trans_ref_str == payment.transaction_id or trans_ref_str == payment.ctm_transaction_id)
             is_mtc_callback = (trans_ref_str == payment.mtc_transaction_id)
+            is_atp_callback = (trans_ref_str == payment.atp_transaction_id)
 
-            logger.info(f"[CALLBACK_TYPE_DETERMINED] is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}")
+            logger.info(f"[CALLBACK_TYPE_DETERMINED] is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}, is_atp_callback={is_atp_callback}")
 
             incoming_status = self._determine_payment_status(callback_response.trans_status)
             logger.info(f"[CALLBACK_STATUS_ANALYSIS] Payment ID: {payment.id} | Current Status: {payment.status} | Incoming Status: {incoming_status} | Callback Status Code: {callback_response.trans_status}")
@@ -177,14 +179,19 @@ class PaymentService:
                 # Handle CTM (Customer to Merchant) callback
                 self._handle_ctm_callback(payment, callback_response, incoming_status)
                 logger.info(f"[CALLBACK_HANDLER_END] CTM callback handling completed for payment ID: {payment.id}")
+            elif is_atp_callback:
+                logger.info(f"[CALLBACK_HANDLER_START] Handling ATP callback for payment ID: {payment.id}")
+                # Handle ATP (Airtime Top-Up) callback
+                self._handle_atp_callback(payment, callback_response, incoming_status)
+                logger.info(f"[CALLBACK_HANDLER_END] ATP callback handling completed for payment ID: {payment.id}")
             elif is_mtc_callback:
                 logger.info(f"[CALLBACK_HANDLER_START] Handling MTC callback for payment ID: {payment.id}")
                 # Handle MTC (Merchant to Customer) callback
                 self._handle_mtc_callback(payment, callback_response, incoming_status)
                 logger.info(f"[CALLBACK_HANDLER_END] MTC callback handling completed for payment ID: {payment.id}")
             else:
-                logger.error(f"[CALLBACK_TYPE_ERROR] Unable to determine callback type for transaction {callback_response.trans_ref}. is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}")
-                raise ValueError("Unable to determine if callback is for CTM or MTC")
+                logger.error(f"[CALLBACK_TYPE_ERROR] Unable to determine callback type for transaction {callback_response.trans_ref}. is_ctm_callback={is_ctm_callback}, is_mtc_callback={is_mtc_callback}, is_atp_callback={is_atp_callback}")
+                raise ValueError("Unable to determine if callback is for CTM, MTC, or ATP")
 
             logger.info(f"[CALLBACK_COMPLETE] Callback processing completed successfully for trans_ref: {callback_response.trans_ref}")
 
@@ -212,15 +219,27 @@ class PaymentService:
             self.db.commit()
             logger.info(f"[CTM_STATUS_UPDATED] Payment status updated to CTM_SUCCESS for payment ID: {payment.id}")
 
-            # Check if MTC was already initiated by background job to prevent duplicate MTC initiation
-            if payment.mtc_transaction_id is not None:
-                logger.info(f"[CTM_CALLBACK_MTC_ALREADY_INITIATED] MTC already initiated with transaction ID {payment.mtc_transaction_id}, skipping duplicate MTC initiation for payment {payment.id}")
-                logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC already initiated) for payment ID: {payment.id}")
+            # Determine second stage based on intent
+            if payment.intent == "buy_airtime":
+                # Check if ATP was already initiated by background job
+                if payment.atp_transaction_id is not None:
+                    logger.info(f"[CTM_CALLBACK_ATP_ALREADY_INITIATED] ATP already initiated with transaction ID {payment.atp_transaction_id}, skipping duplicate ATP initiation for payment {payment.id}")
+                    logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (ATP already initiated) for payment ID: {payment.id}")
+                else:
+                    # Initiate ATP (Airtime Top-Up) to send airtime to receiver
+                    logger.info(f"[CTM_CALLBACK_INITIATING_ATP] Initiating ATP for transaction {payment.transaction_id}")
+                    self._initiate_atp(payment)
+                    logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (ATP initiated) for payment ID: {payment.id}")
             else:
-                # Now initiate MTC (Merchant to Customer) to send money to receiver
-                logger.info(f"[CTM_CALLBACK_INITIATING_MTC] Initiating MTC for transaction {payment.transaction_id}")
-                self._initiate_mtc(payment)
-                logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC initiated) for payment ID: {payment.id}")
+                # Check if MTC was already initiated by background job to prevent duplicate MTC initiation
+                if payment.mtc_transaction_id is not None:
+                    logger.info(f"[CTM_CALLBACK_MTC_ALREADY_INITIATED] MTC already initiated with transaction ID {payment.mtc_transaction_id}, skipping duplicate MTC initiation for payment {payment.id}")
+                    logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC already initiated) for payment ID: {payment.id}")
+                else:
+                    # Now initiate MTC (Merchant to Customer) to send money to receiver
+                    logger.info(f"[CTM_CALLBACK_INITIATING_MTC] Initiating MTC for transaction {payment.transaction_id}")
+                    self._initiate_mtc(payment)
+                    logger.info(f"[CTM_CALLBACK_HANDLER_END] CTM callback handler completed (MTC initiated) for payment ID: {payment.id}")
         else:
             # CTM failed
             logger.warning(f"[CTM_CALLBACK_FAILURE] CTM callback confirmed failure for transaction {payment.transaction_id}")
@@ -255,6 +274,31 @@ class PaymentService:
             self.db.add(payment)
             self.db.commit()
             logger.info(f"[MTC_CALLBACK_HANDLER_END] Payment marked as MTC_FAILED for payment ID: {payment.id}")
+
+    def _handle_atp_callback(self, payment: Payment, callback_response: Any, incoming_status: PaymentStatus) -> None:
+        """
+        Handle ATP (Airtime Top-Up) callback.
+        If successful, sets status to SUCCESS and creates invoice.
+        If failed, sets status to ATP_FAILED.
+        """
+        logger.info(f"[ATP_CALLBACK_HANDLER_START] Processing ATP callback for payment ID: {payment.id}, atp_transaction_id: {payment.atp_transaction_id}")
+        logger.debug(f"[ATP_CALLBACK_HANDLER_STATUS] Current payment status: {payment.status}, Incoming status: {incoming_status}")
+
+        if incoming_status == PaymentStatus.SUCCESS:
+            logger.info(f"[ATP_CALLBACK_SUCCESS] ATP callback confirmed success for transaction {payment.transaction_id}")
+            logger.info(f"[ATP_CALLBACK_SUCCESS_DETAIL] Both CTM and ATP legs completed, marking payment as SUCCESS")
+            # ATP succeeded - both legs are complete, mark as SUCCESS
+            self._handle_success(payment, {"resp_code": "000", "resp_desc": "Airtime sent successfully"})
+            logger.info(f"[ATP_CALLBACK_HANDLER_END] ATP callback handler completed successfully for payment ID: {payment.id}")
+        else:
+            # ATP failed
+            logger.warning(f"[ATP_CALLBACK_FAILURE] ATP callback confirmed failure for transaction {payment.transaction_id}")
+            logger.debug(f"[ATP_CALLBACK_FAILURE_DETAIL] Incoming status was: {incoming_status}")
+            payment.status = PaymentStatus.ATP_FAILED
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+            logger.info(f"[ATP_CALLBACK_HANDLER_END] Payment marked as ATP_FAILED for payment ID: {payment.id}")
 
     def _initiate_mtc(self, payment: Payment) -> None:
         """
@@ -371,6 +415,121 @@ class PaymentService:
             "trans_type": "MTC"  # Merchant to Customer
         }
         logger.info(f"Built MTC payment request: trans_type=MTC, network={network_to_use}")
+        return request_data
+
+    def _initiate_atp(self, payment: Payment) -> None:
+        """
+        Initiate ATP (Airtime Top-Up) transaction after CTM succeeds.
+        Send airtime from merchant account to receiver's phone number.
+        """
+        try:
+            # Generate unique transaction ID for ATP
+            atp_transaction_id = str(UniqueIdGenerator.generate())
+            payment.atp_transaction_id = atp_transaction_id
+            payment.status = PaymentStatus.ATP_PROCESSING
+            payment.updated_on = datetime.now()
+            self.db.add(payment)
+            self.db.commit()
+
+            # Build ATP payment request
+            atp_request = self._build_atp_payment_request(payment, atp_transaction_id)
+            logger.info(f"Built ATP payment request for transaction: {atp_transaction_id}")
+
+            # Send to Orchard API
+            logger.info(f"Sending ATP request to Orchard API for transaction: {atp_transaction_id}")
+            http_response = self.payment_gateway_client.process_payment(atp_request)
+            logger.info(f"Received ATP response from Orchard API: status_code={http_response.status_code}")
+
+            # Process ATP response - should get 015 or 027 meaning request accepted
+            if http_response.status_code == 200:
+                response_data = http_response.json()
+                resp_code = response_data.get("resp_code") if response_data else None
+                # Both 015 (request received for processing) and 027 (request successfully completed) are valid
+                if response_data and resp_code in ["015", "027"]:
+                    logger.info(f"[ATP_RESPONSE_SUCCESS] ATP request accepted for processing (resp_code: {resp_code}) for transactionId: {atp_transaction_id}")
+                    # ATP is now processing, waiting for callback or status check
+                    logger.info(f"[ATP_PROCESSING] Awaiting ATP callback for transaction {atp_transaction_id}")
+                    # Note: The existing check job will continue running and will check ATP status
+                else:
+                    logger.warning(f"ATP failed with response code: {response_data.get('resp_code')}")
+                    payment.status = PaymentStatus.ATP_FAILED
+                    self.db.add(payment)
+                    self.db.commit()
+                    # Initiate reversal for failed ATP
+                    self._initiate_reversal(payment)
+                    # Send failure notification
+                    try:
+                        self.send_payment_notification(
+                            payment,
+                            is_success=False,
+                            failure_reason="Airtime request rejected. Reversal being processed."
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to send failure notification: {str(e)}", exc_info=True)
+            else:
+                logger.error(f"ATP gateway returned HTTP status: {http_response.status_code}")
+                payment.status = PaymentStatus.ATP_FAILED
+                self.db.add(payment)
+                self.db.commit()
+                # Initiate reversal for failed ATP
+                self._initiate_reversal(payment)
+                # Send failure notification
+                try:
+                    self.send_payment_notification(
+                        payment,
+                        is_success=False,
+                        failure_reason="Airtime request failed. Reversal being processed."
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send failure notification: {str(e)}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Error initiating ATP for transaction {payment.transaction_id}: {str(e)}", exc_info=True)
+            payment.status = PaymentStatus.ATP_FAILED
+            self.db.add(payment)
+            self.db.commit()
+            # Initiate reversal for failed ATP
+            try:
+                self._initiate_reversal(payment)
+                # Send failure notification
+                self.send_payment_notification(
+                    payment,
+                    is_success=False,
+                    failure_reason="Airtime request error. Reversal being processed."
+                )
+            except Exception as reversal_error:
+                logger.error(f"Error initiating reversal after ATP exception: {str(reversal_error)}", exc_info=True)
+            raise
+
+    def _build_atp_payment_request(self, payment: Payment, atp_transaction_id: str) -> Dict[str, Any]:
+        """
+        Build ATP (Airtime Top-Up) payment request.
+        ATP sends airtime from merchant account to customer/receiver.
+        Detects the correct network based on receiver's phone number.
+        """
+        from utilities.phone_utils import convert_to_local_ghana_format
+        from core.beneficiaries.utility.network_detector import NetworkDetector
+
+        amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
+
+        # Detect network from receiver's phone number
+        detected_network, network_message = NetworkDetector.detect_network_from_phone(payment.receiver_phone)
+        network_to_use = detected_network if detected_network else payment.network.value
+
+        logger.info(f"[ATP_NETWORK_DETECTION] Receiver phone: {payment.receiver_phone} -> Detected network: {detected_network} ({network_message})")
+
+        request_data = {
+            "amount": str(amount.quantize(Decimal('0.00'))),
+            "customer_number": convert_to_local_ghana_format(payment.receiver_phone),  # ATP: receiver (in 0xxx format)
+            "exttrid": atp_transaction_id,
+            "nw": network_to_use,  # Use detected network instead of stored network
+            "reference": f"Airtime for {payment.intent.replace('_', ' ').title() if payment.intent else 'Airtime'}",
+            "service_id": self.service_id,
+            "ts": self.payment_gateway_client.get_current_timestamp(),
+            "callback_url": self.payment_gateway_client.build_callback_url(),
+            "trans_type": "ATP"  # Airtime Top-Up
+        }
+        logger.info(f"Built ATP payment request: trans_type=ATP, network={network_to_use}")
         return request_data
 
     def _initiate_reversal(self, payment: Payment) -> None:

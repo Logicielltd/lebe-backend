@@ -138,7 +138,7 @@ class PaymentCheckService:
                 return
 
             # If terminal failed state, stop checking
-            if payment.status in [PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED, PaymentStatus.FAILED]:
+            if payment.status in [PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED, PaymentStatus.ATP_FAILED, PaymentStatus.FAILED]:
                 logger.info(f"[PAYMENT_CHECK_TERMINAL_FAILED] Payment {payment_id} in terminal failed state: {payment.status}")
                 logger.info(f"[PAYMENT_CHECK_TERMINAL_FAILED_STOP] Stopping job - no further checks needed")
                 self._stop_check_job(payment_id)
@@ -163,6 +163,13 @@ class PaymentCheckService:
                     check_type = "MTC"
                 else:
                     logger.warning(f"[PAYMENT_CHECK_MISSING_MTC_TXN_ID] Payment {payment_id} is MTC_PROCESSING but has no mtc_transaction_id")
+            elif payment.status == PaymentStatus.ATP_PROCESSING:
+                # Check ATP status using atp_transaction_id
+                if payment.atp_transaction_id:
+                    transaction_id_to_check = payment.atp_transaction_id
+                    check_type = "ATP"
+                else:
+                    logger.warning(f"[PAYMENT_CHECK_MISSING_ATP_TXN_ID] Payment {payment_id} is ATP_PROCESSING but has no atp_transaction_id")
 
             if transaction_id_to_check:
                 logger.info(f"[PAYMENT_CHECK_QUERY_API] Querying Orchard API for {check_type} transaction: {transaction_id_to_check}")
@@ -187,8 +194,8 @@ class PaymentCheckService:
                         logger.info(f"[PAYMENT_CHECK_UPDATED] Reversal payment {payment_id} marked SUCCESS")
                         self._stop_check_job(payment_id)
                     elif payment.status == PaymentStatus.PENDING:
-                        # This is CTM success - initiate MTC
-                        logger.info(f"[PAYMENT_CHECK_CTM_SUCCESS] CTM confirmed successful for payment {payment_id}, initiating MTC")
+                        # This is CTM success - initiate second stage (MTC or ATP)
+                        logger.info(f"[PAYMENT_CHECK_CTM_SUCCESS] CTM confirmed successful for payment {payment_id}")
                         payment.status = PaymentStatus.CTM_SUCCESS
                         payment.updated_on = datetime.now()
                         db.add(payment)
@@ -196,14 +203,27 @@ class PaymentCheckService:
                         db.refresh(payment)  # Refresh to ensure object is in sync with database
                         logger.info(f"[PAYMENT_CHECK_STATUS_UPDATED] Payment {payment_id} marked CTM_SUCCESS")
 
-                        # Initiate MTC for this payment
+                        # Determine second stage based on intent
                         try:
                             from core.payments.service.paymentservice import PaymentService
                             payment_service = PaymentService(db)
-                            payment_service._initiate_mtc(payment)
-                            logger.info(f"[PAYMENT_CHECK_MTC_INITIATED] MTC initiated from background check for payment {payment_id}")
+
+                            if payment.intent == "buy_airtime":
+                                # Initiate ATP for airtime
+                                logger.info(f"[PAYMENT_CHECK_ATP_INITIATING] Initiating ATP from background check for payment {payment_id}")
+                                payment_service._initiate_atp(payment)
+                                logger.info(f"[PAYMENT_CHECK_ATP_INITIATED] ATP initiated from background check for payment {payment_id}")
+                                # Continue job - it will now check ATP status since payment.status is ATP_PROCESSING
+                                logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check ATP status for payment {payment_id}")
+                            else:
+                                # Initiate MTC for send_money and other intents
+                                logger.info(f"[PAYMENT_CHECK_MTC_INITIATING] Initiating MTC from background check for payment {payment_id}")
+                                payment_service._initiate_mtc(payment)
+                                logger.info(f"[PAYMENT_CHECK_MTC_INITIATED] MTC initiated from background check for payment {payment_id}")
+                                # Continue job - it will now check MTC status since payment.status is MTC_PROCESSING
+                                logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check MTC status for payment {payment_id}")
                         except Exception as e:
-                            logger.error(f"[PAYMENT_CHECK_MTC_ERROR] Error initiating MTC: {str(e)}", exc_info=True)
+                            logger.error(f"[PAYMENT_CHECK_SECOND_STAGE_ERROR] Error initiating second stage: {str(e)}", exc_info=True)
                             # Reload payment from DB to get current state
                             payment = db.query(Payment).filter(Payment.id == payment_id).first()
                             if payment:
@@ -211,12 +231,30 @@ class PaymentCheckService:
                                 db.add(payment)
                                 db.commit()
 
-                        # Continue job - it will now check MTC status since payment.status is MTC_PROCESSING
-                        logger.info(f"[PAYMENT_CHECK_JOB_CONTINUING] Job will continue to check MTC status for payment {payment_id}")
-
                     elif payment.status == PaymentStatus.MTC_PROCESSING:
                         # This is MTC success - final success
                         logger.info(f"[PAYMENT_CHECK_MTC_SUCCESS] MTC confirmed successful for payment {payment_id}")
+                        payment.status = PaymentStatus.SUCCESS
+                        payment.updated_on = datetime.now()
+                        db.add(payment)
+                        db.commit()
+                        db.refresh(payment)  # Refresh to ensure object is in sync with database
+                        logger.info(f"[PAYMENT_CHECK_UPDATED] Payment {payment_id} marked SUCCESS")
+
+                        # Send WhatsApp notification with receipt
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(payment, is_success=True)
+                            logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Success notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_NOTIFICATION_ERROR] Failed to send success notification for payment {payment_id}: {str(e)}", exc_info=True)
+
+                        self._stop_check_job(payment_id)
+
+                    elif payment.status == PaymentStatus.ATP_PROCESSING:
+                        # This is ATP success - final success
+                        logger.info(f"[PAYMENT_CHECK_ATP_SUCCESS] ATP confirmed successful for payment {payment_id}")
                         payment.status = PaymentStatus.SUCCESS
                         payment.updated_on = datetime.now()
                         db.add(payment)
@@ -271,7 +309,7 @@ class PaymentCheckService:
                             logger.info(f"[PAYMENT_CHECK_CTM_NOTIFICATION] CTM failure notification sent for payment {payment_id}")
                         except Exception as e:
                             logger.error(f"[PAYMENT_CHECK_CTM_NOTIFICATION_ERROR] Failed to send CTM failure notification: {str(e)}", exc_info=True)
-                    else:
+                    elif payment.status == PaymentStatus.MTC_PROCESSING:
                         # MTC failed - initiate reversal and send failure notification
                         logger.warning(f"[PAYMENT_CHECK_MTC_FAILED] Payment {payment_id} MTC failed")
                         payment.status = PaymentStatus.MTC_FAILED
@@ -293,6 +331,32 @@ class PaymentCheckService:
                                 payment,
                                 is_success=False,
                                 failure_reason="Payout failed. Reversal being processed."
+                            )
+                            logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Failure notification sent for payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[PAYMENT_CHECK_NOTIFICATION_ERROR] Failed to send failure notification: {str(e)}", exc_info=True)
+                    elif payment.status == PaymentStatus.ATP_PROCESSING:
+                        # ATP failed - initiate reversal and send failure notification
+                        logger.warning(f"[PAYMENT_CHECK_ATP_FAILED] Payment {payment_id} ATP failed")
+                        payment.status = PaymentStatus.ATP_FAILED
+
+                        # Initiate reversal transaction (refund to sender)
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service._initiate_reversal(payment)
+                            logger.info(f"[REVERSAL_INITIATED] Reversal initiated for failed payment {payment_id}")
+                        except Exception as e:
+                            logger.error(f"[REVERSAL_ERROR] Error initiating reversal: {str(e)}", exc_info=True)
+
+                        # Send failure notification with receipt
+                        try:
+                            from core.payments.service.paymentservice import PaymentService
+                            payment_service = PaymentService(db)
+                            payment_service.send_payment_notification(
+                                payment,
+                                is_success=False,
+                                failure_reason="Airtime request failed. Refund being processed."
                             )
                             logger.info(f"[PAYMENT_CHECK_NOTIFICATION] Failure notification sent for payment {payment_id}")
                         except Exception as e:

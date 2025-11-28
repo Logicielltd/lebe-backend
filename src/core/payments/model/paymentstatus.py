@@ -17,7 +17,12 @@ class PaymentStatus(str, Enum):
     MTC_SUCCESS = "MTC_SUCCESS"
     MTC_FAILED = "MTC_FAILED"
 
-    # Reversal (when MTC fails, refund money back to sender)
+    # ATP (Airtime Top-Up) - Airtime going to receiver after CTM succeeds
+    ATP_PROCESSING = "ATP_PROCESSING"
+    ATP_SUCCESS = "ATP_SUCCESS"
+    ATP_FAILED = "ATP_FAILED"
+
+    # Reversal (when MTC or ATP fails, refund money back to sender)
     REVERSAL_PROCESSING = "REVERSAL_PROCESSING"
     REVERSAL_SUCCESS = "REVERSAL_SUCCESS"
     REVERSAL_FAILED = "REVERSAL_FAILED"

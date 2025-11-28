@@ -320,14 +320,16 @@ def handle_payment_callback(
                 logger.info(f"[CALLBACK_SKIP_NOTIFICATION] Payment {payment.id} already in terminal state {payment.status.name}, skipping duplicate notification")
 
             # Only stop the job if payment is in terminal state
-            # If payment is in MTC_PROCESSING, job must continue to check MTC status
-            if payment.status in [PaymentStatus.SUCCESS, PaymentStatus.FAILED, PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED]:
+            # If payment is in MTC_PROCESSING or ATP_PROCESSING, job must continue to check status
+            if payment.status in [PaymentStatus.SUCCESS, PaymentStatus.FAILED, PaymentStatus.CTM_FAILED, PaymentStatus.MTC_FAILED, PaymentStatus.ATP_FAILED]:
                 from core.payments.service.payment_check_service import PaymentCheckService
                 check_service = PaymentCheckService(db)
                 check_service._stop_check_job(payment.id)
                 logger.info(f"[CALLBACK_JOB_STOPPED] Background job stopped for payment {payment.id} - payment in terminal state {payment.status.name}")
             elif payment.status == PaymentStatus.MTC_PROCESSING:
                 logger.info(f"[CALLBACK_JOB_CONTINUING] Payment {payment.id} now in MTC_PROCESSING state, job will continue to check MTC status")
+            elif payment.status == PaymentStatus.ATP_PROCESSING:
+                logger.info(f"[CALLBACK_JOB_CONTINUING] Payment {payment.id} now in ATP_PROCESSING state, job will continue to check ATP status")
 
         return {"message": "Callback processed successfully"}
     except PaymentNotFoundException as ex:

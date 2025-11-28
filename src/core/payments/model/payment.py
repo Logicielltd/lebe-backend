@@ -21,10 +21,11 @@ class Payment(Base):
     payment_method: Mapped[PaymentMethod] = mapped_column(Enum(PaymentMethod), nullable=False)
     status: Mapped[PaymentStatus] = mapped_column(Enum(PaymentStatus), nullable=False)
 
-    # Transaction IDs - tracks both CTM and MTC legs
+    # Transaction IDs - tracks both CTM and second stage (MTC or ATP)
     transaction_id: Mapped[str] = mapped_column(String, nullable=False, unique=True)  # Original CTM transaction
     ctm_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # CTM (Customer to Merchant) transaction ID
-    mtc_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # MTC (Merchant to Customer) transaction ID
+    mtc_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # MTC (Merchant to Customer) transaction ID for send_money
+    atp_transaction_id: Mapped[Optional[str]] = mapped_column(String)  # ATP (Airtime Top-Up) transaction ID for buy_airtime
 
     # Reversal tracking - for reversal payments, links back to the original failed payment
     original_payment_id: Mapped[Optional[int]] = mapped_column(Integer)  # Links reversal payment to original payment

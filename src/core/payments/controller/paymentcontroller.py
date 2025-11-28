@@ -361,13 +361,10 @@ def balance_check(db: Session = Depends(get_db)):
         logger.info("[TEST_BALANCE_CHECK] Testing wallet balance check endpoint")
         payment_service = PaymentService(db)
 
-        from utilities.uniqueidgenerator import UniqueIdGenerator
-
-        # Build balance check request
+        # Build balance check request (BLC - Balance Check)
         balance_check_request = {
             "service_id": payment_service.service_id,
             "trans_type": "BLC",
-            "exttrid": str(UniqueIdGenerator.generate()),
             "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 

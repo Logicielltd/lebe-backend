@@ -771,12 +771,10 @@ class PaymentService:
         Raises PaymentValidationException if insufficient balance.
         """
         try:
-            # Build balance check request
-            balance_check_transaction_id = str(UniqueIdGenerator.generate())
+            # Build balance check request (BLC - Balance Check)
             balance_check_request = {
                 "service_id": self.service_id,
                 "trans_type": "BLC",
-                "exttrid": balance_check_transaction_id,
                 "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
 

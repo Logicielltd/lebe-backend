@@ -277,6 +277,116 @@ def send_money_direct(
             detail=f"Error sending money: {str(e)}"
         )
 
+@payment_routes.post("/pay-bill")
+def pay_bill_direct(
+    amount: Decimal = Query(..., description="Amount in GHS to pay"),
+    account_number: str = Query(..., description="Smart card/account number for bill"),
+    network: str = Query(..., description="Bill provider network (ECG, DST, GOT, GHW, SFL, TLS, STT, BXO)"),
+    reference: str = Query("Bill Payment", description="Optional reference description"),
+    db: Session = Depends(get_db)
+):
+    """
+    Pay utility bills directly using BLP (Bill Payment).
+    Direct bill payment to Orchard API.
+    Useful for paying bills to various providers.
+
+    Args:
+        amount: Amount in GHS to pay
+        account_number: Smart card/account number (e.g., 95200204493)
+        network: Bill provider network code (ECG, DST, GOT, GHW, SFL, TLS, STT, BXO)
+        reference: Optional reference description
+
+    Returns:
+        - success: Boolean indicating if BLP was sent to gateway
+        - transaction_id: BLP transaction ID
+        - resp_code: Orchard response code (015 = accepted for processing)
+        - message: Status message
+        - account_number: Smart card number bill was paid for
+        - network: Bill provider network
+    """
+    from utilities.uniqueidgenerator import UniqueIdGenerator
+
+    try:
+        # Validate inputs
+        if not amount or amount <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Amount must be greater than 0"
+            )
+
+        if not account_number:
+            raise HTTPException(
+                status_code=400,
+                detail="Account number is required"
+            )
+
+        if not network:
+            raise HTTPException(
+                status_code=400,
+                detail="Network is required"
+            )
+
+        logger.info(f"[PAY_BILL_DIRECT] Direct BLP payment: Amount={amount}, Account={account_number}, Network={network}, Reference={reference}")
+
+        # Generate transaction ID
+        blp_transaction_id = str(UniqueIdGenerator.generate())
+
+        # Build BLP request directly to Orchard API
+        amount_decimal = Decimal(str(amount))
+        blp_request = {
+            "amount": str(amount_decimal.quantize(Decimal('0.00'))),
+            "acount_number": account_number,  # Note: Orchard API uses "acount_number" (typo in their API)
+            "exttrid": blp_transaction_id,
+            "nw": network.upper(),
+            "reference": reference,
+            "service_id": "4892",
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "callback_url": "https://lebe-dcahe0a8cjecffcm.canadacentral-01.azurewebsites.netapi/api/v1/payment/callback",
+            "trans_type": "BLP"
+        }
+
+        logger.info(f"[PAY_BILL_DIRECT_REQUEST] Sending BLP request: {blp_request}")
+
+        # Send to Orchard API
+        payment_service = PaymentService(db)
+        response = payment_service.payment_gateway_client.process_payment(blp_request)
+
+        logger.info(f"[PAY_BILL_DIRECT_RESPONSE] Orchard response: status_code={response.status_code}")
+
+        if response.status_code == 200:
+            response_data = response.json()
+            resp_code = response_data.get("resp_code")
+
+            return {
+                "success": True,
+                "message": f"Bill payment sent successfully (resp_code: {resp_code})",
+                "transaction_id": blp_transaction_id,
+                "resp_code": resp_code,
+                "resp_desc": response_data.get("resp_desc"),
+                "amount": str(amount),
+                "account_number": account_number,
+                "network": network.upper(),
+                "reference": reference,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            error_msg = response.text
+            logger.error(f"[PAY_BILL_DIRECT_ERROR] Gateway error: {error_msg}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Gateway error: {error_msg}"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error paying bill: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error paying bill: {str(e)}"
+        )
+
+
 @payment_routes.post("/callback")
 def handle_payment_callback(
     callback_response: PaymentCallbackResponse,

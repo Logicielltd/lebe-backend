@@ -967,18 +967,19 @@ class PaymentService:
                 logger.info(f"[BALANCE_CHECK_PASS] Airtime and payout balance sufficient: airtime={airtime_bal} >= {amount}, payout={payout_bal} >= {amount}")
 
             elif intent == "pay_bill":
-                billpay_bal = Decimal(str(balance_data.get("billpay_bal", 0)))
+                # Bill payments are CTM (collect), use available_collect_bal from Orchard API
+                collect_bal = Decimal(str(balance_data.get("available_collect_bal", 0)))
                 payout_bal = Decimal(str(balance_data.get("payout_bal", 0)))
 
-                if billpay_bal < amount:
+                if collect_bal < amount:
                     raise PaymentValidationException(
-                        f"Insufficient bill payment balance. Required: GHS {amount}, Available: GHS {billpay_bal}"
+                        f"Insufficient collection balance for bill payment. Required: GHS {amount}, Available: GHS {collect_bal}"
                     )
                 if payout_bal < amount:
                     raise PaymentValidationException(
                         f"Insufficient payout balance for reversal. Required: GHS {amount}, Available: GHS {payout_bal}"
                     )
-                logger.info(f"[BALANCE_CHECK_PASS] Bill payment and payout balance sufficient: billpay={billpay_bal} >= {amount}, payout={payout_bal} >= {amount}")
+                logger.info(f"[BALANCE_CHECK_PASS] Bill payment and payout balance sufficient: collect={collect_bal} >= {amount}, payout={payout_bal} >= {amount}")
 
             logger.info(f"[BALANCE_CHECK_SUCCESS] Wallet balance check passed for intent: {intent}")
 

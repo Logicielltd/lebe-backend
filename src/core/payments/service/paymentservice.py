@@ -68,6 +68,10 @@ class PaymentService:
         # Validate payment data
         self._validate_payment(payment)
 
+        # Check wallet balance BEFORE initiating transaction
+        # This prevents creating CTM if we can't fund MTC/ATP or reversals
+        self._check_wallet_balance(payment, intent)
+
         # Generate transaction ID if needed
         if not payment.transaction_id:
             payment.transaction_id = str(UniqueIdGenerator.generate())
@@ -77,6 +81,7 @@ class PaymentService:
 
         try:
             # Save payment record to database (status: PENDING)
+            # Only saved after balance check passes
             payment.status = PaymentStatus.PENDING
             self.db.add(payment)
             self.db.commit()
@@ -757,7 +762,75 @@ class PaymentService:
                 raise PaymentValidationException(f"Network must be BNK for bank payments, got: {payment.network}")
             if not payment.bank_code:
                 raise PaymentValidationException("Bank code is required for bank payments")
-    
+
+    def _check_wallet_balance(self, payment: Payment, intent: str) -> None:
+        """
+        Check merchant wallet balance before initiating transaction.
+        Prevents creating CTM if insufficient balance for MTC/ATP or reversals.
+
+        Raises PaymentValidationException if insufficient balance.
+        """
+        try:
+            # Build balance check request
+            balance_check_request = {
+                "service_id": self.service_id,
+                "trans_type": "BLC",
+                "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
+
+            logger.info(f"[BALANCE_CHECK_START] Checking wallet balance for intent: {intent}, amount: {payment.amount_paid}")
+
+            # Call Orchard API to check balance
+            http_response = self.payment_gateway_client.process_payment(balance_check_request)
+
+            if http_response.status_code != 200:
+                logger.error(f"[BALANCE_CHECK_ERROR] Failed to retrieve balance: {http_response.text}")
+                raise PaymentValidationException("Unable to check wallet balance. Please try again later.")
+
+            balance_data = http_response.json()
+            logger.info(f"[BALANCE_CHECK_RESPONSE] Wallet balances - payout: {balance_data.get('payout_bal')}, airtime: {balance_data.get('airtime_bal')}, billpay: {balance_data.get('billpay_bal')}")
+
+            amount = Decimal(str(payment.amount_paid)) if payment.amount_paid else Decimal("0")
+
+            # Check balance based on intent
+            if intent == "send_money":
+                payout_bal = Decimal(str(balance_data.get("payout_bal", 0)))
+                if payout_bal < amount:
+                    raise PaymentValidationException(
+                        f"Insufficient payout balance. Required: GHS {amount}, Available: GHS {payout_bal}"
+                    )
+                logger.info(f"[BALANCE_CHECK_PASS] Payout balance sufficient for send_money: {payout_bal} >= {amount}")
+
+            elif intent == "buy_airtime":
+                airtime_bal = Decimal(str(balance_data.get("airtime_bal", 0)))
+                payout_bal = Decimal(str(balance_data.get("payout_bal", 0)))
+
+                if airtime_bal < amount:
+                    raise PaymentValidationException(
+                        f"Insufficient airtime balance. Required: GHS {amount}, Available: GHS {airtime_bal}"
+                    )
+                if payout_bal < amount:
+                    raise PaymentValidationException(
+                        f"Insufficient payout balance for reversal. Required: GHS {amount}, Available: GHS {payout_bal}"
+                    )
+                logger.info(f"[BALANCE_CHECK_PASS] Airtime and payout balance sufficient: airtime={airtime_bal} >= {amount}, payout={payout_bal} >= {amount}")
+
+            elif intent == "pay_bill":
+                billpay_bal = Decimal(str(balance_data.get("billpay_bal", 0)))
+                if billpay_bal < amount:
+                    raise PaymentValidationException(
+                        f"Insufficient bill payment balance. Required: GHS {amount}, Available: GHS {billpay_bal}"
+                    )
+                logger.info(f"[BALANCE_CHECK_PASS] Bill payment balance sufficient: {billpay_bal} >= {amount}")
+
+            logger.info(f"[BALANCE_CHECK_SUCCESS] Wallet balance check passed for intent: {intent}")
+
+        except PaymentValidationException:
+            raise
+        except Exception as e:
+            logger.error(f"[BALANCE_CHECK_EXCEPTION] Unexpected error during balance check: {str(e)}", exc_info=True)
+            raise PaymentValidationException(f"Error checking wallet balance: {str(e)}")
+
     def _build_payment_request(self, payment: Payment, intent: str) -> Dict[str, Any]:
         """
         Build Orchard API request following specification.

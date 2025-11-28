@@ -35,8 +35,9 @@ class User(Base):
     location: Mapped[Optional[str]] = mapped_column(String)
     financial_goals: Mapped[Optional[str]] = mapped_column(String)
     risk_tolerance: Mapped[Optional[str]] = mapped_column(String)
+    ghana_card: Mapped[Optional[str]] = mapped_column(String)
 
-    
+
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     

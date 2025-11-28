@@ -6,12 +6,25 @@ logger = logging.getLogger(__name__)
 
 class Network:
     """Network type enumeration"""
+    # Mobile Networks
     MTN = "MTN"
     VOD = "VOD"  # Vodafone/Telecel
     AIR = "AIR"  # AirtelTigo (includes former Glo)
+
+    # Payment Networks
     BNK = "BNK"  # Bank
     MAS = "MAS"  # Mastercard
     VIS = "VIS"  # Visa
+
+    # Bill Payment Providers
+    GOT = "GOT"  # GoTV
+    DST = "DST"  # DStv
+    ECG = "ECG"  # Electricity Company of Ghana
+    GHW = "GHW"  # Ghana Water Company
+    SFL = "SFL"  # Surfline
+    TLS = "TLS"  # Telesol
+    STT = "STT"  # StartTimes
+    BXO = "BXO"  # Box Office
 
 
 class AccountType:

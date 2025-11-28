@@ -344,10 +344,7 @@ def handle_payment_callback(
 
 # Test endpoints for debugging/Postman testing
 @payment_routes.get("/balance-check")
-def balance_check(
-    db: Session = Depends(get_db),
-    authjwt: AuthJWT = Depends(validate_token)
-):
+def balance_check(db: Session = Depends(get_db)):
     """
     Test endpoint to check merchant wallet balance.
     Returns wallet balance for all transaction types (payout, airtime, billpay, etc.)
@@ -405,8 +402,7 @@ def account_inquiry(
     customer_number: str = Query(..., description="Customer phone number (e.g., 233200018204)"),
     network: str = Query(..., description="Network code (e.g., MTN, VOD, AIR, BNK)"),
     bank_code: str = Query(None, description="Bank code (required for BNK network)"),
-    db: Session = Depends(get_db),
-    authjwt: AuthJWT = Depends(validate_token)
+    db: Session = Depends(get_db)
 ):
     """
     Test endpoint for Account Information Inquiry (AII).

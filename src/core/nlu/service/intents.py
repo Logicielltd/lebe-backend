@@ -114,15 +114,35 @@ class IntentDetector:
         MISSING: [comma_separated_missing_slots]
         
         Examples:
-        User continues current send_money intent: "Actually, make it 100 cedis instead"
+        User starts send_money: "Send 50 cedis to 0234567890"
+        INTENT: send_money
+        SLOTS: {{"amount": "50", "recipient": "0234567890"}}
+        MISSING: network,reason
+
+        User starts bill payment: "Make bill payment of 1 cedi to 95200204493"
+        INTENT: pay_bill
+        SLOTS: {{"amount": "1", "account_number": "95200204493"}}
+        MISSING: bill_type
+
+        User starts bill payment: "Pay my DStv bill, account 1234567890, amount is 50 cedis"
+        INTENT: pay_bill
+        SLOTS: {{"bill_type": "DStv", "account_number": "1234567890", "amount": "50"}}
+        MISSING:
+
+        User starts buy_airtime: "Buy me 5 cedis airtime to 0550748724"
+        INTENT: buy_airtime
+        SLOTS: {{"amount": "5", "phone_number": "0550748724"}}
+        MISSING: network
+
+        User continues current intent: "Actually, make it 100 cedis instead"
         INTENT: send_money
         SLOTS: {{"amount": "100"}}
         MISSING: recipient,network,reason
-        
+
         User starts new intent: "I want to check my balance"
         INTENT: check_balance
         SLOTS: {{}}
-        MISSING: account_id
+        MISSING:
         Examples end.
 
         Notes for accuracy:

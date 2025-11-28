@@ -239,12 +239,37 @@ class LebeNLUSystem:
                 )
 
             elif intent == "pay_bill":
+                # For bill payment: senderPhone is user, receiverPhone is the smart card/account number
+                bill_type = slots.get('bill_type', '')
+                account_number = slots.get('account_number', '')
+
+                # Map bill_type to utility network codes (GOT, DST, ECG, GHW, etc.)
+                # bill_type examples: GoTV, DStv, ECG, Ghana Water, Surfline, etc.
+                bill_network_map = {
+                    'gotv': Network.GOT,
+                    'dstv': Network.DST,
+                    'ecg': Network.ECG,
+                    'ghana water': Network.GHW,
+                    'water': Network.GHW,
+                    'surfline': Network.SFL,
+                    'telesol': Network.TLS,
+                    'startimes': Network.STT,
+                    'box office': Network.BXO,
+                }
+
+                # Try to match bill_type to network, default to GOT if unknown
+                selected_network = Network.GOT
+                for key, network in bill_network_map.items():
+                    if key in bill_type.lower():
+                        selected_network = network
+                        break
+
                 payment_dto = PaymentDto(
-                    senderPhone=user_id,  # User initiating the payment
-                    receiverPhone=user_id,  # Bill payment from user's account
-                    network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
+                    senderPhone=user_id,  # User initiating the payment (paying the bill)
+                    receiverPhone=account_number,  # Smart card/account number where bill is paid
+                    network=selected_network,  # Utility provider (GoTV, DStv, ECG, etc.)
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
-                    serviceName=f"Bill Payment: {slots.get('bill_type')}",
+                    serviceName=f"Bill Payment: {bill_type}",
                     amountPaid=Decimal(slots.get('amount', '0')),
                     transactionId=str(UniqueIdGenerator.generate())
                 )

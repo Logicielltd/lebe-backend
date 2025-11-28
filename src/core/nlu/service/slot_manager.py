@@ -60,7 +60,20 @@ class SlotManager:
         return None
     
     def generate_slot_prompt(self, intent: str, missing_slots: List[str]) -> str:
-        """Generate natural language prompt for missing slots"""
+        """Generate natural language prompt for missing slots with intent-aware context"""
+
+        # Available bill providers and their codes
+        bill_providers = {
+            "GoTV": "GOT",
+            "DStv": "DST",
+            "ECG": "ECG",
+            "Ghana Water": "GHW",
+            "Surfline": "SFL",
+            "Telesol": "TLS",
+            "Startimes": "STT",
+            "Box Office": "BXO",
+        }
+
         slot_descriptions = {
             "recipient": "Who would you like to send money to? Please provide the phone number.",
             "amount": "How much would you like to send?",
@@ -68,8 +81,8 @@ class SlotManager:
             "reason": "What's the reason for this transfer?",
             "phone_number": "Which phone number should I top up?",
             "data_plan": "Which data plan would you like?",
-            "bill_type": "Which bill would you like to pay?",
-            "account_number": "What's your account number?",
+            "bill_type": self._generate_bill_type_prompt(bill_providers),
+            "account_number": "What's your account number (smart card number)?",
             "provider": "Who is the service provider?",
             "loan_amount": "How much would you like to borrow?",
             "duration": "How long would you like the loan for?",
@@ -78,12 +91,17 @@ class SlotManager:
             "period": "For what period?",
             "time_period": "For what time period?"
         }
-        
+
         prompts = []
         for slot in missing_slots:
             if slot in slot_descriptions:
                 prompts.append(slot_descriptions[slot])
             else:
                 prompts.append(f"What's the {slot}?")
-        
+
         return " ".join(prompts)
+
+    def _generate_bill_type_prompt(self, bill_providers: Dict[str, str]) -> str:
+        """Generate prompt with list of available bill providers"""
+        providers_list = ", ".join([f"{name} ({code})" for name, code in bill_providers.items()])
+        return f"Which bill would you like to pay? Available options: {providers_list}"

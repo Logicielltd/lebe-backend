@@ -218,7 +218,7 @@ class LebeNLUSystem:
             if intent == "buy_airtime":
                 payment_dto = PaymentDto(
                     senderPhone=user_id,  # User initiating the payment
-                    receiverPhone=user_id,  # Airtime for themselves
+                    receiverPhone=slots.get('phone_number', user_id),  # Use extracted phone number (supports buying airtime for others)
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     serviceName="Airtime Top-Up",

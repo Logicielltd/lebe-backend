@@ -284,13 +284,23 @@ class LebeNLUSystem:
                 )
 
             elif intent == "send_money":
+                # Get sender's actual name from database
+                from core.user.model.User import User
+                sender_name = "User"
+                try:
+                    sender_user = db.query(User).filter(User.phone == user_id).first()
+                    if sender_user:
+                        sender_name = f"{sender_user.first_name} {sender_user.last_name}".strip()
+                except Exception as e:
+                    logger.warning(f"Could not fetch user name for {user_id}: {e}")
+
                 payment_dto = PaymentDto(
                     senderPhone=user_id,  # User initiating the payment
                     receiverPhone=slots.get('recipient'),  # Recipient gets the money
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     customerName=slots.get('recipient_name', 'Unknown'),
-                    senderName="User",  # Will be updated with actual user name if available
+                    senderName=sender_name,  # Actual user name from database
                     receiverName=slots.get('receiver_name'),  # Verified account holder name from account inquiry
                     senderProvider=slots.get('sender_provider'),  # Provider for sender
                     receiverProvider=slots.get('receiver_provider'),  # Provider for receiver

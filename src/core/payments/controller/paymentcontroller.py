@@ -551,3 +551,86 @@ def account_inquiry(
     except Exception as e:
         logger.error(f"[ACCOUNT_INQUIRY_ERROR] Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error during account inquiry: {str(e)}")
+
+
+@payment_routes.post("/test-ctm")
+def test_ctm_transaction(
+    amount: float = Query(..., description="Amount to send (e.g., 5.0)"),
+    sender_phone: str = Query(..., description="Sender phone number (e.g., 233550748724)"),
+    recipient_phone: str = Query(..., description="Recipient phone number (e.g., 0550748724)"),
+    recipient_name: str = Query("Recipient", description="Recipient name (optional)"),
+    network: str = Query("MTN", description="Network code (MTN, VOD, AIR)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Test endpoint for CTM (Customer to Merchant) money transfer transaction.
+
+    This endpoint allows you to test money transfer requests using Postman.
+    Use this only for testing on the server - not allowed for external testing.
+
+    Parameters:
+    - amount: Amount to transfer (e.g., 5.0)
+    - sender_phone: Sender's phone number in 233XXXXXXXXX format
+    - recipient_phone: Recipient's phone number in 0XXXXXXXXX format
+    - recipient_name: Name of recipient (optional, defaults to "Recipient")
+    - network: Mobile network (MTN, VOD, AIR)
+
+    Example:
+    POST /api/v1/payment/test-ctm?amount=5.0&sender_phone=233550748724&recipient_phone=0550748724&recipient_name=John&network=MTN
+    """
+    try:
+        logger.info(f"[TEST_CTM] Testing CTM transaction: {sender_phone} -> {recipient_phone}, Amount: GHS {amount}")
+
+        from core.payments.model.paymentmethod import PaymentMethod
+        from core.payments.model.paymentstatus import PaymentStatus
+        from core.payments.model.paynetwork import Network
+        from utilities.uniqueidgenerator import UniqueIdGenerator
+
+        # Map network string to Network enum
+        network_map = {
+            "MTN": Network.MTN,
+            "VOD": Network.VOD,
+            "AIR": Network.AIR,
+        }
+
+        selected_network = network_map.get(network.upper(), Network.MTN)
+
+        # Create PaymentDto for CTM transaction
+        payment_dto = PaymentDto(
+            senderPhone=sender_phone,
+            receiverPhone=recipient_phone,
+            network=selected_network,
+            paymentMethod=PaymentMethod.MOBILE_MONEY,
+            customerName=recipient_name,
+            senderName="Test User",
+            receiverName=recipient_name,
+            serviceName=f"Test Money Transfer to {recipient_phone}",
+            amountPaid=Decimal(str(amount)),
+            transactionId=str(UniqueIdGenerator.generate())
+        )
+
+        logger.info(f"[TEST_CTM] Created PaymentDto: {payment_dto.transactionId}")
+
+        # Execute the payment through PaymentService
+        payment_service = PaymentService(db)
+        result = payment_service.make_payment(payment_dto, "send_money")
+
+        logger.info(f"[TEST_CTM_RESULT] Payment result: status={result.status}, code={result.responseCode}, tx_id={result.transactionId}")
+
+        return {
+            "status": "success",
+            "message": "CTM transaction initiated successfully",
+            "transaction_id": result.transactionId,
+            "payment_status": result.status.value if result.status else None,
+            "response_code": result.responseCode,
+            "response_description": result.responseDescription,
+            "sender_phone": sender_phone,
+            "recipient_phone": recipient_phone,
+            "recipient_name": recipient_name,
+            "amount": amount,
+            "network": network
+        }
+
+    except Exception as e:
+        logger.error(f"[TEST_CTM_ERROR] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error during CTM transaction: {str(e)}")

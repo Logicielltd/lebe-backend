@@ -374,9 +374,9 @@ class LebeNLUSystem:
                         state = self.conversation_manager.get_conversation_state(user_id)
                         state.waiting_for_payment_confirmation = True
                         state.pending_payment_dto = {
-                            "payment_dto": payment_dto,
-                            "intent": intent,
-                            "slots": slots
+                            "account_name": account_name,
+                            "recipient_phone": recipient_phone,
+                            "amount": amount
                         }
                         self.conversation_manager._save_conversation_state(state)
 

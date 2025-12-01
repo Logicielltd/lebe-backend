@@ -345,8 +345,9 @@ class LebeNLUSystem:
 
             print(f"[PAYMENT_INTENT] PaymentDto created successfully")
 
-            # For send_money, perform account inquiry and wait for confirmation
-            if intent == "send_money":
+            # For send_money, perform account inquiry and wait for confirmation (only if not already done)
+            state = self.conversation_manager.get_conversation_state(user_id)
+            if intent == "send_money" and not state.pending_payment_dto:
                 logger.info(f"[ACCOUNT_INQUIRY] Performing account inquiry for send_money")
                 try:
                     payment_service = PaymentService(db)
@@ -371,7 +372,6 @@ class LebeNLUSystem:
                         confirmation_msg = f"Confirm: Send GHS {amount} to {account_name} ({recipient_phone})?\nPlease reply 'yes' to confirm or 'no' to cancel."
 
                         # Store payment info and set waiting for confirmation
-                        state = self.conversation_manager.get_conversation_state(user_id)
                         state.waiting_for_payment_confirmation = True
                         state.pending_payment_dto = {
                             "account_name": account_name,

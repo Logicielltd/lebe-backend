@@ -30,6 +30,15 @@ class ResponseFormatter:
         
         elif message_type == "invalid_pin":
             return "🔒 Invalid PIN. Please try again."
-        
+
+        elif message_type == "payment_confirmation":
+            return f"⏳ {kwargs.get('message', 'Please confirm this transaction.')}"
+
+        elif message_type == "payment_cancelled":
+            return "❌ Transaction cancelled. Your account has not been charged."
+
+        elif message_type == "confirm_again":
+            return f"❓ {kwargs.get('message', 'Please reply yes or no.')}"
+
         else:
             return f"💬 {kwargs.get('message', '')}"

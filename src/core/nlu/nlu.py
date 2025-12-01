@@ -53,13 +53,17 @@ class LebeNLUSystem:
     
     def process_message(self, user_id: str, user_message: str, user_subscription_status: str) -> str:
         """Main method to process user messages"""
-        
+
         # Get conversation state
         state = self.conversation_manager.get_conversation_state(user_id)
-        
+
         # Add user message to history
         self.conversation_manager.update_conversation_history(user_id, "user", user_message)
-        
+
+        # Check if waiting for payment confirmation
+        if state.waiting_for_payment_confirmation:
+            return self._handle_payment_confirmation(user_id, user_message)
+
         # Check if waiting for PIN
         if state.waiting_for_pin:
             return self._handle_pin_verification(user_id, user_message)
@@ -161,7 +165,59 @@ class LebeNLUSystem:
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
         return response
 
-    def _execute_action(self, user_id: str, intent: str, slots: Dict, user_message: str, conversation_history: List[Dict]) -> str:
+    def _handle_payment_confirmation(self, user_id: str, user_response: str) -> str:
+        """Handle user's yes/no response for payment confirmation"""
+        state = self.conversation_manager.get_conversation_state(user_id)
+
+        # Check if pending payment exists
+        if not state.pending_payment_dto:
+            error_response = self.response_formatter.format_response("", "error", message="No pending payment found. Please start over.")
+            self.conversation_manager.update_conversation_history(user_id, "assistant", error_response)
+            state.waiting_for_payment_confirmation = False
+            self.conversation_manager._save_conversation_state(state)
+            return error_response
+
+        # Check user's response (yes/no/confirm/proceed/etc.)
+        user_response_lower = user_response.lower().strip()
+        confirmation_keywords = ["yes", "y", "confirm", "ok", "okay", "proceed", "go ahead"]
+        rejection_keywords = ["no", "n", "cancel", "don't", "dont", "stop"]
+
+        if any(keyword in user_response_lower for keyword in confirmation_keywords):
+            # User confirmed payment
+            logger.info(f"[PAYMENT_CONFIRMATION] User {user_id} confirmed payment")
+            intent = state.current_intent
+            slots = state.collected_slots
+
+            # Execute the payment
+            response = self._execute_action(user_id, intent, slots, user_response, state.conversation_history)
+
+            # Clear confirmation state
+            state.waiting_for_payment_confirmation = False
+            state.pending_payment_dto = {}
+            self.conversation_manager._save_conversation_state(state)
+
+        elif any(keyword in user_response_lower for keyword in rejection_keywords):
+            # User rejected payment
+            logger.info(f"[PAYMENT_CONFIRMATION] User {user_id} rejected payment")
+            response = self.response_formatter.format_response(state.current_intent, "payment_cancelled")
+
+            # Clear confirmation state
+            state.waiting_for_payment_confirmation = False
+            state.pending_payment_dto = {}
+            state.current_intent = ""
+            state.collected_slots = {}
+            self.conversation_manager._save_conversation_state(state)
+
+        else:
+            # Unclear response, ask again
+            logger.info(f"[PAYMENT_CONFIRMATION] User {user_id} gave unclear response: {user_response}")
+            response = self.response_formatter.format_response(state.current_intent, "confirm_again",
+                                                               message="I didn't understand. Please reply 'yes' to confirm or 'no' to cancel.")
+
+        self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+        return response
+
+    def _execute_action(self, user_id: str, intent: str, slots: Dict, user_message: str = "", conversation_history: List[Dict] = None) -> str:
         """Execute the actual financial action through payment service"""
         try:
             print(f"[EXECUTE_ACTION] User {user_id}: intent={intent}, slots={slots}")
@@ -288,6 +344,55 @@ class LebeNLUSystem:
                 return self.response_formatter.format_response(intent, "error", message=f"Unknown payment intent: {intent}")
 
             print(f"[PAYMENT_INTENT] PaymentDto created successfully")
+
+            # For send_money, perform account inquiry and wait for confirmation
+            if intent == "send_money":
+                logger.info(f"[ACCOUNT_INQUIRY] Performing account inquiry for send_money")
+                try:
+                    payment_service = PaymentService(db)
+                    recipient_phone = slots.get('recipient')
+                    recipient_network = network_map.get(slots.get('network', 'MTN'), Network.MTN)
+
+                    # Call account inquiry
+                    inquiry_response = payment_service.payment_gateway_client.account_inquiry(
+                        customer_number=recipient_phone,
+                        network=recipient_network.value
+                    )
+
+                    if inquiry_response.status_code == 200:
+                        inquiry_data = inquiry_response.json()
+                        logger.info(f"[ACCOUNT_INQUIRY_SUCCESS] Response: {inquiry_data}")
+
+                        # Extract account holder name from response
+                        account_name = inquiry_data.get("account_name") or inquiry_data.get("name") or "the recipient"
+                        amount = slots.get('amount')
+
+                        # Create confirmation message
+                        confirmation_msg = f"Confirm: Send GHS {amount} to {account_name} ({recipient_phone})?\nPlease reply 'yes' to confirm or 'no' to cancel."
+
+                        # Store payment info and set waiting for confirmation
+                        state = self.conversation_manager.get_conversation_state(user_id)
+                        state.waiting_for_payment_confirmation = True
+                        state.pending_payment_dto = {
+                            "payment_dto": payment_dto,
+                            "intent": intent,
+                            "slots": slots
+                        }
+                        self.conversation_manager._save_conversation_state(state)
+
+                        logger.info(f"[ACCOUNT_INQUIRY] Waiting for payment confirmation from user {user_id}")
+                        return self.response_formatter.format_response(intent, "payment_confirmation", message=confirmation_msg)
+
+                    else:
+                        error_msg = inquiry_response.json().get("resp_desc", "Account inquiry failed")
+                        logger.error(f"[ACCOUNT_INQUIRY_FAILED] Status: {inquiry_response.status_code}, Error: {error_msg}")
+                        return self.response_formatter.format_response(intent, "error", message=f"Could not verify recipient account: {error_msg}")
+
+                except Exception as e:
+                    logger.error(f"[ACCOUNT_INQUIRY_ERROR] Error during account inquiry: {str(e)}", exc_info=True)
+                    # Fall back to regular processing if inquiry fails
+                    logger.info(f"[ACCOUNT_INQUIRY_FALLBACK] Falling back to direct payment processing")
+
             print(f"[PAYMENT_INTENT] Calling PaymentService.make_payment() with intent={intent}")
 
             # Process payment through PaymentService

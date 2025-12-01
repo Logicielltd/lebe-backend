@@ -183,3 +183,56 @@ class PaymentGatewayClient:
         except Exception as e:
             logger.error(f"Error checking wallet balance: {e}", exc_info=True)
             raise PaymentGatewayException(f"Failed to check wallet balance: {e}")
+
+    def account_inquiry(self, customer_number: str, network: str, bank_code: Optional[str] = None) -> httpx.Response:
+        """
+        Perform account information inquiry (AII) to verify recipient account details.
+        Useful before initiating money transfers to confirm account holder information.
+
+        Args:
+            customer_number: Phone number or account number (e.g., 233200018204)
+            network: Network/Bank code (MTN, VOD, AIR for mobile, BNK for bank)
+            bank_code: Bank code (required if network is BNK)
+
+        Returns:
+            httpx.Response with account information from Orchard API
+        """
+        try:
+            request = {
+                "service_id": self.service_id,
+                "trans_type": "AII",  # Account Information Inquiry
+                "customer_number": customer_number,
+                "nw": network
+            }
+
+            # Add bank code if provided and network is BNK
+            if network == "BNK" and bank_code:
+                request["bank_code"] = bank_code
+
+            # Use sorted JSON for consistent signature and request body
+            json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
+            signature = self._get_signature(json_payload)
+            logger.info(f"[ACCOUNT_INQUIRY] Request payload: {json_payload}")
+
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                    urljoin(self.base_url, "/sendRequest"),
+                    headers={
+                        "Authorization": f"{self.client_id}:{signature}",
+                        "Content-Type": "application/json"
+                    },
+                    content=json_payload
+                )
+
+            logger.info(f"[ACCOUNT_INQUIRY_RESPONSE] Status: {response.status_code}, Body: {response.text}")
+            return response
+
+        except httpx.TimeoutException:
+            logger.error("Account inquiry timeout")
+            raise PaymentGatewayException("Account inquiry timeout")
+        except httpx.RequestError as e:
+            logger.error(f"Network error during account inquiry: {e}")
+            raise PaymentGatewayException(f"Network error: {e}")
+        except Exception as e:
+            logger.error(f"Error performing account inquiry: {e}", exc_info=True)
+            raise PaymentGatewayException(f"Failed to perform account inquiry: {e}")

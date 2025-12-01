@@ -505,8 +505,8 @@ def account_inquiry(
     db: Session = Depends(get_db)
 ):
     """
-    Test endpoint for Account Information Inquiry (AII).
-    Use this to verify account details before initiating transactions.
+    Account Information Inquiry (AII) endpoint.
+    Verify account details before initiating transactions.
 
     Parameters:
     - customer_number: Phone number or account number (e.g., 233200018204)
@@ -514,34 +514,20 @@ def account_inquiry(
     - bank_code: Bank code if network is BNK (e.g., VOD for a specific bank)
 
     Example:
-    POST /api/v1/payment/test/account-inquiry?customer_number=233200018204&network=BNK&bank_code=VOD
+    POST /api/v1/payment/account-inquiry?customer_number=233200018204&network=MTN
     """
     try:
-        logger.info(f"[TEST_ACCOUNT_INQUIRY] Testing account inquiry for {customer_number} on {network}")
+        logger.info(f"[ACCOUNT_INQUIRY] Request for {customer_number} on {network}")
         payment_service = PaymentService(db)
 
-        from utilities.uniqueidgenerator import UniqueIdGenerator
+        # Use PaymentGatewayClient.account_inquiry() method (DRY principle)
+        http_response = payment_service.payment_gateway_client.account_inquiry(
+            customer_number=customer_number,
+            network=network,
+            bank_code=bank_code
+        )
 
-        # Build account inquiry request
-        account_inquiry_request = {
-            "service_id": payment_service.service_id,
-            "trans_type": "AII",
-            "customer_number": customer_number,
-            "nw": network,
-            "exttrid": str(UniqueIdGenerator.generate()),
-            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-        # Add bank code if provided and network is BNK
-        if network == "BNK" and bank_code:
-            account_inquiry_request["bank_code"] = bank_code
-
-        logger.info(f"[TEST_ACCOUNT_INQUIRY_REQUEST] Request: {account_inquiry_request}")
-
-        # Call Orchard API
-        http_response = payment_service.payment_gateway_client.process_payment(account_inquiry_request)
-
-        logger.info(f"[TEST_ACCOUNT_INQUIRY_RESPONSE] Status: {http_response.status_code}, Body: {http_response.text}")
+        logger.info(f"[ACCOUNT_INQUIRY_RESPONSE] Status: {http_response.status_code}")
 
         if http_response.status_code == 200:
             account_data = http_response.json()
@@ -563,5 +549,5 @@ def account_inquiry(
             }
 
     except Exception as e:
-        logger.error(f"[TEST_ACCOUNT_INQUIRY_ERROR] Error: {str(e)}", exc_info=True)
+        logger.error(f"[ACCOUNT_INQUIRY_ERROR] Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error during account inquiry: {str(e)}")

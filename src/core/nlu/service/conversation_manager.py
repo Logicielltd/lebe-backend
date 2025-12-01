@@ -19,7 +19,9 @@ class ConversationState:
     pending_action: Dict = None
     conversation_history: List[Dict] = None
     conversation_date: date = None
-    
+    waiting_for_payment_confirmation: bool = False
+    pending_payment_dto: Dict = None
+
     def __post_init__(self):
         if self.collected_slots is None:
             self.collected_slots = {}
@@ -27,6 +29,8 @@ class ConversationState:
             self.conversation_history = []
         if self.conversation_date is None:
             self.conversation_date = date.today()
+        if self.pending_payment_dto is None:
+            self.pending_payment_dto = {}
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
@@ -37,7 +41,9 @@ class ConversationState:
             'waiting_for_pin': self.waiting_for_pin,
             'pending_action': self.pending_action,
             'conversation_history': self.conversation_history,
-            'conversation_date': self.conversation_date.isoformat()
+            'conversation_date': self.conversation_date.isoformat(),
+            'waiting_for_payment_confirmation': self.waiting_for_payment_confirmation,
+            'pending_payment_dto': self.pending_payment_dto
         }
     
     @classmethod

@@ -554,76 +554,91 @@ def account_inquiry(
 
 
 @payment_routes.post("/ctm")
-def ctm_transaction(
+def ctm_test_endpoint(
     customer_phone: str = Query(..., description="Customer phone number (e.g., 233550748724 or 0550748724)"),
-    amount: float = Query(..., description="Amount to collect from customer (e.g., 5.0)"),
-    reference: str = Query("CTM Transaction", description="Transaction reference/description"),
+    amount: float = Query(..., description="Amount to test (e.g., 5.0)"),
+    reference: str = Query("CTM Test", description="Transaction reference/description"),
     db: Session = Depends(get_db)
 ):
     """
-    CTM (Customer to Merchant) one-legged transaction endpoint.
+    CTM (Customer to Merchant) test endpoint - ONE-OFF TESTING ONLY.
 
-    Collects money directly from a customer's account to the merchant account.
-    No need to specify recipient - funds go directly to merchant.
+    Sends a CTM request directly to Orchard API without creating any transaction records.
+    This is purely for testing purposes and does NOT save anything to the database.
 
     Parameters:
     - customer_phone: Customer's phone number (233XXXXXXXXX or 0XXXXXXXXX format)
-    - amount: Amount to collect (e.g., 5.0)
-    - reference: Transaction reference/description (optional, default: "CTM Transaction")
+    - amount: Amount to test (e.g., 5.0)
+    - reference: Transaction reference/description (optional, default: "CTM Test")
 
     Example:
-    POST /api/v1/payment/ctm?customer_phone=233550748724&amount=5.0&reference=Service%20Payment
+    POST /api/v1/payment/ctm?customer_phone=233550748724&amount=5.0&reference=Test%20Payment
+
+    WARNING: This endpoint only tests the API call and does NOT save the transaction.
     """
     try:
-        logger.info(f"[CTM] Processing CTM transaction from {customer_phone}, Amount: GHS {amount}")
+        logger.info(f"[CTM_TEST] Testing CTM request from {customer_phone}, Amount: GHS {amount}")
 
-        from core.payments.model.paymentmethod import PaymentMethod
-        from core.payments.model.paynetwork import Network
-        from utilities.uniqueidgenerator import UniqueIdGenerator
         from core.beneficiaries.utility.network_detector import NetworkDetector
+        from utilities.uniqueidgenerator import UniqueIdGenerator
 
         # Detect network from customer phone
         detected_network, _ = NetworkDetector.detect_network_from_phone(customer_phone)
 
         network_map = {
-            "MTN": Network.MTN,
-            "VOD": Network.VOD,
-            "AIR": Network.AIR,
+            "MTN": "MTN",
+            "VOD": "VOD",
+            "AIR": "AIR",
         }
 
-        selected_network = network_map.get(detected_network, Network.MTN) if detected_network else Network.MTN
+        selected_network = network_map.get(detected_network, "MTN") if detected_network else "MTN"
 
-        # Create PaymentDto for CTM transaction (one-legged)
-        payment_dto = PaymentDto(
-            senderPhone=customer_phone,
-            network=selected_network,
-            paymentMethod=PaymentMethod.MOBILE_MONEY,
-            serviceName=reference,
-            amountPaid=Decimal(str(amount)),
-            transactionId=str(UniqueIdGenerator.generate())
-        )
-
-        logger.info(f"[CTM] Created PaymentDto for CTM: {payment_dto.transactionId}")
-
-        # Execute the CTM transaction through PaymentService
-        payment_service = PaymentService(db)
-        result = payment_service.make_payment(payment_dto, "ctm")
-
-        logger.info(f"[CTM_RESULT] CTM result: status={result.status}, code={result.responseCode}, tx_id={result.transactionId}")
-
-        return {
-            "status": "success",
-            "message": "CTM transaction initiated successfully",
-            "transaction_id": result.transactionId,
-            "payment_status": result.status.value if result.status else None,
-            "response_code": result.responseCode,
-            "response_description": result.responseDescription,
-            "customer_phone": customer_phone,
-            "amount": amount,
+        # Build CTM request payload
+        ctm_request = {
+            "service_id": "4892",  # From environment config
+            "trans_type": "CTM",
+            "customer_number": customer_phone,
+            "nw": selected_network,
+            "amount": str(amount),
+            "exttrid": str(UniqueIdGenerator.generate()),
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "reference": reference,
-            "network": detected_network or "MTN"
+            "callback_url": "https://your-callback-url.com/callback"
         }
+
+        logger.info(f"[CTM_TEST] Sending CTM request to Orchard API: {ctm_request}")
+
+        # Send directly to Orchard API without saving to database
+        payment_service = PaymentService(db)
+        http_response = payment_service.payment_gateway_client.process_payment(ctm_request)
+
+        logger.info(f"[CTM_TEST_RESPONSE] Status: {http_response.status_code}, Body: {http_response.text}")
+
+        if http_response.status_code == 200:
+            response_data = http_response.json()
+            return {
+                "status": "success",
+                "message": "CTM test request sent successfully (NOT SAVED)",
+                "http_status": http_response.status_code,
+                "customer_phone": customer_phone,
+                "amount": amount,
+                "reference": reference,
+                "network": selected_network,
+                "api_response": response_data
+            }
+        else:
+            error_data = http_response.json()
+            return {
+                "status": "error",
+                "message": "CTM test request failed",
+                "http_status": http_response.status_code,
+                "customer_phone": customer_phone,
+                "amount": amount,
+                "reference": reference,
+                "network": selected_network,
+                "api_response": error_data
+            }
 
     except Exception as e:
-        logger.error(f"[CTM_ERROR] Error: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error during CTM transaction: {str(e)}")
+        logger.error(f"[CTM_TEST_ERROR] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error during CTM test: {str(e)}")

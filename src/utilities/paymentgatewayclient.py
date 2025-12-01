@@ -209,12 +209,15 @@ class PaymentGatewayClient:
                 "ts": self.get_current_timestamp()  # Required: timestamp
             }
 
-            # Add bank code if provided and network is BNK
+            # Add bank code (required for all AII requests)
+            # For BNK network, use provided bank_code; for mobile networks, use network code
             if network == "BNK" and bank_code:
                 request["bank_code"] = bank_code
+            else:
+                request["bank_code"] = network  # Use network code as bank_code for mobile networks
 
-            # Use sorted JSON for consistent signature and request body
-            json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
+            # Use sorted JSON with spaces for signature (Orchard API requirement)
+            json_payload = json.dumps(request, sort_keys=True, separators=(', ', ': '))
             signature = self._get_signature(json_payload)
             logger.info(f"[ACCOUNT_INQUIRY] Request payload: {json_payload}")
 

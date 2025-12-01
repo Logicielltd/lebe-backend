@@ -335,13 +335,13 @@ def pay_bill_direct(
         amount_decimal = Decimal(str(amount))
         blp_request = {
             "amount": str(amount_decimal.quantize(Decimal('0.00'))),
-            "acount_number": account_number,  # Note: Orchard API uses "acount_number" (typo in their API)
+            "customer_number": account_number,
             "exttrid": blp_transaction_id,
             "nw": network.upper(),
             "reference": reference,
             "service_id": "4892",
             "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "callback_url": "https://lebe-dcahe0a8cjecffcm.canadacentral-01.azurewebsites.netapi/api/v1/payment/callback",
+            "callback_url": "https://lebe-dcahe0a8cjecffcm.canadacentral-01.azurewebsites.net/api/v1/payment/callback",
             "trans_type": "BLP"
         }
 

@@ -372,6 +372,8 @@ class LebeNLUSystem:
                         confirmation_msg = f"Confirm: Send GHS {amount} to {account_name} ({recipient_phone})?\nPlease reply 'yes' to confirm or 'no' to cancel."
 
                         # Store payment info and set waiting for confirmation
+                        state.current_intent = intent
+                        state.collected_slots = slots
                         state.waiting_for_payment_confirmation = True
                         state.pending_payment_dto = {
                             "account_name": account_name,

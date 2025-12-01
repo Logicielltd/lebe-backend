@@ -393,8 +393,9 @@ class LebeNLUSystem:
                         slots_with_receiver = dict(slots)
                         slots_with_receiver['receiver_name'] = account_name
 
-                        # Create confirmation message
-                        confirmation_msg = f"Confirm: Send GHS {amount} to {account_name} ({recipient_phone})?\nPlease reply 'yes' to confirm or 'no' to cancel."
+                        # Create confirmation message with provider information
+                        receiver_provider = ProviderMapper.get_provider(recipient_network)
+                        confirmation_msg = f"Are you sure you want to send GHS {amount} to {recipient_phone} ({account_name}) on {receiver_provider}?\nPlease reply 'yes' to confirm or 'no' to cancel."
 
                         # Store payment info and set waiting for confirmation
                         state.current_intent = intent
@@ -588,19 +589,29 @@ class LebeNLUSystem:
 
     def _get_processing_message(self, intent: str, slots: Dict, result: Any) -> str:
         """Generate message indicating payment is being processed"""
+        if intent == "send_money":
+            receiver_name = slots.get('receiver_name', 'Recipient')
+            recipient_phone = slots.get('recipient')
+            receiver_provider = slots.get('receiver_provider', 'the recipient provider')
+            return f"Your Transfer to {recipient_phone} ({receiver_name}) on {receiver_provider} is being processed. Transaction ID: {result.transactionId}"
+
         processing_messages = {
-            "buy_airtime": f"Payment of GHS {slots.get('amount')} for airtime to {slots.get('phone_number')} is being processed. Transaction ID: {result.transactionId}",
-            "send_money": f"Payment of GHS {slots.get('amount')} to {slots.get('recipient')} is being processed. Transaction ID: {result.transactionId}",
+            "buy_airtime": f"Airtime purchase of GHS {slots.get('amount')} for {slots.get('phone_number')} is being processed. Transaction ID: {result.transactionId}",
             "pay_bill": f"Bill payment of GHS {slots.get('amount')} is being processed. Transaction ID: {result.transactionId}",
             "get_loan": f"Loan application for GHS {slots.get('loan_amount')} is being processed. Transaction ID: {result.transactionId}"
         }
-        return processing_messages.get(intent, "Payment is being processed. Transaction ID: {result.transactionId}")
+        return processing_messages.get(intent, "Your payment is being processed. Transaction ID: {result.transactionId}")
 
     def _get_success_message(self, intent: str, slots: Dict, result: Any) -> str:
         """Generate success message based on intent"""
+        if intent == "send_money":
+            receiver_name = slots.get('receiver_name', 'Recipient')
+            recipient_phone = slots.get('recipient')
+            receiver_provider = slots.get('receiver_provider', 'the recipient provider')
+            return f"Your Transfer to {recipient_phone} ({receiver_name}) on {receiver_provider} has been successfully completed"
+
         success_messages = {
             "buy_airtime": f"✅ Airtime of GHS {slots.get('amount')} sent to {slots.get('phone_number')}. Transaction ID: {result.transactionId}",
-            "send_money": f"✅ Successfully sent GHS {slots.get('amount')} to {slots.get('recipient')}. Transaction ID: {result.transactionId}",
             "pay_bill": f"✅ Bill payment of GHS {slots.get('amount')} processed. Transaction ID: {result.transactionId}",
             "get_loan": f"✅ Loan of GHS {slots.get('loan_amount')} application submitted. Transaction ID: {result.transactionId}"
         }

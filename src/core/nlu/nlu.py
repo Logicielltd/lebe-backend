@@ -186,7 +186,8 @@ class LebeNLUSystem:
             # User confirmed payment
             logger.info(f"[PAYMENT_CONFIRMATION] User {user_id} confirmed payment")
             intent = state.current_intent
-            slots = state.collected_slots
+            # Use slots stored in pending_payment_dto (more reliable than collected_slots)
+            slots = state.pending_payment_dto.get("slots", state.collected_slots)
 
             # Execute the payment
             response = self._execute_action(user_id, intent, slots, user_response, state.conversation_history)
@@ -378,7 +379,8 @@ class LebeNLUSystem:
                         state.pending_payment_dto = {
                             "account_name": account_name,
                             "recipient_phone": recipient_phone,
-                            "amount": amount
+                            "amount": amount,
+                            "slots": slots  # Store all slots for later use during payment execution
                         }
                         self.conversation_manager._save_conversation_state(state)
 

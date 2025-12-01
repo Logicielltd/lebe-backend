@@ -43,6 +43,12 @@ class Payment(Base):
     bank_code: Mapped[Optional[str]] = mapped_column(String)
     network: Mapped[Optional[Network]] = mapped_column(Enum(Network))
 
+    # Sender and receiver information
+    sender_name: Mapped[Optional[str]] = mapped_column(String)  # Name of user initiating transaction
+    receiver_name: Mapped[Optional[str]] = mapped_column(String)  # Verified account holder name
+    sender_provider: Mapped[Optional[str]] = mapped_column(String)  # Provider based on sender network
+    receiver_provider: Mapped[Optional[str]] = mapped_column(String)  # Provider based on receiver network
+
     date_paid: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_on: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

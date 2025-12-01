@@ -20,6 +20,7 @@ from core.payments.model.bill import Bill
 from core.payments.model.invoice import Invoice
 from utilities.paymentgatewayclient import PaymentGatewayClient
 from utilities.uniqueidgenerator import UniqueIdGenerator
+from utilities.provider_mapper import ProviderMapper
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,16 @@ class PaymentService:
         print(f"[PAYMENT_SERVICE] Processing payment for intent: {intent}, amount: {payment_dto.amountPaid}")
 
         # Map PaymentDto (camelCase) to Payment model (snake_case)
+        # Map network to provider names
+        sender_provider = ProviderMapper.get_provider(payment_dto.network) if payment_dto.network else "Unknown"
+
+        # For receiver, we need to detect their network from their phone number
+        receiver_network = None
+        if payment_dto.receiverPhone:
+            from core.beneficiaries.utility.network_detector import NetworkDetector
+            receiver_network = NetworkDetector.detect_network(payment_dto.receiverPhone)
+        receiver_provider = ProviderMapper.get_provider(receiver_network) if receiver_network else "Unknown"
+
         payment_data = {
             'bill_id': payment_dto.billId or 0,
             'response_id': payment_dto.responseId,
@@ -60,6 +71,10 @@ class PaymentService:
             'receiver_phone': payment_dto.receiverPhone,
             'bank_code': payment_dto.bankCode,
             'network': payment_dto.network,
+            'sender_name': payment_dto.senderName or payment_dto.customerName,
+            'receiver_name': payment_dto.receiverName,
+            'sender_provider': payment_dto.senderProvider or sender_provider,
+            'receiver_provider': payment_dto.receiverProvider or receiver_provider,
         }
 
         # Create or retrieve payment record

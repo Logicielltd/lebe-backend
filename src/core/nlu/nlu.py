@@ -186,10 +186,10 @@ class LebeNLUSystem:
             # User confirmed payment
             logger.info(f"[PAYMENT_CONFIRMATION] User {user_id} confirmed payment")
             intent = state.current_intent
-            # Use slots stored in pending_payment_dto (more reliable than collected_slots)
+            # Use slots stored in pending_payment_dto (includes receiver_name and providers)
             slots = state.pending_payment_dto.get("slots", state.collected_slots)
 
-            # Execute the payment
+            # Execute the payment with confirmed slots
             response = self._execute_action(user_id, intent, slots, user_response, state.conversation_history)
 
             # Clear confirmation state
@@ -290,6 +290,10 @@ class LebeNLUSystem:
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     customerName=slots.get('recipient_name', 'Unknown'),
+                    senderName="User",  # Will be updated with actual user name if available
+                    receiverName=slots.get('receiver_name'),  # Verified account holder name from account inquiry
+                    senderProvider=slots.get('sender_provider'),  # Provider for sender
+                    receiverProvider=slots.get('receiver_provider'),  # Provider for receiver
                     serviceName=f"Money Transfer to {slots.get('recipient')}",
                     amountPaid=Decimal(slots.get('amount', '0')),
                     transactionId=str(UniqueIdGenerator.generate())
@@ -369,18 +373,30 @@ class LebeNLUSystem:
                         account_name = inquiry_data.get("account_name") or inquiry_data.get("name") or "the recipient"
                         amount = slots.get('amount')
 
+                        # Update PaymentDto with receiver information
+                        from utilities.provider_mapper import ProviderMapper
+                        payment_dto.receiverName = account_name
+                        payment_dto.senderProvider = ProviderMapper.get_provider(payment_dto.network)
+                        payment_dto.receiverProvider = ProviderMapper.get_provider(recipient_network)
+
+                        # Add receiver_name to slots for later use
+                        slots_with_receiver = dict(slots)
+                        slots_with_receiver['receiver_name'] = account_name
+
                         # Create confirmation message
                         confirmation_msg = f"Confirm: Send GHS {amount} to {account_name} ({recipient_phone})?\nPlease reply 'yes' to confirm or 'no' to cancel."
 
                         # Store payment info and set waiting for confirmation
                         state.current_intent = intent
-                        state.collected_slots = slots
+                        state.collected_slots = slots_with_receiver
                         state.waiting_for_payment_confirmation = True
                         state.pending_payment_dto = {
                             "account_name": account_name,
                             "recipient_phone": recipient_phone,
                             "amount": amount,
-                            "slots": slots  # Store all slots for later use during payment execution
+                            "slots": slots_with_receiver,  # Store all slots with receiver_name for later use
+                            "sender_provider": ProviderMapper.get_provider(payment_dto.network),
+                            "receiver_provider": ProviderMapper.get_provider(recipient_network)
                         }
                         self.conversation_manager._save_conversation_state(state)
 

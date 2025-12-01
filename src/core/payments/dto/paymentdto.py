@@ -26,3 +26,8 @@ class PaymentDto(BaseModel):
     amountPaid: Optional[Decimal] = None
     datePaid: Optional[datetime] = None
     updatedOn: Optional[datetime] = None
+    # Sender and receiver information
+    senderName: Optional[str] = None  # Name of user initiating transaction
+    receiverName: Optional[str] = None  # Verified account holder name
+    senderProvider: Optional[str] = None  # Provider based on sender network
+    receiverProvider: Optional[str] = None  # Provider based on receiver network

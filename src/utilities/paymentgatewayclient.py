@@ -204,17 +204,11 @@ class PaymentGatewayClient:
                 "service_id": self.service_id,
                 "trans_type": "AII",  # Account Information Inquiry
                 "customer_number": customer_number,
-                "nw": network,
+                "nw": "BNK",  # Always BNK for account inquiry
                 "exttrid": str(UniqueIdGenerator.generate()),  # Required: unique transaction ID
+                "bank_code": bank_code or network,  # bank_code specifies the actual network (MTN, VOD, AIR, or specific bank code)
                 "ts": self.get_current_timestamp()  # Required: timestamp
             }
-
-            # Add bank code (required for all AII requests)
-            # For BNK network, use provided bank_code; for mobile networks, use network code
-            if network == "BNK" and bank_code:
-                request["bank_code"] = bank_code
-            else:
-                request["bank_code"] = network  # Use network code as bank_code for mobile networks
 
             # Use sorted JSON with spaces for signature (Orchard API requirement)
             json_payload = json.dumps(request, sort_keys=True, separators=(', ', ': '))

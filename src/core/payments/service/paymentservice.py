@@ -53,7 +53,15 @@ class PaymentService:
         receiver_network = None
         if payment_dto.receiverPhone:
             from core.beneficiaries.utility.network_detector import NetworkDetector
-            receiver_network = NetworkDetector.detect_network(payment_dto.receiverPhone)
+            detected_network, _ = NetworkDetector.detect_network_from_phone(payment_dto.receiverPhone)
+            # Map the detected network string to Network enum
+            if detected_network:
+                network_map = {
+                    "MTN": Network.MTN,
+                    "VOD": Network.VOD,
+                    "AIR": Network.AIR,
+                }
+                receiver_network = network_map.get(detected_network)
         receiver_provider = ProviderMapper.get_provider(receiver_network) if receiver_network else "Unknown"
 
         payment_data = {

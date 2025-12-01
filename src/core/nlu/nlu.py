@@ -383,15 +383,24 @@ class LebeNLUSystem:
                         account_name = inquiry_data.get("account_name") or inquiry_data.get("name") or "the recipient"
                         amount = slots.get('amount')
 
-                        # Update PaymentDto with receiver information
+                        # Detect sender's network from sender's phone
                         from utilities.provider_mapper import ProviderMapper
+                        from core.beneficiaries.utility.network_detector import NetworkDetector
+
+                        sender_network_tuple = NetworkDetector.detect_network_from_phone(user_id)
+                        sender_network_str = sender_network_tuple[0] if isinstance(sender_network_tuple, tuple) else sender_network_tuple
+                        sender_network = network_map.get(sender_network_str, Network.MTN)
+
+                        # Update PaymentDto with sender and receiver information
                         payment_dto.receiverName = account_name
-                        payment_dto.senderProvider = ProviderMapper.get_provider(payment_dto.network)
+                        payment_dto.senderProvider = ProviderMapper.get_provider(sender_network)
                         payment_dto.receiverProvider = ProviderMapper.get_provider(recipient_network)
 
                         # Add receiver_name to slots for later use
                         slots_with_receiver = dict(slots)
                         slots_with_receiver['receiver_name'] = account_name
+                        slots_with_receiver['sender_provider'] = ProviderMapper.get_provider(sender_network)
+                        slots_with_receiver['receiver_provider'] = ProviderMapper.get_provider(recipient_network)
 
                         # Create confirmation message with provider information
                         receiver_provider = ProviderMapper.get_provider(recipient_network)
@@ -406,7 +415,7 @@ class LebeNLUSystem:
                             "recipient_phone": recipient_phone,
                             "amount": amount,
                             "slots": slots_with_receiver,  # Store all slots with receiver_name for later use
-                            "sender_provider": ProviderMapper.get_provider(payment_dto.network),
+                            "sender_provider": ProviderMapper.get_provider(sender_network),
                             "receiver_provider": ProviderMapper.get_provider(recipient_network)
                         }
                         self.conversation_manager._save_conversation_state(state)

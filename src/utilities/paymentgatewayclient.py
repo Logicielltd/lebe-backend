@@ -198,11 +198,15 @@ class PaymentGatewayClient:
             httpx.Response with account information from Orchard API
         """
         try:
+            from utilities.uniqueidgenerator import UniqueIdGenerator
+
             request = {
                 "service_id": self.service_id,
                 "trans_type": "AII",  # Account Information Inquiry
                 "customer_number": customer_number,
-                "nw": network
+                "nw": network,
+                "exttrid": str(UniqueIdGenerator.generate()),  # Required: unique transaction ID
+                "ts": self.get_current_timestamp()  # Required: timestamp
             }
 
             # Add bank code if provided and network is BNK

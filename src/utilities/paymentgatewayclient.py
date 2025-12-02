@@ -237,3 +237,57 @@ class PaymentGatewayClient:
         except Exception as e:
             logger.error(f"Error performing account inquiry: {e}", exc_info=True)
             raise PaymentGatewayException(f"Failed to perform account inquiry: {e}")
+
+    def external_billers_inquiry(self, customer_number: str, network: str = "ABS", operation: str = "INF") -> httpx.Response:
+        """
+        Perform external billers inquiry (BLI) to query available billers and bill information.
+        Uses the /extBillers endpoint instead of /sendRequest.
+
+        Args:
+            customer_number: Customer phone number or account number (e.g., 020410181221)
+            network: Network code (default: "ABS" for external billers)
+            operation: Operation type (default: "INF" for information inquiry)
+
+        Returns:
+            httpx.Response with available billers and bill information from Orchard API
+        """
+        try:
+            from utilities.uniqueidgenerator import UniqueIdGenerator
+
+            request = {
+                "service_id": self.service_id,
+                "trans_type": "BLI",  # Bill Inquiry
+                "customer_number": customer_number,
+                "nw": network,  # Network code (ABS for external billers)
+                "operation": operation,  # Operation type (INF for information)
+                "exttrid": str(UniqueIdGenerator.generate()),  # Required: unique transaction ID
+                "ts": self.get_current_timestamp()  # Required: timestamp
+            }
+
+            # Use sorted JSON for consistent signature and request body
+            json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
+            signature = self._get_signature(json_payload)
+            logger.info(f"[EXTERNAL_BILLERS_INQUIRY] Request payload: {json_payload}")
+
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                    urljoin(self.base_url, "/extBillers"),
+                    headers={
+                        "Authorization": f"{self.client_id}:{signature}",
+                        "Content-Type": "application/json"
+                    },
+                    content=json_payload
+                )
+
+            logger.info(f"[EXTERNAL_BILLERS_INQUIRY_RESPONSE] Status: {response.status_code}, Body: {response.text}")
+            return response
+
+        except httpx.TimeoutException:
+            logger.error("External billers inquiry timeout")
+            raise PaymentGatewayException("External billers inquiry timeout")
+        except httpx.RequestError as e:
+            logger.error(f"Network error during external billers inquiry: {e}")
+            raise PaymentGatewayException(f"Network error: {e}")
+        except Exception as e:
+            logger.error(f"Error performing external billers inquiry: {e}", exc_info=True)
+            raise PaymentGatewayException(f"Failed to perform external billers inquiry: {e}")

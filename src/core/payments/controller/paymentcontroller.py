@@ -642,3 +642,61 @@ def ctm_test_endpoint(
     except Exception as e:
         logger.error(f"[CTM_TEST_ERROR] Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error during CTM test: {str(e)}")
+
+
+@payment_routes.post("/ext-billers")
+def external_billers_inquiry(
+    customer_number: str = Query(..., description="Customer phone number (e.g., 020410181221)"),
+    network: str = Query("ABS", description="Network code (default: ABS for external billers)"),
+    operation: str = Query("INF", description="Operation type (default: INF for information inquiry)"),
+    db: Session = Depends(get_db)
+):
+    """
+    External Billers Inquiry (BLI) endpoint.
+    Query available billers and bill information using the /extBillers endpoint.
+
+    Parameters:
+    - customer_number: Customer phone number or account number (e.g., 020410181221)
+    - network: Network code (default: ABS for external billers)
+    - operation: Operation type (default: INF for information/inquiry)
+
+    Example:
+    POST /api/v1/payment/ext-billers?customer_number=020410181221&network=ABS&operation=INF
+    """
+    try:
+        logger.info(f"[EXT_BILLERS_INQUIRY] Request for {customer_number} on {network}, operation: {operation}")
+        payment_service = PaymentService(db)
+
+        # Use PaymentGatewayClient.external_billers_inquiry() method
+        http_response = payment_service.payment_gateway_client.external_billers_inquiry(
+            customer_number=customer_number,
+            network=network,
+            operation=operation
+        )
+
+        logger.info(f"[EXT_BILLERS_INQUIRY_RESPONSE] Status: {http_response.status_code}")
+
+        if http_response.status_code == 200:
+            billers_data = http_response.json()
+            return {
+                "status": "success",
+                "http_status": http_response.status_code,
+                "customer_number": customer_number,
+                "network": network,
+                "operation": operation,
+                "data": billers_data
+            }
+        else:
+            error_data = http_response.json()
+            return {
+                "status": "error",
+                "http_status": http_response.status_code,
+                "customer_number": customer_number,
+                "network": network,
+                "operation": operation,
+                "data": error_data
+            }
+
+    except Exception as e:
+        logger.error(f"[EXT_BILLERS_INQUIRY_ERROR] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error during external billers inquiry: {str(e)}")

@@ -700,3 +700,71 @@ def external_billers_inquiry(
     except Exception as e:
         logger.error(f"[EXT_BILLERS_INQUIRY_ERROR] Error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error during external billers inquiry: {str(e)}")
+
+
+@payment_routes.post("/ext-biller-invoice")
+def external_biller_invoice_inquiry(
+    ext_biller_ref_id: str = Query(..., description="Biller ID from billers list (e.g., D9C37F3D52)"),
+    ext_biller_pan: str = Query(..., description="Customer reference/ID for that biller (e.g., 20784533)"),
+    ext_biller_ref_type: str = Query(..., description="Biller category/type (e.g., School Fees)"),
+    network: str = Query("ABS", description="Network code (default: ABS for external billers)"),
+    operation: str = Query("INV", description="Operation type (default: INV for invoice inquiry)"),
+    db: Session = Depends(get_db)
+):
+    """
+    External Biller Invoice Inquiry endpoint.
+    Get customer invoice/bill information for a specific biller using the /extBillers endpoint with operation INV.
+
+    Parameters:
+    - ext_biller_ref_id: Biller ID from the billers list inquiry (e.g., D9C37F3D52)
+    - ext_biller_pan: Customer reference/ID number for that biller (e.g., 20784533)
+    - ext_biller_ref_type: Biller category/type (e.g., School Fees)
+    - network: Network code (default: ABS for external billers)
+    - operation: Operation type (default: INV for invoice inquiry)
+
+    Example:
+    POST /api/v1/payment/ext-biller-invoice?ext_biller_ref_id=D9C37F3D52&ext_biller_pan=20784533&ext_biller_ref_type=School%20Fees
+    """
+    try:
+        logger.info(f"[EXT_BILLER_INVOICE_INQUIRY] Request for biller_ref_id={ext_biller_ref_id}, pan={ext_biller_pan}, type={ext_biller_ref_type}")
+        payment_service = PaymentService(db)
+
+        # Use PaymentGatewayClient.external_biller_invoice_inquiry() method
+        http_response = payment_service.payment_gateway_client.external_biller_invoice_inquiry(
+            ext_biller_ref_id=ext_biller_ref_id,
+            ext_biller_pan=ext_biller_pan,
+            ext_biller_ref_type=ext_biller_ref_type,
+            network=network,
+            operation=operation
+        )
+
+        logger.info(f"[EXT_BILLER_INVOICE_INQUIRY_RESPONSE] Status: {http_response.status_code}")
+
+        if http_response.status_code == 200:
+            invoice_data = http_response.json()
+            return {
+                "status": "success",
+                "http_status": http_response.status_code,
+                "ext_biller_ref_id": ext_biller_ref_id,
+                "ext_biller_pan": ext_biller_pan,
+                "ext_biller_ref_type": ext_biller_ref_type,
+                "network": network,
+                "operation": operation,
+                "data": invoice_data
+            }
+        else:
+            error_data = http_response.json()
+            return {
+                "status": "error",
+                "http_status": http_response.status_code,
+                "ext_biller_ref_id": ext_biller_ref_id,
+                "ext_biller_pan": ext_biller_pan,
+                "ext_biller_ref_type": ext_biller_ref_type,
+                "network": network,
+                "operation": operation,
+                "data": error_data
+            }
+
+    except Exception as e:
+        logger.error(f"[EXT_BILLER_INVOICE_INQUIRY_ERROR] Error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error during external biller invoice inquiry: {str(e)}")

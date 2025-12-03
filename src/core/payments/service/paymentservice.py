@@ -83,6 +83,7 @@ class PaymentService:
             'receiver_name': payment_dto.receiverName,
             'sender_provider': payment_dto.senderProvider or sender_provider,
             'receiver_provider': payment_dto.receiverProvider or receiver_provider,
+            'ext_biller_ref_id': payment_dto.extBillerRefId,  # Biller ID for ABS bill payments
         }
 
         # Create or retrieve payment record
@@ -695,6 +696,7 @@ class PaymentService:
         Build BLP (Bill Payment) payment request.
         BLP sends bill payment from merchant account to customer's utility bill.
         Uses account_number (smart card number) and utility network codes.
+        For ABS (non-telco) bills, includes ext_biller_ref_id.
         """
         amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
 
@@ -715,7 +717,13 @@ class PaymentService:
             "callback_url": self.payment_gateway_client.build_callback_url(),
             "trans_type": "BLP"  # Bill Payment
         }
-        logger.info(f"Built BLP payment request: trans_type=BLP, network={utility_network}")
+
+        # For ABS (non-telco) bill payments, add ext_biller_ref_id to the request
+        if payment.ext_biller_ref_id:
+            request_data["ext_biller_ref_id"] = payment.ext_biller_ref_id
+            logger.info(f"[BLP_REQUEST_ABS] Added ext_biller_ref_id to BLP request for ABS bill payment: {payment.ext_biller_ref_id}")
+
+        logger.info(f"Built BLP payment request: trans_type=BLP, network={utility_network}, has_biller_id={bool(payment.ext_biller_ref_id)}")
         return request_data
 
     def _initiate_reversal(self, payment: Payment) -> None:

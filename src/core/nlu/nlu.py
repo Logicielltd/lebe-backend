@@ -328,6 +328,21 @@ class LebeNLUSystem:
                     'box office': Network.BXO,
                 }
 
+                # Telco bill networks (don't require external billers inquiry)
+                telco_networks = {Network.GOT, Network.DST, Network.MPP, Network.VPP, Network.STT, Network.VBB}
+
+                # Map non-telco bill types to external biller IDs (for ABS payments)
+                # These are obtained from the /ext-billers INF endpoint
+                biller_id_map = {
+                    'ecg': '0E8440AA1',  # Electricity Company of Ghana
+                    'ghana water': 'GHW_ID',  # Ghana Water Company (placeholder - get from INF)
+                    'water': 'GHW_ID',
+                    'surfline': 'SFL_ID',  # Surfline (placeholder)
+                    'telesol': 'TLS_ID',  # Telesol (placeholder)
+                    'box office': 'BXO_ID',  # Box Office (placeholder)
+                    'gotv': 'F804DBCF',  # GoTV (if ABS instead of telco)
+                }
+
                 # Try to match bill_type to network, default to GOT if unknown
                 selected_network = Network.GOT
                 for key, network in bill_network_map.items():
@@ -335,14 +350,26 @@ class LebeNLUSystem:
                         selected_network = network
                         break
 
+                # For ABS bills after confirmation, retrieve biller_id from pending_payment_dto
+                ext_biller_ref_id = None
+                amount_to_pay = slots.get('amount', '0')
+                state_temp = self.conversation_manager.get_conversation_state(user_id)
+                if state_temp.pending_payment_dto:
+                    ext_biller_ref_id = state_temp.pending_payment_dto.get('biller_id')
+                    # Use invoice amount if available (for fixed bills)
+                    invoice_amount = state_temp.pending_payment_dto.get('invoice_amount')
+                    if invoice_amount:
+                        amount_to_pay = invoice_amount
+
                 payment_dto = PaymentDto(
                     senderPhone=user_id,  # User initiating the payment (paying the bill)
                     receiverPhone=account_number,  # Smart card/account number where bill is paid
                     network=selected_network,  # Utility provider (GoTV, DStv, ECG, etc.)
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     serviceName=f"Bill Payment: {bill_type}",
-                    amountPaid=Decimal(slots.get('amount', '0')),
-                    transactionId=str(UniqueIdGenerator.generate())
+                    amountPaid=Decimal(amount_to_pay),
+                    transactionId=str(UniqueIdGenerator.generate()),
+                    extBillerRefId=ext_biller_ref_id  # Set biller ID for ABS bills
                 )
 
             elif intent == "get_loan":
@@ -360,8 +387,110 @@ class LebeNLUSystem:
 
             print(f"[PAYMENT_INTENT] PaymentDto created successfully")
 
-            # For send_money, perform account inquiry and wait for confirmation (only if not already done)
+            # For pay_bill with non-telco (ABS), perform invoice and biller inquiry
             state = self.conversation_manager.get_conversation_state(user_id)
+            if intent == "pay_bill" and selected_network not in telco_networks and not state.pending_payment_dto:
+                logger.info(f"[BILL_INQUIRY] Performing invoice and biller inquiry for non-telco bill: {bill_type}")
+                try:
+                    payment_service = PaymentService(db)
+
+                    # Get biller ID from mapping
+                    biller_id = None
+                    for key, bid in biller_id_map.items():
+                        if key in bill_type.lower():
+                            biller_id = bid
+                            break
+
+                    if not biller_id:
+                        return self.response_formatter.format_response(intent, "error", message=f"Unknown biller type: {bill_type}")
+
+                    # Step 1: Call INV inquiry to get customer invoice details
+                    logger.info(f"[BILL_INQUIRY] Calling INV for biller_id={biller_id}, customer_ref={account_number}")
+                    invoice_response = payment_service.payment_gateway_client.external_biller_invoice_inquiry(
+                        ext_biller_ref_id=biller_id,
+                        ext_biller_pan=account_number,
+                        ext_biller_ref_type=bill_type
+                    )
+
+                    if invoice_response.status_code == 200:
+                        invoice_data = invoice_response.json()
+                        logger.info(f"[BILL_INQUIRY_INV_SUCCESS] Response: {invoice_data}")
+
+                        # Extract invoice details
+                        invoice_details = invoice_data.get("details", [{}])[0] if invoice_data.get("details") else {}
+                        customer_name = invoice_details.get("invoiceName", "the customer")
+                        invoice_amount = invoice_details.get("invoiceAmount")  # Can be null for flexible payments
+                        invoice_id = invoice_details.get("invoiceId", account_number)
+
+                        # Step 2: Call INF inquiry to get biller payment rules
+                        logger.info(f"[BILL_INQUIRY] Calling INF for biller_id={biller_id}")
+                        biller_info_response = payment_service.payment_gateway_client.external_billers_inquiry(
+                            customer_number=account_number,
+                            network="ABS",
+                            operation="INF"
+                        )
+
+                        biller_rules = {}
+                        if biller_info_response.status_code == 200:
+                            billers_data = biller_info_response.json()
+                            logger.info(f"[BILL_INQUIRY_INF_SUCCESS] Response received")
+
+                            # Find matching biller in the list
+                            for biller in billers_data.get("data", []):
+                                if biller.get("billerId") == biller_id:
+                                    biller_rules = {
+                                        "billerName": biller.get("billerName"),
+                                        "billerCategory": biller.get("billerCategory"),
+                                        "paymentFlag": biller.get("paymentFlag"),  # PayPart or PayFull
+                                        "minAmount": biller.get("minAmount"),
+                                        "maxAmount": biller.get("maxAmount")
+                                    }
+                                    break
+
+                        # Create confirmation message with invoice and biller details
+                        if invoice_amount:
+                            confirmation_msg = f"Bill for {customer_name}:\n"
+                            confirmation_msg += f"Amount Due: GHS {invoice_amount}\n"
+                            if biller_rules:
+                                confirmation_msg += f"Min Payment: GHS {biller_rules.get('minAmount', 'N/A')}, "
+                                confirmation_msg += f"Max: GHS {biller_rules.get('maxAmount', 'N/A')}\n"
+                            confirmation_msg += f"Please reply 'yes' to confirm or 'no' to cancel."
+                        else:
+                            # Flexible payment - user can pay any amount
+                            confirmation_msg = f"Bill for {customer_name} (Flexible Payment):\n"
+                            if biller_rules:
+                                confirmation_msg += f"Payment Range: GHS {biller_rules.get('minAmount', '0')} - GHS {biller_rules.get('maxAmount', 'unlimited')}\n"
+                            confirmation_msg += f"Please reply 'yes' to confirm or 'no' to cancel."
+
+                        # Store payment info and set waiting for confirmation
+                        state.current_intent = intent
+                        state.collected_slots = slots
+                        state.waiting_for_payment_confirmation = True
+                        state.pending_payment_dto = {
+                            "bill_type": bill_type,
+                            "customer_name": customer_name,
+                            "customer_ref": account_number,
+                            "biller_id": biller_id,
+                            "invoice_amount": invoice_amount,
+                            "invoice_id": invoice_id,
+                            "biller_rules": biller_rules,
+                            "slots": slots
+                        }
+                        self.conversation_manager._save_conversation_state(state)
+
+                        logger.info(f"[BILL_INQUIRY] Waiting for payment confirmation from user {user_id}")
+                        return self.response_formatter.format_response(intent, "payment_confirmation", message=confirmation_msg)
+
+                    else:
+                        error_msg = invoice_response.json().get("resp_desc", "Invoice inquiry failed")
+                        logger.error(f"[BILL_INQUIRY_FAILED] Status: {invoice_response.status_code}, Error: {error_msg}")
+                        return self.response_formatter.format_response(intent, "error", message=f"Could not retrieve bill details: {error_msg}")
+
+                except Exception as e:
+                    logger.error(f"[BILL_INQUIRY_ERROR] Error during bill inquiry: {str(e)}", exc_info=True)
+                    return self.response_formatter.format_response(intent, "error", message=f"Error retrieving bill details: {str(e)}")
+
+            # For send_money, perform account inquiry and wait for confirmation (only if not already done)
             if intent == "send_money" and not state.pending_payment_dto:
                 logger.info(f"[ACCOUNT_INQUIRY] Performing account inquiry for send_money")
                 try:

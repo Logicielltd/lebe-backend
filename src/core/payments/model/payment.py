@@ -43,6 +43,9 @@ class Payment(Base):
     bank_code: Mapped[Optional[str]] = mapped_column(String)
     network: Mapped[Optional[Network]] = mapped_column(Enum(Network))
 
+    # External biller information (for non-telco/ABS bill payments)
+    ext_biller_ref_id: Mapped[Optional[str]] = mapped_column(String)  # Biller ID for ABS bill payments
+
     # Sender and receiver information
     sender_name: Mapped[Optional[str]] = mapped_column(String)  # Name of user initiating transaction
     receiver_name: Mapped[Optional[str]] = mapped_column(String)  # Verified account holder name

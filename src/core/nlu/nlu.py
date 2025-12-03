@@ -483,7 +483,11 @@ class LebeNLUSystem:
                         return self.response_formatter.format_response(intent, "payment_confirmation", message=confirmation_msg)
 
                     else:
-                        error_msg = invoice_response.json().get("resp_desc", "Invoice inquiry failed")
+                        try:
+                            response_data = invoice_response.json()
+                            error_msg = response_data.get("resp_desc", "Invoice inquiry failed") if isinstance(response_data, dict) else str(response_data)
+                        except:
+                            error_msg = f"API returned status {invoice_response.status_code}: {invoice_response.text[:100]}"
                         logger.error(f"[BILL_INQUIRY_FAILED] Status: {invoice_response.status_code}, Error: {error_msg}")
                         return self.response_formatter.format_response(intent, "error", message=f"Could not retrieve bill details: {error_msg}")
 

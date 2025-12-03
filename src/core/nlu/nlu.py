@@ -410,7 +410,9 @@ class LebeNLUSystem:
                     invoice_response = payment_service.payment_gateway_client.external_biller_invoice_inquiry(
                         ext_biller_ref_id=biller_id,
                         ext_biller_pan=account_number,
-                        ext_biller_ref_type=bill_type
+                        ext_biller_ref_type=bill_type,
+                        network="ABS",
+                        operation="INV"
                     )
 
                     if invoice_response.status_code == 200:
@@ -425,14 +427,18 @@ class LebeNLUSystem:
 
                         # Step 2: Call INF inquiry to get biller payment rules
                         logger.info(f"[BILL_INQUIRY] Calling INF for biller_id={biller_id}")
-                        biller_info_response = payment_service.payment_gateway_client.external_billers_inquiry(
-                            customer_number=account_number,
-                            network="ABS",
-                            operation="INF"
-                        )
+                        try:
+                            biller_info_response = payment_service.payment_gateway_client.external_billers_inquiry(
+                                customer_number=account_number,
+                                network="ABS",
+                                operation="INF"
+                            )
+                        except Exception as e:
+                            logger.warning(f"[BILL_INQUIRY_INF_WARNING] Could not fetch biller rules: {str(e)}, continuing with invoice details only")
+                            biller_info_response = None
 
                         biller_rules = {}
-                        if biller_info_response.status_code == 200:
+                        if biller_info_response and biller_info_response.status_code == 200:
                             billers_data = biller_info_response.json()
                             logger.info(f"[BILL_INQUIRY_INF_SUCCESS] Response received")
 

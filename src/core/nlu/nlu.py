@@ -329,7 +329,8 @@ class LebeNLUSystem:
                 }
 
                 # Telco bill networks (don't require external billers inquiry)
-                telco_networks = {Network.GOT, Network.DST, Network.MPP, Network.VPP, Network.STT, Network.VBB}
+                # These are predefined in the system and don't need external biller lookup
+                telco_networks = {Network.GOT, Network.DST, Network.STT}
 
                 # Map non-telco bill types to external biller IDs (for ABS payments)
                 # These are obtained from the /ext-billers INF endpoint

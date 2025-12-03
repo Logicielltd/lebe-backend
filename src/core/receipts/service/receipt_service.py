@@ -16,14 +16,16 @@ class ReceiptService:
     
     def create_receipt(
         self,
-        transaction_id: str,
         user_id: str,
-        transaction_type: str,
         amount: str,
+        transaction_id: str,
+        sender_name: str,
+        sender_account: str,
+        sender_provider: str,
         status: str,
-        sender: str,
-        receiver: str,
-        payment_method: str,
+        receiver_name: str,
+        receiver_account: str,
+        receiver_provider: str,
         timestamp: datetime,
         # Optional loan fields
         interest_rate: Optional[str] = None,
@@ -35,13 +37,15 @@ class ReceiptService:
         
         # Prepare receipt data with all fields
         receipt_data = {
-            'transaction_type': transaction_type,
             'amount': amount,
-            'status': status,
             'transaction_id': transaction_id,
-            'sender': sender,
-            'receiver': receiver,
-            'payment_method': payment_method,
+            'sender_name': sender_name,
+            'sender_account': sender_account,
+            'sender_provider': sender_provider,
+            'status': status,
+            'receiver_name': receiver_name,
+            'receiver_account': receiver_account,
+            'receiver_provider': receiver_provider,
             'timestamp': timestamp,
             # Include loan fields if provided
             'interest_rate': interest_rate,

@@ -10,213 +10,272 @@ logger = logging.getLogger(__name__)
 
 class ReceiptGenerator:
     def __init__(self):
-        # Load check icons (you'll need to provide the actual file paths)
-        """
-        :param assets_dir: Directory containing icon images (e.g., success_icon.png, failed_icon.png)
-        """
-        self.assets_dir = assets_dir = os.path.dirname(__file__) + "/assets"
-        self.success_icon = self._load_icon(os.path.join(assets_dir, "success_icon.png"))
-        self.failed_icon = self._load_icon(os.path.join(assets_dir, "failed_icon.png"))
+        self.assets_dir = os.path.join(os.path.dirname(__file__), "assets")
         
-    def _load_icon(self, icon_path: str) -> Image.Image:
-        """Load and resize check icon"""
+        # Ensure assets directory exists
+        if not os.path.exists(self.assets_dir):
+            os.makedirs(self.assets_dir)
+            logger.warning(f"Created assets directory at: {self.assets_dir}")
+
+        self.logo = self._load_icon("lebe_logo.png")
+        self.success_icon = self._load_icon("success_icon.png")
+        self.failed_icon = self._load_icon("failed_icon.png")
+
+    def _load_icon(self, icon_filename: str):
+        """Load an icon with proper error handling"""
         try:
-            icon = Image.open(icon_path).convert("RGBA")
-            # Resize to appropriate size for the circle
-            icon = icon.resize((26, 26), Image.Resampling.LANCZOS)
-            return icon
-        except FileNotFoundError:
-            logger.warning(f"Icon file {icon_path} not found. Using fallback drawing.")
-            return None
+            icon_path = os.path.join(self.assets_dir, icon_filename)
+            if os.path.exists(icon_path):
+                icon = Image.open(icon_path).convert("RGBA")
+                logger.info(f"Loaded icon: {icon_filename}")
+                return icon
+            else:
+                logger.warning(f"Icon not found: {icon_path}")
+                return None
         except Exception as e:
-            logger.warning(f"Could not load icon {icon_path}: {e}. Using fallback drawing.")
+            logger.warning(f"Could not load icon {icon_filename}: {str(e)}")
             return None
 
-    def generate_receipt_image(self, receipt_data: Dict[str, Any]) -> str:
-        """Generate receipt image and return base64 data URL"""
-        is_loan = receipt_data.get('transaction_type', '').lower() in ['loan', 'loan disbursement', 'get_loan']
-
-        if is_loan:
-            image = self._generate_loan_receipt(receipt_data)
+    def generate_receipt_image(self, data: Dict[str, Any]) -> str:
+        """Generate receipt image and return as base64 data URL"""
+        # Check if this is a loan receipt based on the presence of loan fields
+        loan_fields = ['interest_rate', 'loan_period', 'expected_pay_date', 'penalty_rate']
+        has_loan_fields = any(field in data for field in loan_fields)
+        
+        if has_loan_fields:
+            image = self._generate_loan_receipt(data)
         else:
-            image = self._generate_standard_receipt(receipt_data)
+            image = self._generate_receipt(data)
 
         buffered = io.BytesIO()
-        image.save(buffered, format="PNG", optimize=True)
-        img_str = base64.b64encode(buffered.getvalue()).decode()
+        image.save(buffered, format="PNG")
+        encoded = base64.b64encode(buffered.getvalue()).decode()
 
-        return f"data:image/png;base64,{img_str}"
+        return f"data:image/png;base64,{encoded}"
 
-    def _generate_standard_receipt(self, data: Dict[str, Any]) -> Image.Image:
-        """Generate standard receipt with modern design"""
-        width, height = 420, 720
-        image = Image.new("RGBA", (width, height), (255, 255, 255, 255))
-        draw = ImageDraw.Draw(image)
-
-        # Colors
-        primary_color = "#1a237e"
-        is_failed = data.get('status', '').lower() == 'failed'
-        if is_failed:
-            accent_color = "#FFEBEE"
-            icon_color = "#d32f2f"  # Red for failed
-        else:
-            accent_color = "#E6F4EA"
-            icon_color = "#34A853"  # Green for success
-            
-        gray_text = "#666666"
-        black_text = "#222222"
-        light_gray_bg = "#F6F8FA"
-        border_color = "#E0E0E0"
-
-        # Fonts (try Poppins, fallback to Arial, fallback to default)
-        default_font = ImageFont.load_default()
+    # -----------------------------
+    #   UI UTILS
+    # -----------------------------
+    def _font(self, name="VastagoGrotesk-Regular.otf", size=18):
+        """Get Vastago Grotesk font with proper fallbacks"""
         try:
-            title_font = ImageFont.truetype("Poppins-SemiBold.ttf", 24)
-            subtitle_font = ImageFont.truetype("Poppins-Regular.ttf", 16)
-            bold_font = ImageFont.truetype("Poppins-SemiBold.ttf", 14)
-            regular_font = ImageFont.truetype("Poppins-Regular.ttf", 14)
-            small_font = ImageFont.truetype("Poppins-Regular.ttf", 12)
+            font_path = os.path.join(self.assets_dir, name)
+            if os.path.exists(font_path):
+                return ImageFont.truetype(font_path, size)
+            else:
+                logger.warning(f"Vastago font not found: {font_path}")
+        except Exception as e:
+            logger.warning(f"Error loading Vastago font {name}: {str(e)}")
+        
+        # Fallbacks
+        try:
+            return ImageFont.truetype("arial.ttf", size)
         except:
             try:
-                title_font = ImageFont.truetype("arialbd.ttf", 24)
-                subtitle_font = ImageFont.truetype("arial.ttf", 16)
-                bold_font = ImageFont.truetype("arialbd.ttf", 14)
-                regular_font = ImageFont.truetype("arial.ttf", 14)
-                small_font = ImageFont.truetype("arial.ttf", 12)
+                return ImageFont.truetype("DejaVuSans.ttf", size)
             except:
-                # Fallback to PIL's default font when no TTF fonts are available
-                title_font = default_font
-                subtitle_font = default_font
-                bold_font = default_font
-                regular_font = default_font
-                small_font = default_font
+                logger.warning("Using default font")
+                return ImageFont.load_default()
 
-        # Draw rounded card background
-        card_margin = 20
-        card_radius = 15
-        card_top = 40
-        card_bottom = height - 40
+    # -----------------------------
+    #   NEW RECEIPT LAYOUT
+    # -----------------------------
+    def _generate_receipt(self, data: Dict[str, Any]) -> Image.Image:
+        WIDTH, HEIGHT = 1080, 1600
+
+        img = Image.new("RGB", (WIDTH, HEIGHT), "#EDEDED")
+        draw = ImageDraw.Draw(img)
+
+        # Colors
+        green = "#009B51"
+        dark = "#111111"
+        label = "#666666"
+        card_bg = "#E6E6E4"
+        divider = "#92938E"
+
+        # Fonts
+        # Fonts - Using Vastago Grotesk
+        title_fnt = self._font("VastagoGrotesk-Bold.otf", 50)
+        header_fnt = self._font("VastagoGrotesk-Bold.otf", 34)
+        bold_fnt = self._font("VastagoGrotesk-Bold.otf", 30)
+        regular_fnt = self._font(size=30)
+        small_fnt = self._font(size=24)
+
+        # -----------------------------------------
+        #   TOP BAR
+        # -----------------------------------------
+        y = 80
+
+        if self.logo:
+            try:
+                logo_resized = self.logo.resize((200, 66))
+                # Create a new RGBA image for the logo to preserve transparency
+                logo_bg = Image.new("RGBA", logo_resized.size, (0, 0, 0, 0))
+                logo_bg.paste(logo_resized, (0, 0), logo_resized)
+                img.paste(logo_bg, (80, y), logo_bg)
+            except Exception as e:
+                logger.warning(f"Error pasting logo: {str(e)}")
+                draw.text((80, y), "LEBE", font=bold_fnt, fill=dark)
+
+        draw.text((WIDTH - 80, y + 20),
+                  "Transaction Receipt",
+                  anchor="ra",
+                  font=regular_fnt,
+                  fill=label)
+
+        # -----------------------------------------
+        #   STATUS ICON + TEXT
+        # -----------------------------------------
+        y += 140
+        cx = WIDTH // 2
+
+        icon_bg_color = "#D1D2CD"
+        is_failed = data.get("status", "").lower() == "failed"
+        if is_failed:
+            icon_bg_color = "#FDE4E4"
+
+        # Circle background - scaled down to match 60x60 icon
+        draw.ellipse([
+            cx - 50, y - 50,    # Radius 50 (was 70)
+            cx + 50, y + 50
+        ], fill=icon_bg_color)
+
+        icon = self.failed_icon if is_failed else self.success_icon
+        if icon:
+            try:
+                icon_resized = icon.resize((60, 60))  # Scaled down from 90x90
+                # Ensure the icon has alpha channel
+                if icon_resized.mode != 'RGBA':
+                    icon_resized = icon_resized.convert('RGBA')
+                
+                # Create a new image for the icon to preserve transparency
+                icon_bg = Image.new("RGBA", icon_resized.size, (0, 0, 0, 0))
+                icon_bg.paste(icon_resized, (0, 0), icon_resized)
+                img.paste(icon_bg, (cx - 30, y - 30), icon_bg)  # Adjusted position
+            except Exception as e:
+                logger.warning(f"Error pasting status icon: {str(e)}")
+                # Draw fallback icon - also scaled down
+                if is_failed:
+                    draw.line([(cx-20, y-20), (cx+20, y+20)], fill="#C62828", width=6)
+                    draw.line([(cx+20, y-20), (cx-20, y+20)], fill="#C62828", width=6)
+                else:
+                    draw.line([(cx-15, y), (cx, y+15), (cx+20, y-7)], fill=green, width=6)
+
+        # Status message
+        y += 150  # Reduced spacing since icon is smaller
+        msg = "Your money transfer was\nsuccessful!" if not is_failed else "Your money transfer\nfailed!"
+        status_color = green if not is_failed else "#C62828"
+
+        # For multiline text with center alignment:
+        lines = msg.split('\n')
+        line_height = title_fnt.getbbox("Ay")[3]  # Get approximate line height
+
+        # Calculate starting y position for multiline text
+        text_y = y - (len(lines) - 1) * line_height // 2
+
+        # Draw each line centered
+        for i, line in enumerate(lines):
+            draw.text((cx, text_y + i * line_height), 
+                    line, 
+                    fill=status_color, 
+                    font=title_fnt, 
+                    anchor="mm")
+
+        # -----------------------------------------
+        #   MAIN CARD
+        # -----------------------------------------
+        card_top = y + 110
+        card_radius = 50
+
         draw.rounded_rectangle(
-            [card_margin, card_top, width - card_margin, card_bottom],
-            radius=card_radius,
-            fill="white",
-            outline=border_color,
-            width=1,
+            [60, card_top, WIDTH - 80, HEIGHT - 125],
+            radius=40,
+            fill="#D7D8D3"
         )
 
-        # Success/Failed circle icon
-        center_x = width // 2
-        icon_y = card_top + 50
-        r = 30
-        draw.ellipse([center_x - r, icon_y - r, center_x + r, icon_y + r], fill=accent_color)
-            
-        #Use image icon instead of drawn lines
-        if (is_failed and self.failed_icon) or (not is_failed and self.success_icon):
-            icon_to_use = self.failed_icon if is_failed else self.success_icon
-            # Calculate position to center the icon
-            icon_x = center_x - icon_to_use.width // 2
-            icon_y_pos = icon_y - icon_to_use.height // 2
-            # Paste the icon onto the image
-            image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
-        else:
-            # Fallback to drawn icon if image not available yet
-            if is_failed:
-                # Draw 'X' for failed
-                cross_size = 14
-                draw.line([
-                    (center_x - cross_size, icon_y - cross_size),
-                    (center_x + cross_size, icon_y + cross_size)
-                ], fill=icon_color, width=4)
-                draw.line([
-                    (center_x + cross_size, icon_y - cross_size),
-                    (center_x - cross_size, icon_y + cross_size)
-                ], fill=icon_color, width=4)
-            else:
-                # Draw checkmark for success
-                check_size = 10
-                draw.line([
-                    (center_x - check_size // 2, icon_y),
-                    (center_x, icon_y + check_size // 2)
-                ], fill=icon_color, width=4)
-                draw.line([
-                    (center_x, icon_y + check_size // 2),
-                    (center_x + check_size, icon_y - check_size // 2)
-                ], fill=icon_color, width=4)
+        inner_left = 140
+        inner_right = WIDTH - 140
+        y = card_top + 45
 
-        # Header Text
-        y = icon_y + 60
-        draw.text((center_x, y), data["transaction_type"], font=title_font, fill=black_text, anchor="mm")
-        y += 35
-        status_text = "Failed!" if is_failed else "Successful!"
-        draw.text((center_x, y), status_text, font=title_font, fill=black_text, anchor="mm")
+        # -----------------------------------------
+        #   SECTION: TRANSACTION DETAILS
+        # -----------------------------------------
+        draw.text((inner_left, y), "Transaction Details", font=header_fnt, fill=green)
+        y += 50
 
-        # Subtext
-        y += 30
-        if is_failed:
-            subtext = "Your lebe process failed."
-        else:
-            subtext = "Your lebe process was successful."
-        draw.text((center_x, y), subtext, font=subtitle_font, fill=gray_text, anchor="mm")
+        self._row(draw, inner_left, inner_right, y, "Amount", f"GHC {data.get('amount', '0.00')}", regular_fnt, bold_fnt)
+        y += 65
 
-        # Info box
-        box_top = y + 40
-        box_left = card_margin + 20
-        box_right = width - card_margin - 20
-        box_bottom = card_bottom - 40
-        draw.rounded_rectangle([box_left, box_top, box_right, box_bottom], radius=15, fill=light_gray_bg)
+        self._row(draw, inner_left, inner_right, y, "Transaction ID", data.get("transaction_id", "N/A"), regular_fnt, regular_fnt)
+        y += 75
 
-        # Draw transaction info
-        info_x = box_left + 20
-        y = box_top + 25
+        draw.line([(inner_left, y), (inner_right, y)], fill=divider, width=1)
+        y += 60
 
-        # Amount
-        draw.text((info_x, y), "Amount", font=regular_font, fill=gray_text)
-        draw.text((box_right - 20, y), f"GHC {data.get('amount', '0.00')}", font=bold_font, fill=black_text, anchor="ra")
-        y += 35
+        # -----------------------------------------
+        #   SENDER ACCOUNT
+        # -----------------------------------------
+        draw.text((inner_left, y), "Sender Account", font=header_fnt, fill=green)
+        y += 70
 
-        # Status Tag
-        draw.text((info_x, y), "Status", font=regular_font, fill=gray_text)
-        tag_text = data.get("status", "Success")
-        tag_width = 70
-        tag_height = 24
-        tag_x = box_right - 20 - tag_width
-        tag_y = y - 4
+        self._row(draw, inner_left, inner_right, y, "Account Name", data.get("sender_name", "N/A"), regular_fnt, bold_fnt)
+        y += 65
+        self._row(draw, inner_left, inner_right, y, "Account Number", data.get("sender_account", "N/A"), regular_fnt, regular_fnt)
+        y += 65
+        self._row(draw, inner_left, inner_right, y, "Provider", data.get("sender_provider", "N/A"), regular_fnt, regular_fnt)
+        y += 75
+
+        draw.line([(inner_left, y), (inner_right, y)], fill=divider, width=1)
+        y += 60
+
+        # -----------------------------------------
+        #   RECIPIENT ACCOUNT
+        # -----------------------------------------
+        draw.text((inner_left, y), "Recipient Account", font=header_fnt, fill=green)
+        y += 70
+
+        self._row(draw, inner_left, inner_right, y, "Account Name", data.get("receiver_name", "N/A"), regular_fnt, bold_fnt)
+        y += 65
+        self._row(draw, inner_left, inner_right, y, "Account Number", data.get("receiver_account", "N/A"), regular_fnt, regular_fnt)
+        y += 65
+        self._row(draw, inner_left, inner_right, y, "Provider", data.get("receiver_provider", "N/A"), regular_fnt, regular_fnt)
+        y += 90
+
+        # Footer date / time
+        timestamp = data.get("timestamp", datetime.now())
+        if isinstance(timestamp, str):
+            try:
+                timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            except:
+                timestamp = datetime.now()
         
-        # Use red for failed status, green for successful
-        tag_bg_color = "#FFEBEE" if is_failed else "#E6F4EA"
-        tag_text_color = "#d32f2f" if is_failed else "#34A853"
-        
-        draw.rounded_rectangle([tag_x, tag_y, tag_x + tag_width, tag_y + tag_height], radius=12, fill=tag_bg_color)
-        draw.text((tag_x + tag_width / 2, tag_y + tag_height / 2), tag_text, font=small_font, fill=tag_text_color, anchor="mm")
-        y += 40
+        date_str = timestamp.strftime("%a. %b %d, %Y")
+        time_str = timestamp.strftime("%H:%M:%S")
 
-        # Line separator
-        draw.line([(info_x, y), (box_right - 20, y)], fill=border_color, width=1)
-        y += 20
+        draw.text((inner_left, y), date_str, font=small_fnt, fill=dark)
+        draw.text((inner_right, y), time_str, font=small_fnt, fill=dark, anchor="ra")
 
-        # Other fields
-        fields = [
-            ("Transaction Type", data.get("transaction_type", "N/A")),
-            ("Transaction ID", data.get("transaction_id", "N/A")),
-            ("Sender", data.get("sender", "N/A")),
-            ("Receiver", data.get("receiver", "N/A")),
-            ("Payment Method", data.get("payment_method", "N/A")),
-            ("Timestamp", data.get("timestamp", datetime.now()).strftime("%b %d, %Y, %H:%M:%S")
-             if hasattr(data.get("timestamp"), "strftime") else str(data.get("timestamp", "N/A"))),
-        ]
+        # -----------------------------------------
+        #   BOTTOM FOOTER TEXT
+        # -----------------------------------------
+        draw.text((WIDTH // 2, HEIGHT - 80),
+                  "This payment was made with Lebe",
+                  anchor="mm",
+                  fill=label,
+                  font=small_fnt)
 
-        for label, value in fields:
-            draw.text((info_x, y), label, font=regular_font, fill=gray_text)
-            draw.text((box_right - 20, y), value, font=bold_font, fill=black_text, anchor="ra")
-            y += 35
+        return img
 
-        return image
+    # Utility for left/right rows
+    def _row(self, draw, left, right, y, label, value, label_font, value_font):
+        draw.text((left, y), label, font=label_font, fill="#666666")
+        draw.text((right, y), str(value), font=value_font, fill="#111111", anchor="ra")
 
     def _generate_loan_receipt(self, data: Dict[str, Any]) -> Image.Image:
         """Generate loan receipt with loan-specific styled layout"""
-        width, height = 420, 820
-        image = Image.new("RGBA", (width, height), (255, 255, 255, 255))
-        draw = ImageDraw.Draw(image)
+        width, height = 1080, 1600  # Use same dimensions as regular receipt
+        img = Image.new("RGB", (width, height), "#EDEDED")
+        draw = ImageDraw.Draw(img)
 
         # Colors
         primary_color = "#1a237e"
@@ -234,142 +293,130 @@ class ReceiptGenerator:
         border_color = "#E0E0E0"
         danger_color = "#d32f2f"
 
-        # Fonts
-        default_font = ImageFont.load_default()
-        try:
-            title_font = ImageFont.truetype("Poppins-SemiBold.ttf", 24)
-            subtitle_font = ImageFont.truetype("Poppins-Regular.ttf", 16)
-            bold_font = ImageFont.truetype("Poppins-SemiBold.ttf", 14)
-            regular_font = ImageFont.truetype("Poppins-Regular.ttf", 14)
-            small_font = ImageFont.truetype("Poppins-Regular.ttf", 12)
-        except:
+        # Fonts - adjust sizes for larger canvas
+        title_font = self._font("VastagoGrotesk-Bold.otf", 52)
+        subtitle_font = self._font("VastagoGrotesk-Regular.otf", 38)
+        bold_font = self._font("VastagoGrotesk-SemiBold.otf", 40)
+        regular_font = self._font("VastagoGrotesk-Regular.otf", 38)
+        small_font = self._font("VastagoGrotesk-Regular.otf", 32)
+        # -----------------------------------------
+        #   TOP BAR (same as regular receipt)
+        # -----------------------------------------
+        y = 80
+
+        if self.logo:
             try:
-                title_font = ImageFont.truetype("arialbd.ttf", 24)
-                subtitle_font = ImageFont.truetype("arial.ttf", 16)
-                bold_font = ImageFont.truetype("arialbd.ttf", 14)
-                regular_font = ImageFont.truetype("arial.ttf", 14)
-                small_font = ImageFont.truetype("arial.ttf", 12)
+                logo_resized = self.logo.resize((200, 60))
+                logo_bg = Image.new("RGBA", logo_resized.size, (0, 0, 0, 0))
+                logo_bg.paste(logo_resized, (0, 0), logo_resized)
+                img.paste(logo_bg, (80, y), logo_bg)
             except:
-                # Fallback to PIL's default font when no TTF fonts are available
-                title_font = default_font
-                subtitle_font = default_font
-                bold_font = default_font
-                regular_font = default_font
-                small_font = default_font
+                draw.text((80, y), "LEBE", font=bold_font, fill=black_text)
 
-        # Card
-        card_margin = 20
-        card_radius = 30
-        card_top = 40
-        card_bottom = height - 40
-        draw.rounded_rectangle(
-            [card_margin, card_top, width - card_margin, card_bottom],
-            radius=card_radius,
-            fill="white",
-            outline=border_color,
-            width=1,
-        )
+        draw.text((width - 80, y + 20),
+                  "Loan Receipt",
+                  anchor="ra",
+                  font=regular_font,
+                  fill=gray_text)
 
-        # Success/Failed icon
-        center_x = width // 2
-        icon_y = card_top + 50
-        r = 30
-        draw.ellipse([center_x - r, icon_y - r, center_x + r, icon_y + r], fill=accent_color)
+        # -----------------------------------------
+        #   STATUS ICON + TEXT
+        # -----------------------------------------
+        y += 140
+        cx = width // 2
 
-        # Use image icon
-        if (is_failed and self.failed_icon) or (not is_failed and self.success_icon):
-            icon_to_use = self.failed_icon if is_failed else self.success_icon
-            icon_x = center_x - icon_to_use.width // 2
-            icon_y_pos = icon_y - icon_to_use.height // 2
-            image.paste(icon_to_use, (icon_x, icon_y_pos), icon_to_use)
-        else:
-            # Fallback drawing
-            if is_failed:
-                cross_size = 16
-                draw.line([
-                    (center_x - cross_size, icon_y - cross_size),
-                    (center_x + cross_size, icon_y + cross_size)
-                ], fill="white", width=4)
-                draw.line([
-                    (center_x + cross_size, icon_y - cross_size),
-                    (center_x - cross_size, icon_y + cross_size)
-                ], fill="white", width=4)
-            else:
-                check_size = 16
-                draw.line([
-                    (center_x - check_size // 2, icon_y),
-                    (center_x, icon_y + check_size // 2)
-                ], fill="white", width=4)
-                draw.line([
-                    (center_x, icon_y + check_size // 2),
-                    (center_x + check_size, icon_y - check_size // 2)
-                ], fill="white", width=4)
+        # Circle background
+        draw.ellipse([
+            cx - 70, y - 70,
+            cx + 70, y + 70
+        ], fill=accent_color)
 
-        # Title
-        y = icon_y + 60
+        icon = self.failed_icon if is_failed else self.success_icon
+        if icon:
+            try:
+                icon_resized = icon.resize((90, 90))
+                if icon_resized.mode != 'RGBA':
+                    icon_resized = icon_resized.convert('RGBA')
+                
+                icon_bg = Image.new("RGBA", icon_resized.size, (0, 0, 0, 0))
+                icon_bg.paste(icon_resized, (0, 0), icon_resized)
+                img.paste(icon_bg, (cx - 45, y - 45), icon_bg)
+            except:
+                # Draw fallback icon
+                if is_failed:
+                    draw.line([(cx-30, y-30), (cx+30, y+30)], fill="#C62828", width=8)
+                    draw.line([(cx+30, y-30), (cx-30, y+30)], fill="#C62828", width=8)
+                else:
+                    draw.line([(cx-20, y), (cx, y+20), (cx+30, y-10)], fill=icon_color, width=8)
+
+        # Status message
+        y += 150
         status_text = "Failed!" if is_failed else "Successful!"
-        draw.text((center_x, y), "Loan Disbursement", font=title_font, fill=black_text, anchor="mm")
-        y += 35
-        draw.text((center_x, y), status_text, font=title_font, fill=black_text, anchor="mm")
+        draw.text((cx, y), "Loan Disbursement", font=title_font, fill=black_text, anchor="mm")
+        y += 70
+        draw.text((cx, y), status_text, font=title_font, fill=icon_color, anchor="mm")
 
         # Subtext
-        y += 28
+        y += 50
         if is_failed:
             subtext = "Your loan disbursement failed."
         else:
             subtext = "Your loan has been disbursed to the receiver."
-        draw.text((center_x, y), subtext, font=subtitle_font, fill=gray_text, anchor="mm")
+        draw.text((cx, y), subtext, font=subtitle_font, fill=gray_text, anchor="mm")
 
-        # Rest of the loan receipt code remains the same...
-        # Info box (standard fields)
-        box_top = y + 36
-        box_left = card_margin + 20
-        box_right = width - card_margin - 20
-        box_bottom = card_bottom - 200
-        draw.rounded_rectangle([box_left, box_top, box_right, box_bottom], radius=15, fill=light_gray_bg)
+        # -----------------------------------------
+        #   MAIN CARD
+        # -----------------------------------------
+        card_top = y + 80
 
-        info_x = box_left + 20
-        y = box_top + 25
+        draw.rounded_rectangle(
+            [80, card_top, width - 80, height - 180],
+            radius=40,
+            fill="white"
+        )
 
-        # Standard fields inside info box
-        standard_fields = [
-            ("Transaction Type", data.get('transaction_type', 'Loan Disbursement')),
-            ("Amount", f"GHS {data.get('amount', '0.00')}"),
-            ("Status", data.get('status', 'Success')),
-            ("Transaction ID", data.get('transaction_id', 'N/A')),
-            ("Sender", data.get('sender', 'Lebe Financial')),
-            ("Receiver", data.get('receiver', 'N/A')),
-            ("Payment Method", data.get('payment_method', 'N/A')),
-            ("Timestamp", data.get('timestamp', datetime.now()).strftime("%b %d, %Y, %H:%M:%S")
-             if hasattr(data.get("timestamp"), "strftime") else str(data.get("timestamp", "N/A"))),
-        ]
+        inner_left = 140
+        inner_right = width - 140
+        y = card_top + 80
 
-        for label, value in standard_fields:
-            draw.text((info_x, y), label, font=regular_font, fill=gray_text)
-            if label == "Amount":
-                draw.text((box_right - 20, y), value, font=bold_font, fill=icon_color, anchor="ra")
-            elif label == "Status":
-                tag_text = value
-                tag_w = 80
-                tag_h = 26
-                tx = box_right - 20 - tag_w
-                ty = y - 6
-                tag_bg = "#FFEBEE" if is_failed else "#E6F4EA"
-                tag_fg = "#d32f2f" if is_failed else "#34A853"
-                draw.rounded_rectangle([tx, ty, tx + tag_w, ty + tag_h], radius=13, fill=tag_bg)
-                draw.text((tx + tag_w / 2, ty + tag_h / 2), tag_text, font=small_font, fill=tag_fg, anchor="mm")
-            else:
-                draw.text((box_right - 20, y), value, font=bold_font, fill=black_text, anchor="ra")
-            y += 36
+        # -----------------------------------------
+        #   SECTION: TRANSACTION DETAILS
+        # -----------------------------------------
+        draw.text((inner_left, y), "Transaction Details", font=bold_font, fill=black_text)
+        y += 70
 
-        # Loan-specific section header
-        sec_top = box_bottom + 20
-        draw.line([(box_left, sec_top), (box_right, sec_top)], fill=border_color, width=1)
-        sec_top += 12
-        draw.text((width//2, sec_top), "LOAN DETAILS", font=subtitle_font, fill=primary_color, anchor="mm")
+        # Amount with special color
+        draw.text((inner_left, y), "Amount", font=regular_font, fill=gray_text)
+        amount_text = f"GHS {data.get('amount', '0.00')}"
+        draw.text((inner_right, y), amount_text, font=bold_font, fill=icon_color, anchor="ra")
+        y += 65
+
+        self._row(draw, inner_left, inner_right, y, "Transaction ID", data.get("transaction_id", "N/A"), regular_font, bold_font)
+        y += 75
+
+        # Status tag
+        draw.text((inner_left, y), "Status", font=regular_font, fill=gray_text)
+        status_value = data.get('status', 'Success')
+        tag_w = 120
+        tag_h = 40
+        tx = inner_right - tag_w
+        ty = y - 10
+        tag_bg = "#FFEBEE" if is_failed else "#E6F4EA"
+        tag_fg = "#d32f2f" if is_failed else "#34A853"
+        draw.rounded_rectangle([tx, ty, tx + tag_w, ty + tag_h], radius=20, fill=tag_bg)
+        draw.text((tx + tag_w / 2, ty + tag_h / 2), status_value, font=small_font, fill=tag_fg, anchor="mm")
+        y += 85
+
+        draw.line([(inner_left, y), (inner_right, y)], fill=border_color, width=3)
+        y += 60
+
+        # -----------------------------------------
+        #   LOAN DETAILS SECTION
+        # -----------------------------------------
+        draw.text((inner_left, y), "Loan Details", font=bold_font, fill=primary_color)
+        y += 70
 
         # Loan-specific fields
-        y = sec_top + 30
         loan_fields = [
             ("Interest Rate", f"{data.get('interest_rate', '0')}%"),
             ("Loan Period", data.get('loan_period', 'N/A')),
@@ -378,16 +425,34 @@ class ReceiptGenerator:
         ]
 
         for label, value in loan_fields:
-            draw.text((info_x, y), label, font=regular_font, fill=gray_text)
+            draw.text((inner_left, y), label, font=regular_font, fill=gray_text)
             if label in ["Interest Rate", "Penalty Rate"]:
-                draw.text((box_right - 20, y), value, font=bold_font, fill=danger_color, anchor="ra")
+                draw.text((inner_right, y), value, font=bold_font, fill=danger_color, anchor="ra")
             else:
-                draw.text((box_right - 20, y), value, font=bold_font, fill=black_text, anchor="ra")
-            y += 34
+                draw.text((inner_right, y), value, font=bold_font, fill=black_text, anchor="ra")
+            y += 65
 
-        # Footer
-        footer_y = card_bottom - 40
-        draw.line([(box_left, footer_y - 18), (box_right, footer_y - 18)], fill=border_color, width=1)
-        draw.text((width//2, footer_y), "Manage your loan in the Lebe app!", fill=gray_text, font=small_font, anchor="mm")
+        # Footer date / time
+        timestamp = data.get("timestamp", datetime.now())
+        if isinstance(timestamp, str):
+            try:
+                timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+            except:
+                timestamp = datetime.now()
+        
+        date_str = timestamp.strftime("%a. %b %d, %Y")
+        time_str = timestamp.strftime("%H:%M:%S")
 
-        return image
+        draw.text((inner_left, y), date_str, font=small_font, fill=black_text)
+        draw.text((inner_right, y), time_str, font=small_font, fill=black_text, anchor="ra")
+
+        # -----------------------------------------
+        #   BOTTOM FOOTER TEXT
+        # -----------------------------------------
+        draw.text((width // 2, height - 80),
+                  "Manage your loan in the Lebe app!",
+                  anchor="mm",
+                  fill=gray_text,
+                  font=small_font)
+
+        return img

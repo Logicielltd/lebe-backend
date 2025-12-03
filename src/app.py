@@ -73,10 +73,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-
-# REMOVE auto table creation (Alembic will handle this)
-
-
 # print("Initializing database tables...")
 # Base.metadata.create_all(bind=engine)
 # print("Database tables initialized successfully.")

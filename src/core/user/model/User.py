@@ -1,10 +1,11 @@
-from sqlalchemy import JSON, Column, Integer, String, DateTime, ForeignKey, Boolean, Enum
+from sqlalchemy import JSON, Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from core.notification.model import Notification
 from utilities.dbconfig import Base
 from datetime import datetime
 from typing import List, Optional
+from enum import Enum as PyEnum
 
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -13,7 +14,7 @@ from core.auth.model.password_reset_token import PasswordResetToken
 from core.auth.model.refreshtoken import RefreshToken
 
 
-class UserStatus(str, Enum):
+class UserStatus(str, PyEnum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
     DELETED = "DELETED"
@@ -28,7 +29,9 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String, nullable=False)
     last_name: Mapped[str] = mapped_column(String, nullable=False)
     phone: Mapped[Optional[str]] = mapped_column(String)
-
+    
+    ghana_card_number: Mapped[Optional[str]] = mapped_column(String, unique=True)
+    date_of_birth: Mapped[Optional[datetime]] = mapped_column(DateTime)
     age: Mapped[Optional[int]] = mapped_column(Integer)
     income_level: Mapped[Optional[str]] = mapped_column(String)
     occupation: Mapped[Optional[str]] = mapped_column(String)

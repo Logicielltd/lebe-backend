@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import Boolean, Column, DateTime, Enum as SQLEnum, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from utilities.dbconfig import Base
 
@@ -22,7 +22,7 @@ class Beneficiary(Base):
     __tablename__ = "beneficiaries"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(20), ForeignKey("users.id"), nullable=False)
 
     # Beneficiary information
     name = Column(String(100), nullable=False)  # e.g., "John Agyeman"

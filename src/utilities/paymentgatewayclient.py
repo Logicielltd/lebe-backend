@@ -237,3 +237,120 @@ class PaymentGatewayClient:
         except Exception as e:
             logger.error(f"Error performing account inquiry: {e}", exc_info=True)
             raise PaymentGatewayException(f"Failed to perform account inquiry: {e}")
+
+    def external_billers_inquiry(self, customer_number: str, network: str = "ABS", operation: str = "INF") -> httpx.Response:
+        """
+        Perform external billers inquiry (BLI) to query available billers and bill information.
+        Uses the /extBillers endpoint instead of /sendRequest.
+
+        Args:
+            customer_number: Customer phone number or account number (e.g., 020410181221)
+            network: Network code (default: "ABS" for external billers)
+            operation: Operation type (default: "INF" for information inquiry)
+
+        Returns:
+            httpx.Response with available billers and bill information from Orchard API
+        """
+        try:
+            from utilities.uniqueidgenerator import UniqueIdGenerator
+
+            request = {
+                "service_id": self.service_id,
+                "trans_type": "BLI",  # Bill Inquiry
+                "customer_number": customer_number,
+                "nw": network,  # Network code (ABS for external billers)
+                "operation": operation,  # Operation type (INF for information)
+                "exttrid": str(UniqueIdGenerator.generate()),  # Required: unique transaction ID
+                "ts": self.get_current_timestamp()  # Required: timestamp
+            }
+
+            # Use sorted JSON for consistent signature and request body
+            json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
+            signature = self._get_signature(json_payload)
+            logger.info(f"[EXTERNAL_BILLERS_INQUIRY] Request payload: {json_payload}")
+
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                    urljoin(self.base_url, "/extBillers"),
+                    headers={
+                        "Authorization": f"{self.client_id}:{signature}",
+                        "Content-Type": "application/json"
+                    },
+                    content=json_payload
+                )
+
+            logger.info(f"[EXTERNAL_BILLERS_INQUIRY_RESPONSE] Status: {response.status_code}, Body: {response.text}")
+            return response
+
+        except httpx.TimeoutException:
+            logger.error("External billers inquiry timeout")
+            raise PaymentGatewayException("External billers inquiry timeout")
+        except httpx.RequestError as e:
+            logger.error(f"Network error during external billers inquiry: {e}")
+            raise PaymentGatewayException(f"Network error: {e}")
+        except Exception as e:
+            logger.error(f"Error performing external billers inquiry: {e}", exc_info=True)
+            raise PaymentGatewayException(f"Failed to perform external billers inquiry: {e}")
+
+    def external_biller_invoice_inquiry(self,
+                                       ext_biller_ref_id: str,
+                                       ext_biller_pan: str,
+                                       ext_biller_ref_type: str,
+                                       network: str = "ABS",
+                                       operation: str = "INV") -> httpx.Response:
+        """
+        Perform external biller invoice inquiry (BLI with operation INV) to get customer invoice details.
+        Uses the /extBillers endpoint with operation "INV".
+
+        Args:
+            ext_biller_ref_id: Biller ID from billers list inquiry (e.g., "D9C37F3D52")
+            ext_biller_pan: Customer reference/ID for that biller (e.g., "20784533")
+            ext_biller_ref_type: Biller category/type (e.g., "School Fees")
+            network: Network code (default: "ABS" for external billers)
+            operation: Operation type (default: "INV" for invoice inquiry)
+
+        Returns:
+            httpx.Response with customer invoice information from Orchard API
+        """
+        try:
+            from utilities.uniqueidgenerator import UniqueIdGenerator
+
+            request = {
+                "service_id": self.service_id,
+                "trans_type": "BLI",  # Bill Inquiry
+                "ext_biller_ref_id": ext_biller_ref_id,  # Biller ID
+                "ext_biller_pan": ext_biller_pan,  # Customer reference for biller
+                "ext_biller_ref_type": ext_biller_ref_type,  # Biller category/type
+                "nw": network,  # Network code (ABS for external billers)
+                "operation": operation,  # Operation type (INV for invoice)
+                "exttrid": str(UniqueIdGenerator.generate()),  # Required: unique transaction ID
+                "ts": self.get_current_timestamp()  # Required: timestamp
+            }
+
+            # Use sorted JSON for consistent signature and request body
+            json_payload = json.dumps(request, sort_keys=True, separators=(',', ':'))
+            signature = self._get_signature(json_payload)
+            logger.info(f"[EXTERNAL_BILLER_INVOICE_INQUIRY] Request payload: {json_payload}")
+
+            with httpx.Client(timeout=self.timeout) as client:
+                response = client.post(
+                    urljoin(self.base_url, "/extBillers"),
+                    headers={
+                        "Authorization": f"{self.client_id}:{signature}",
+                        "Content-Type": "application/json"
+                    },
+                    content=json_payload
+                )
+
+            logger.info(f"[EXTERNAL_BILLER_INVOICE_INQUIRY_RESPONSE] Status: {response.status_code}, Body: {response.text}")
+            return response
+
+        except httpx.TimeoutException:
+            logger.error("External biller invoice inquiry timeout")
+            raise PaymentGatewayException("External biller invoice inquiry timeout")
+        except httpx.RequestError as e:
+            logger.error(f"Network error during external biller invoice inquiry: {e}")
+            raise PaymentGatewayException(f"Network error: {e}")
+        except Exception as e:
+            logger.error(f"Error performing external biller invoice inquiry: {e}", exc_info=True)
+            raise PaymentGatewayException(f"Failed to perform external biller invoice inquiry: {e}")

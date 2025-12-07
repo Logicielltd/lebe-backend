@@ -1230,6 +1230,10 @@ class PaymentService:
                     status='SUCCESS',
                     sender=payment.sender_phone,
                     receiver=payment.receiver_phone,
+                    sender_name=payment.sender_name or payment.customer_name or "N/A",
+                    receiver_name=payment.receiver_name or "N/A",
+                    sender_provider=payment.sender_provider or "N/A",
+                    receiver_provider=payment.receiver_provider or "N/A",
                     payment_method=payment.payment_method.name,
                     timestamp=payment.updated_on or datetime.now()
                 )
@@ -1264,6 +1268,10 @@ class PaymentService:
                     status='FAILED',
                     sender=payment.sender_phone,
                     receiver=payment.receiver_phone,
+                    sender_name=payment.sender_name or payment.customer_name or "N/A",
+                    receiver_name=payment.receiver_name or "N/A",
+                    sender_provider=payment.sender_provider or "N/A",
+                    receiver_provider=payment.receiver_provider or "N/A",
                     payment_method=payment.payment_method.name,
                     timestamp=payment.updated_on or datetime.now()
                 )

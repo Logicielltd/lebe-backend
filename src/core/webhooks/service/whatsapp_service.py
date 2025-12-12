@@ -11,7 +11,7 @@ class WhatsAppService:
 
     def __init__(self):
         self.api_key = os.getenv("META_API_KEY")
-        self.base_url = "https://graph.facebook.com/v22.0"
+        self.base_url = "https://graph.facebook.com/v24.0"
 
     def send_message(
         self,

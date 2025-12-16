@@ -24,6 +24,9 @@ class Network:
     STT = "STT"  # Startimes
     VBB = "VBB"  # Vodafone Broadband (ADSL)
 
+    # External Biller System (non-telco bills)
+    ABS = "ABS"  # Abstract Biller System (ECG, schools, institutions, etc.)
+
 
 class AccountType:
     """Account type enumeration"""

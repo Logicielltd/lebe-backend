@@ -22,3 +22,6 @@ class Network(str, Enum):
     VPP = "VPP"           # Vodafone Prepaid Data
     STT = "STT"           # Startimes
     VBB = "VBB"           # Vodafone Broadband (ADSL)
+
+    # External Biller System (non-telco bills requiring ext_biller_ref_id)
+    ABS = "ABS"           # Abstract Biller System (ECG, schools, institutions, etc.)

@@ -387,6 +387,135 @@ def pay_bill_direct(
         )
 
 
+@payment_routes.post("/pay-external-bill")
+def pay_external_bill_direct(
+    amount: Decimal = Query(..., description="Amount in GHS to pay"),
+    account_number: str = Query(..., description="Customer account/reference number with the biller"),
+    ext_biller_ref_id: str = Query(..., description="External biller ID from /ext-billers inquiry (e.g., D9C37F3D52)"),
+    ext_biller_ref_type: str = Query(..., description="Biller category/type (e.g., Electricity, School Fees)"),
+    reference: str = Query("External Bill Payment", description="Optional reference description"),
+    db: Session = Depends(get_db)
+):
+    """
+    Pay non-telco bills (ABS external billers) directly using BLP (Bill Payment).
+    This endpoint is for utility bills, school fees, and other external billers that require ext_biller_ref_id.
+
+    Before using this endpoint, you must:
+    1. Call /ext-billers to get the list of available billers and their ext_biller_ref_id
+    2. Call /ext-biller-invoice to get the customer's bill amount and details
+    3. Use this endpoint to make the actual payment
+
+    Args:
+        amount: Amount in GHS to pay (from invoice inquiry)
+        account_number: Customer account/reference number with the biller (e.g., 233242752911 for ECG)
+        ext_biller_ref_id: Biller ID from /ext-billers inquiry (e.g., D9C37F3D52)
+        ext_biller_ref_type: Biller category/type (e.g., Electricity, School Fees, Water)
+        reference: Optional reference description
+
+    Returns:
+        - success: Boolean indicating if BLP was sent to gateway
+        - transaction_id: BLP transaction ID
+        - resp_code: Orchard response code (015 = accepted for processing)
+        - message: Status message
+        - account_number: Account number bill was paid for
+        - ext_biller_ref_id: External biller identifier
+
+    Example:
+        POST /api/v1/payment/pay-external-bill?amount=150.00&account_number=233242752911&ext_biller_ref_id=D9C37F3D52&ext_biller_ref_type=Electricity
+    """
+    from utilities.uniqueidgenerator import UniqueIdGenerator
+
+    try:
+        # Validate inputs
+        if not amount or amount <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Amount must be greater than 0"
+            )
+
+        if not account_number:
+            raise HTTPException(
+                status_code=400,
+                detail="Account number is required"
+            )
+
+        if not ext_biller_ref_id:
+            raise HTTPException(
+                status_code=400,
+                detail="External biller reference ID (ext_biller_ref_id) is required"
+            )
+
+        if not ext_biller_ref_type:
+            raise HTTPException(
+                status_code=400,
+                detail="External biller reference type (ext_biller_ref_type) is required"
+            )
+
+        logger.info(f"[PAY_EXTERNAL_BILL_DIRECT] ABS BLP payment: Amount={amount}, Account={account_number}, BillerID={ext_biller_ref_id}, Type={ext_biller_ref_type}, Reference={reference}")
+
+        # Generate transaction ID
+        blp_transaction_id = str(UniqueIdGenerator.generate())
+
+        # Build BLP request with ext_biller_ref_id for ABS external billers
+        amount_decimal = Decimal(str(amount))
+        blp_request = {
+            "amount": str(amount_decimal.quantize(Decimal('0.00'))),
+            "customer_number": account_number,
+            "exttrid": blp_transaction_id,
+            "nw": "ABS",  # External billers always use ABS network
+            "reference": reference,
+            "service_id": "4892",
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "callback_url": "https://lebe-dcahe0a8cjecffcm.canadacentral-01.azurewebsites.net/api/v1/payment/callback",
+            "trans_type": "BLP",
+            "ext_biller_ref_id": ext_biller_ref_id,  # Required for external billers
+            "ext_biller_ref_type": ext_biller_ref_type  # Biller category/type
+        }
+
+        logger.info(f"[PAY_EXTERNAL_BILL_DIRECT_REQUEST] Sending ABS BLP request: {blp_request}")
+
+        # Send to Orchard API
+        payment_service = PaymentService(db)
+        response = payment_service.payment_gateway_client.process_payment(blp_request)
+
+        logger.info(f"[PAY_EXTERNAL_BILL_DIRECT_RESPONSE] Orchard response: status_code={response.status_code}")
+
+        if response.status_code == 200:
+            response_data = response.json()
+            resp_code = response_data.get("resp_code")
+
+            return {
+                "success": True,
+                "message": f"External bill payment sent successfully (resp_code: {resp_code})",
+                "transaction_id": blp_transaction_id,
+                "resp_code": resp_code,
+                "resp_desc": response_data.get("resp_desc"),
+                "amount": str(amount),
+                "account_number": account_number,
+                "ext_biller_ref_id": ext_biller_ref_id,
+                "ext_biller_ref_type": ext_biller_ref_type,
+                "network": "ABS",
+                "reference": reference,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            error_msg = response.text
+            logger.error(f"[PAY_EXTERNAL_BILL_DIRECT_ERROR] Gateway error: {error_msg}")
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"Gateway error: {error_msg}"
+            )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error paying external bill: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error paying external bill: {str(e)}"
+        )
+
+
 @payment_routes.post("/callback")
 def handle_payment_callback(
     callback_response: PaymentCallbackResponse,

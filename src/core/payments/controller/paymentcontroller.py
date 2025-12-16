@@ -281,19 +281,19 @@ def send_money_direct(
 def pay_bill_direct(
     amount: Decimal = Query(..., description="Amount in GHS to pay"),
     account_number: str = Query(..., description="Smart card/account number for bill"),
-    network: str = Query(..., description="Bill provider network (ECG, DST, GOT, GHW, SFL, TLS, STT, BXO)"),
+    network: str = Query(..., description="Telco biller network (GOT, DST, MPP, VPP, STT, VBB)"),
     reference: str = Query("Bill Payment", description="Optional reference description"),
     db: Session = Depends(get_db)
 ):
     """
-    Pay utility bills directly using BLP (Bill Payment).
+    Pay telco bills directly using BLP (Bill Payment).
     Direct bill payment to Orchard API.
-    Useful for paying bills to various providers.
+    Useful for paying bills to telco service providers.
 
     Args:
         amount: Amount in GHS to pay
         account_number: Smart card/account number (e.g., 95200204493)
-        network: Bill provider network code (ECG, DST, GOT, GHW, SFL, TLS, STT, BXO)
+        network: Telco biller network code (GOT, DST, MPP, VPP, STT, VBB)
         reference: Optional reference description
 
     Returns:

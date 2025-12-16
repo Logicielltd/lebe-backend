@@ -700,7 +700,7 @@ class PaymentService:
         """
         amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
 
-        # For BLP, the network field contains the utility provider code (GOT, DST, ECG, GHW, etc.)
+        # For BLP, the network field contains the telco biller code (GOT, DST, MPP, VPP, STT, VBB)
         # This is stored in payment.network during the initial payment creation
         utility_network = payment.network.value if payment.network else "GOT"
 
@@ -710,7 +710,7 @@ class PaymentService:
             "amount": str(amount.quantize(Decimal('0.00'))),
             "account_number": payment.receiver_phone,  # BLP uses account_number (smart card number)
             "exttrid": blp_transaction_id,
-            "nw": utility_network,  # Bill payment network codes: GOT, DST, ECG, GHW, etc.
+            "nw": utility_network,  # Telco biller network codes: GOT, DST, MPP, VPP, STT, VBB
             "reference": f"Bill payment for {payment.intent.replace('_', ' ').title() if payment.intent else 'Bill Payment'}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
@@ -935,8 +935,8 @@ class PaymentService:
             if not payment.sender_phone:
                 raise PaymentValidationException("Sender phone number is required for mobile money payments")
             # Valid networks for mobile money: MTN, VOD (Vodafone), AIR (AirtelTigo)
-            # Also includes bill payment providers: GOT, DST, ECG, GHW, SFL, TLS, STT, BXO
-            valid_networks = [Network.MTN, Network.VOD, Network.AIR, Network.GOT, Network.DST, Network.ECG, Network.GHW, Network.SFL, Network.TLS, Network.STT, Network.BXO]
+            # Also includes telco billers: GOT, DST, MPP, VPP, STT, VBB
+            valid_networks = [Network.MTN, Network.VOD, Network.AIR, Network.GOT, Network.DST, Network.MPP, Network.VPP, Network.STT, Network.VBB]
             if payment.network not in valid_networks:
                 raise PaymentValidationException(f"Invalid network for mobile money payment: {payment.network}")
 

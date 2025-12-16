@@ -16,15 +16,13 @@ class Network:
     MAS = "MAS"  # Mastercard
     VIS = "VIS"  # Visa
 
-    # Bill Payment Providers
+    # Telco Billers (telecommunications services)
     GOT = "GOT"  # GoTV
     DST = "DST"  # DStv
-    ECG = "ECG"  # Electricity Company of Ghana
-    GHW = "GHW"  # Ghana Water Company
-    SFL = "SFL"  # Surfline
-    TLS = "TLS"  # Telesol
-    STT = "STT"  # StartTimes
-    BXO = "BXO"  # Box Office
+    MPP = "MPP"  # MTN Prepaid Data
+    VPP = "VPP"  # Vodafone Prepaid Data
+    STT = "STT"  # Startimes
+    VBB = "VBB"  # Vodafone Broadband (ADSL)
 
 
 class AccountType:

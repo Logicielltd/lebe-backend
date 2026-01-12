@@ -610,13 +610,13 @@ class LebeNLUSystem:
             # NOTE: Receipt generation happens in the callback, not here
             if result.status == PaymentStatus.PENDING:
                 message = self._get_processing_message(intent, slots, result)
-                return self.response_formatter.format_response(intent, "processing", message=message)
+                return self.response_formatter.format_response(intent, message_type="processing", message=message)
             elif result.status == PaymentStatus.SUCCESS:
                 message = self._get_success_message(intent, slots, result)
-                return self.response_formatter.format_response(intent, "success", message=message)
+                return self.response_formatter.format_response(intent, message_type="success", message=message)
             else:
                 error_msg = result.responseDescription or "Payment processing failed"
-                return self.response_formatter.format_response(intent, "error", message=error_msg)
+                return self.response_formatter.format_response(intent, message_type="error", message=error_msg)
 
         finally:
             db.close()

@@ -1256,44 +1256,28 @@ class PaymentService:
                 logger.info(f"[NOTIFICATION] Success receipt sent for payment {payment.id}")
 
             else:
-                # Generate failure receipt using NLU system's method
-                intent = payment.intent or "payment"
-
-                # Use NLU's receipt generation method with FAILED status
-                nlu_system = LebeNLUSystem()
-                receipt_url = nlu_system.generate_receipt_after_payment(
-                    transaction_id=payment.transaction_id,
-                    user_id=payment.sender_phone,
-                    intent=intent,
-                    amount=payment.amount_paid,
-                    status='FAILED',
-                    sender=payment.sender_phone,
-                    receiver=payment.receiver_phone,
-                    sender_name=payment.sender_name or payment.customer_name or "N/A",
-                    receiver_name=payment.receiver_name or "N/A",
-                    sender_provider=payment.sender_provider or "N/A",
-                    receiver_provider=payment.receiver_provider or "N/A",
-                    payment_method=payment.payment_method.name,
-                    timestamp=payment.updated_on or datetime.now()
-                )
-
-                # Send failure receipt image with caption
+                # Don't send a receipt image for failed payments.
+                # Instead send a plain text failure notification to avoid forwarding receipts on errors.
                 failure_caption = (
                     f"❌ Payment Failed\n\n"
                     f"{payment.service_name}\n"
                     f"Amount: GHS {payment.amount_paid}\n"
-                    f"Transaction ID: {payment.transaction_id}\n\n"
+                    f"Transaction ID: {payment.transaction_id or 'N/A'}\n\n"
                     f"Reason: {failure_reason or 'Unknown error'}\n\n"
                     f"Please try again or contact support if the issue persists."
                 )
 
-                whatsapp_service.send_message_receipt(
+                sent = whatsapp_service.send_message(
                     phone_number_id=phone_number_id,
                     recipient_phone=normalized_phone,
-                    image_url=receipt_url,
-                    caption=failure_caption
+                    message_text=failure_caption,
+                    preview_url=False
                 )
-                logger.info(f"[NOTIFICATION] Failure receipt sent for payment {payment.id}")
+
+                if sent:
+                    logger.info(f"[NOTIFICATION] Failure notification sent for payment {payment.id}")
+                else:
+                    logger.warning(f"[NOTIFICATION] Failure notification could not be sent for payment {payment.id}")
 
         except Exception as e:
             logger.error(f"[NOTIFICATION_ERROR] Error sending payment notification for payment {payment.id}: {str(e)}", exc_info=True)

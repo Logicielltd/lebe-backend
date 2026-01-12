@@ -26,7 +26,7 @@ class ResponseFormatter:
             return f"✅ {kwargs.get('message', 'Action completed successfully!')}"
         
         elif message_type == "error":
-            return f"❌ {kwargs.get('message', 'I encountered an error. Please try again.')}"
+            return f"❌ System error. Please try again."
         
         elif message_type == "invalid_pin":
             return "🔒 Invalid PIN. Please try again."

@@ -733,6 +733,18 @@ class PaymentService:
         Sends money back from merchant account to sender's account.
         """
         try:
+            # Safety checks to avoid duplicate reversals
+            # 1) Don't attempt to reverse a payment that is itself a reversal
+            if payment.original_payment_id is not None:
+                logger.info(f"[REVERSAL_SKIP] Payment {payment.id} is itself a reversal (original_payment_id={payment.original_payment_id}); skipping reversal.")
+                return
+
+            # 2) Idempotency: if a reversal record already exists for this payment, skip creating another
+            existing_reversal = self.db.query(Payment).filter(Payment.original_payment_id == payment.id).order_by(Payment.id.desc()).first()
+            if existing_reversal:
+                logger.info(f"[REVERSAL_ALREADY_EXISTS] Reversal already exists for original payment {payment.id} (reversal id={existing_reversal.id}); skipping new reversal.")
+                return
+
             # Mark the original payment as MTC_FAILED (terminal state)
             payment.status = PaymentStatus.MTC_FAILED
             payment.updated_on = datetime.now()

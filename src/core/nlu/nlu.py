@@ -245,9 +245,10 @@ class LebeNLUSystem:
         from core.payments.model.paymentmethod import PaymentMethod
         from core.payments.model.paymentstatus import PaymentStatus
         from core.payments.model.paynetwork import Network
-        from core.payments.service.paymentservice import PaymentService
-        from utilities.uniqueidgenerator import UniqueIdGenerator
-        from decimal import Decimal
+from core.payments.service.paymentservice import PaymentService
+from utilities.uniqueidgenerator import UniqueIdGenerator
+from decimal import Decimal
+from core.beneficiaries.utility.network_detector import NetworkDetector
 
         print(f"[PAYMENT_INTENT] Starting payment processing for intent: {intent}")
         print(f"[PAYMENT_INTENT] Slots received: {slots}")
@@ -507,7 +508,13 @@ class LebeNLUSystem:
                 try:
                     payment_service = PaymentService(db)
                     recipient_phone = slots.get('recipient')
-                    recipient_network = network_map.get(slots.get('network', 'MTN'), Network.MTN)
+                    slot_network = slots.get('network')
+                    detected_network, _ = NetworkDetector.detect_network_from_phone(recipient_phone or "")
+                    recipient_network = network_map.get(slot_network) if slot_network else None
+                    if not recipient_network and detected_network:
+                        recipient_network = network_map.get(detected_network, Network.MTN)
+                    if not recipient_network:
+                        recipient_network = Network.MTN
 
                     # Call account inquiry
                     inquiry_response = payment_service.payment_gateway_client.account_inquiry(
@@ -525,7 +532,6 @@ class LebeNLUSystem:
 
                         # Detect sender's network from sender's phone
                         from utilities.provider_mapper import ProviderMapper
-                        from core.beneficiaries.utility.network_detector import NetworkDetector
 
                         sender_network_tuple = NetworkDetector.detect_network_from_phone(user_id)
                         sender_network_str = sender_network_tuple[0] if isinstance(sender_network_tuple, tuple) else sender_network_tuple

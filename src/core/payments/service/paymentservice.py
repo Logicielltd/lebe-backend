@@ -94,7 +94,7 @@ class PaymentService:
 
         # Check wallet balance BEFORE initiating transaction
         # This prevents creating CTM if we can't fund MTC/ATP or reversals
-        self._check_wallet_balance(payment, intent)
+        # self._check_wallet_balance(payment, intent)
 
         # Generate transaction ID if needed
         if not payment.transaction_id:

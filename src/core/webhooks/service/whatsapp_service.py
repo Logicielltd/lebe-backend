@@ -137,7 +137,7 @@ class WhatsAppService:
             "to": recipient_phone,
             "type": "template",
             "template": {
-                "name": "registration_form",
+                "name": "registration",
                 "language": {"code": "en"},
                 "components": [
                     {

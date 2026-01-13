@@ -337,7 +337,7 @@ def handle_interactive_message(message: dict, phone: str, phone_number_id: str, 
                 whatsapp_service.send_message(
                     phone_number_id=phone_number_id,
                     recipient_phone=phone,
-                    message_text="This phone number or email is already registered. Please sign in instead."
+                    message_text="You’re already registered with Lemo, so you can happily continue using the our service."
                 )
                 return {"status": "error", "message": "User already exists"}
 

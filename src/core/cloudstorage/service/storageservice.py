@@ -49,7 +49,8 @@ class StorageService:
             pass
 
         # Upload stream. Overwrite existing blob if any.
-        blob_client.upload_blob(file_obj, overwrite=True, content_settings=content_settings)
+        # Set 30 second timeout to prevent hanging indefinitely
+        blob_client.upload_blob(file_obj, overwrite=True, content_settings=content_settings, timeout=30)
 
         # Return URL to blob (access depends on container ACL or SAS)
         return blob_client.url

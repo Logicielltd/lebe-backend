@@ -1243,26 +1243,31 @@ class PaymentService:
             if is_success:
                 # Generate receipt using NLU system's method
                 intent = payment.intent or "payment"
+                receipt_url = None
 
-                # Use NLU's receipt generation method
-                nlu_system = LebeNLUSystem()
-                receipt_url = nlu_system.generate_receipt_after_payment(
-                    transaction_id=payment.transaction_id,
-                    user_id=payment.sender_phone,
-                    intent=intent,
-                    amount=payment.amount_paid,
-                    status='SUCCESS',
-                    sender=payment.sender_phone,
-                    receiver=payment.receiver_phone,
-                    sender_name=payment.sender_name or payment.customer_name or "N/A",
-                    receiver_name=payment.receiver_name or "N/A",
-                    sender_provider=payment.sender_provider or "N/A",
-                    receiver_provider=payment.receiver_provider or "N/A",
-                    payment_method=payment.payment_method.name,
-                    timestamp=payment.updated_on or datetime.now()
-                )
+                try:
+                    # Use NLU's receipt generation method
+                    nlu_system = LebeNLUSystem()
+                    receipt_url = nlu_system.generate_receipt_after_payment(
+                        transaction_id=payment.transaction_id,
+                        user_id=payment.sender_phone,
+                        intent=intent,
+                        amount=payment.amount_paid,
+                        status='SUCCESS',
+                        sender=payment.sender_phone,
+                        receiver=payment.receiver_phone,
+                        sender_name=payment.sender_name or payment.customer_name or "N/A",
+                        receiver_name=payment.receiver_name or "N/A",
+                        sender_provider=payment.sender_provider or "N/A",
+                        receiver_provider=payment.receiver_provider or "N/A",
+                        payment_method=payment.payment_method.name,
+                        timestamp=payment.updated_on or datetime.now()
+                    )
+                except Exception as e:
+                    logger.error(f"[RECEIPT_GENERATION_FAILED] Failed to generate receipt for payment {payment.id}: {str(e)}")
+                    receipt_url = None  # Will fall back to text-only message
 
-                # Send receipt image with caption containing all transaction details
+                # Prepare success message
                 success_caption = (
                     f"✅ Payment Successful!\n\n"
                     f"{payment.service_name}\n"
@@ -1270,13 +1275,23 @@ class PaymentService:
                     f"Transaction ID: {payment.transaction_id}"
                 )
 
-                whatsapp_service.send_message_receipt(
-                    phone_number_id=phone_number_id,
-                    recipient_phone=normalized_phone,
-                    image_url=receipt_url,
-                    caption=success_caption
-                )
-                logger.info(f"[NOTIFICATION] Success receipt sent for payment {payment.id}")
+                # Send receipt with image if available, otherwise send text-only
+                if receipt_url:
+                    whatsapp_service.send_message_receipt(
+                        phone_number_id=phone_number_id,
+                        recipient_phone=normalized_phone,
+                        image_url=receipt_url,
+                        caption=success_caption
+                    )
+                    logger.info(f"[NOTIFICATION] Success receipt sent for payment {payment.id}")
+                else:
+                    # Fallback to text-only message if receipt generation failed
+                    whatsapp_service.send_message(
+                        phone_number_id=phone_number_id,
+                        recipient_phone=normalized_phone,
+                        message_text=success_caption
+                    )
+                    logger.info(f"[NOTIFICATION] Success text message sent (receipt unavailable) for payment {payment.id}")
 
             else:
                 # Don't send a receipt image for failed payments.

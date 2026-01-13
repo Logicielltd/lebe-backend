@@ -1,5 +1,9 @@
 import os
+import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from azure.storage.blob import BlobServiceClient, ContentSettings
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService:
@@ -34,10 +38,23 @@ class StorageService:
             # Container likely already exists or creation not permitted; continue.
             pass
 
-    def upload_file(self, file_obj, file_name: str, content_type: str | None = None) -> str:
+    def upload_file(self, file_obj, file_name: str, content_type: str | None = None, timeout_seconds: int = 30) -> str:
         """Upload a file-like object to Azure Blob Storage and return the blob URL.
 
         file_obj must be a readable file-like object (e.g. UploadFile.file from FastAPI).
+
+        Args:
+            file_obj: File-like object to upload
+            file_name: Name/path for the blob
+            content_type: MIME type for the blob
+            timeout_seconds: Maximum seconds to wait for upload (default: 30)
+
+        Returns:
+            str: URL of the uploaded blob
+
+        Raises:
+            TimeoutError: If upload takes longer than timeout_seconds
+            Exception: Other Azure storage exceptions
         """
         blob_client = self.container_client.get_blob_client(file_name)
         content_settings = ContentSettings(content_type=content_type) if content_type else None
@@ -48,12 +65,31 @@ class StorageService:
         except Exception:
             pass
 
-        # Upload stream. Overwrite existing blob if any.
-        # Set 30 second timeout to prevent hanging indefinitely
-        blob_client.upload_blob(file_obj, overwrite=True, content_settings=content_settings, timeout=30)
+        # Define upload function to run in thread
+        def _upload():
+            try:
+                blob_client.upload_blob(file_obj, overwrite=True, content_settings=content_settings, timeout=timeout_seconds)
+                return blob_client.url
+            except Exception as e:
+                logger.error(f"Azure upload error: {str(e)}")
+                raise
 
-        # Return URL to blob (access depends on container ACL or SAS)
-        return blob_client.url
+        # Execute upload with hard timeout using ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_upload)
+            try:
+                # Wait for result with timeout
+                result = future.result(timeout=timeout_seconds)
+                logger.info(f"Successfully uploaded {file_name} to Azure Blob Storage")
+                return result
+            except FuturesTimeoutError:
+                logger.error(f"Upload timeout after {timeout_seconds}s for {file_name}")
+                # Cancel the future (though the upload might still continue in background)
+                future.cancel()
+                raise TimeoutError(f"Azure blob upload timed out after {timeout_seconds} seconds")
+            except Exception as e:
+                logger.error(f"Upload failed for {file_name}: {str(e)}")
+                raise
 
     def download_file(self, file_name: str, destination_path: str) -> str:
         """Download blob to local file path.

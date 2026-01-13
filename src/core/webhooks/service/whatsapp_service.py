@@ -1,4 +1,7 @@
+import json
 import os
+from pathlib import Path
+
 import requests
 import logging
 from typing import Optional
@@ -12,6 +15,53 @@ class WhatsAppService:
     def __init__(self):
         self.api_key = os.getenv("META_API_KEY")
         self.base_url = "https://graph.facebook.com/v24.0"
+
+    def create_registration_flow(self, phone_number_id: str) -> Optional[str]:
+        """
+        Create the registration Flow template in Meta using the local JSON definition.
+
+        Args:
+            phone_number_id: Meta phone number ID to associate with the Flow
+
+        Returns:
+            Optional[str]: The created flow_id, if successful
+        """
+        json_path = (
+            Path(__file__).resolve().parent.parent
+            / "templates"
+            / "registration_form_flow.json"
+        )
+
+        try:
+            with open(json_path, "r", encoding="utf-8") as flow_file:
+                flow_definition = json.load(flow_file)
+        except FileNotFoundError:
+            logger.error(f"Flow definition file not found: {json_path}")
+            return None
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        url = f"{self.base_url}/{phone_number_id}/flows"
+        payload = {
+            "flow": flow_definition
+        }
+
+        try:
+            logger.info(f"Creating WhatsApp registration Flow for {phone_number_id}")
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            flow_id = data.get("id")
+            logger.info(f"Registration Flow created with id: {flow_id}")
+            return flow_id
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to create WhatsApp registration Flow: {e}")
+            if hasattr(e, "response") and e.response is not None:
+                logger.error(f"Response content: {e.response.text}")
+            return None
 
     def send_message(
         self,
@@ -98,7 +148,7 @@ class WhatsAppService:
                             {
                                 "type": "action",
                                 "action": {
-                                    "flow_token": "1151913393050063"
+                                    "flow_token": "2002104030434872"
                                 }
                             }
                         ]

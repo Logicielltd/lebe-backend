@@ -22,6 +22,15 @@ from core.user.service.user_service import UserService
 from utilities.dbconfig import SessionLocal
 from core.auth.dto.request.user_create import UserCreateRequest
 from core.receipts.service.receipt_service import ReceiptService
+from core.payments.dto.paymentdto import PaymentDto
+from core.payments.model.paymentmethod import PaymentMethod
+from core.payments.model.paymentstatus import PaymentStatus
+from core.payments.model.paynetwork import Network
+from core.payments.service.paymentservice import PaymentService
+from utilities.uniqueidgenerator import UniqueIdGenerator
+from decimal import Decimal
+from core.beneficiaries.utility.network_detector import NetworkDetector
+
 
 logger = logging.getLogger(__name__)
 
@@ -241,14 +250,6 @@ class LebeNLUSystem:
 
     def _process_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
         """Process payment intents through PaymentService"""
-        from core.payments.dto.paymentdto import PaymentDto
-        from core.payments.model.paymentmethod import PaymentMethod
-        from core.payments.model.paymentstatus import PaymentStatus
-        from core.payments.model.paynetwork import Network
-from core.payments.service.paymentservice import PaymentService
-from utilities.uniqueidgenerator import UniqueIdGenerator
-from decimal import Decimal
-from core.beneficiaries.utility.network_detector import NetworkDetector
 
         print(f"[PAYMENT_INTENT] Starting payment processing for intent: {intent}")
         print(f"[PAYMENT_INTENT] Slots received: {slots}")

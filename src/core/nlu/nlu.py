@@ -245,10 +245,10 @@ class LebeNLUSystem:
         from core.payments.model.paymentmethod import PaymentMethod
         from core.payments.model.paymentstatus import PaymentStatus
         from core.payments.model.paynetwork import Network
-from core.payments.service.paymentservice import PaymentService
-from utilities.uniqueidgenerator import UniqueIdGenerator
-from decimal import Decimal
-from core.beneficiaries.utility.network_detector import NetworkDetector
+        from core.payments.service.paymentservice import PaymentService
+        from utilities.uniqueidgenerator import UniqueIdGenerator
+        from decimal import Decimal
+        from core.beneficiaries.utility.network_detector import NetworkDetector
 
         print(f"[PAYMENT_INTENT] Starting payment processing for intent: {intent}")
         print(f"[PAYMENT_INTENT] Slots received: {slots}")

@@ -1,0 +1,168 @@
+{
+    "version": "7.3",
+    "screens": [
+        {
+            "id": "REGISTRATION_FORM",
+            "title": "Registration Form",
+            "terminal": false,
+            "data": {
+                "First_Name": {
+                    "type": "string",
+                    "__example__": "John"
+                },
+                "Last_Name": {
+                    "type": "string",
+                    "__example__": "Doe"
+                },
+                "Phone_Number": {
+                    "type": "string",
+                    "__example__": "+237600000000"
+                },
+                "Email": {
+                    "type": "string",
+                    "__example__": "john@example.com"
+                },
+                "PIN": {
+                    "type": "string",
+                    "__example__": "12345"
+                }
+            },
+            "layout": {
+                "type": "SingleColumnLayout",
+                "children": [
+                    {
+                        "type": "TextHeading",
+                        "text": "Create Your Account"
+                    },
+                    {
+                        "type": "TextBody",
+                        "text": "Please fill in your details to register"
+                    },
+                    {
+                        "type": "TextInput",
+                        "name": "First_Name",
+                        "label": "First Name",
+                        "input-type": "text",
+                        "required": true,
+                        "helper-text": "Enter your first name"
+                    },
+                    {
+                        "type": "TextInput",
+                        "name": "Last_Name",
+                        "label": "Last Name",
+                        "input-type": "text",
+                        "required": true,
+                        "helper-text": "Enter your last name"
+                    },
+                    {
+                        "type": "TextInput",
+                        "name": "Phone_Number",
+                        "label": "Phone Number",
+                        "input-type": "phone",
+                        "required": true,
+                        "helper-text": "Enter your phone number with country code"
+                    },
+                    {
+                        "type": "TextInput",
+                        "name": "Email",
+                        "label": "Email Address",
+                        "input-type": "email",
+                        "required": true,
+                        "helper-text": "Enter your email address"
+                    },
+                    {
+                        "type": "TextInput",
+                        "name": "PIN",
+                        "label": "Create PIN",
+                        "input-type": "password",
+                        "required": true,
+                        "helper-text": "Create a 5-digit PIN for your account",
+                        "min-chars": 5,
+                        "max-chars": 5
+                    },
+                    {
+                        "type": "Footer",
+                        "label": "Submit",
+                        "on-click-action": {
+                            "name": "navigate",
+                            "next": {
+                                "type": "screen",
+                                "name": "SUCCESS_SCREEN"
+                            },
+                            "payload": {
+                                "First_Name": "${form.First_Name}",
+                                "Last_Name": "${form.Last_Name}",
+                                "Phone_Number": "${form.Phone_Number}",
+                                "Email": "${form.Email}",
+                                "PIN": "${form.PIN}"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "id": "SUCCESS_SCREEN",
+            "title": "Registration Complete",
+            "terminal": true,
+            "success": true,
+            "data": {
+                "First_Name": {
+                    "type": "string",
+                    "__example__": "John"
+                },
+                "Last_Name": {
+                    "type": "string",
+                    "__example__": "Doe"
+                },
+                "Phone_Number": {
+                    "type": "string",
+                    "__example__": "+237600000000"
+                },
+                "Email": {
+                    "type": "string",
+                    "__example__": "john@example.com"
+                },
+                "PIN": {
+                    "type": "string",
+                    "__example__": "12345"
+                }
+            },
+            "layout": {
+                "type": "SingleColumnLayout",
+                "children": [
+                    {
+                        "type": "TextHeading",
+                        "text": "Welcome, ${data.First_Name} ${data.Last_Name}!"
+                    },
+                    {
+                        "type": "TextBody",
+                        "text": "Your registration has been completed successfully."
+                    },
+                    {
+                        "type": "TextCaption",
+                        "text": "Email: ${data.Email}"
+                    },
+                    {
+                        "type": "TextCaption",
+                        "text": "Phone: ${data.Phone_Number}"
+                    },
+                    {
+                        "type": "Footer",
+                        "label": "Done",
+                        "on-click-action": {
+                            "name": "complete",
+                            "payload": {
+                                "First_Name": "${data.First_Name}",
+                                "Last_Name": "${data.Last_Name}",
+                                "Phone_Number": "${data.Phone_Number}",
+                                "Email": "${data.Email}",
+                                "PIN": "${data.PIN}"
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ]
+}

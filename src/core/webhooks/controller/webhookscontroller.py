@@ -318,10 +318,10 @@ def handle_interactive_message(message: dict, phone: str, phone_number_id: str, 
 
         try:
             # Extract registration fields from Flow response
-            first_name = registration_data.get("screen_0_First_Name__0", "").strip()
-            last_name = registration_data.get("screen_0_Last_Name__1", "").strip()
-            user_phone = registration_data.get("screen_0_Phone_Number__2", "").strip()
-            email = registration_data.get("screen_0_Email_3", "").strip()
+            first_name = registration_data.get("screen_0_First_Name_0", "").strip()
+            last_name = registration_data.get("screen_0_Last_Name_1", "").strip()
+            user_phone = registration_data.get("screen_0_Phone_Number_2", "").strip()
+            email = registration_data.get("screen_0_email_3", "").strip()
             pin = registration_data.get("screen_0_PIN_4", "").strip()
 
             # Validate required fields
@@ -353,7 +353,7 @@ def handle_interactive_message(message: dict, phone: str, phone_number_id: str, 
                 whatsapp_service.send_message(
                     phone_number_id=phone_number_id,
                     recipient_phone=phone,
-                    message_text="This phone number or email is already registered. Please sign in instead."
+                    message_text="You’re already registered with Lemo, so you can happily continue using the our service."
                 )
                 return {"status": "error", "message": "User already exists"}
 

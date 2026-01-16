@@ -60,14 +60,45 @@ class LebeNLUSystem:
         self.response_formatter = ResponseFormatter()
         self.intent_processor = IntentProcessor()
     
-    def process_message(self, user_id: str, user_message: str, user_subscription_status: str) -> str:
-        """Main method to process user messages"""
+    def process_message(
+        self, 
+        user_id: str, 
+        user_message: str, 
+        user_subscription_status: str,
+        image_media_id: Optional[str] = None,
+        image_url: Optional[str] = None,
+        audio_media_id: Optional[str] = None,
+        audio_url: Optional[str] = None
+    ) -> str:
+        """
+        Main method to process user messages with optional multimodal inputs (images/audio)
+        
+        Args:
+            user_id: User identifier
+            user_message: Text message from user
+            user_subscription_status: User's subscription status
+            image_media_id: WhatsApp media ID for image
+            image_url: Direct URL to image
+            audio_media_id: WhatsApp media ID for audio
+            audio_url: Direct URL to audio
+        """
 
         # Get conversation state
         state = self.conversation_manager.get_conversation_state(user_id)
 
         # Add user message to history
         self.conversation_manager.update_conversation_history(user_id, "user", user_message)
+
+        # Process multimodal inputs (images/audio)
+        media_context = {}
+        if image_media_id or image_url or audio_media_id or audio_url:
+            media_context = self._process_media_inputs(
+                user_id,
+                image_media_id=image_media_id,
+                image_url=image_url,
+                audio_media_id=audio_media_id,
+                audio_url=audio_url
+            )
 
         # Check if waiting for payment confirmation
         if state.waiting_for_payment_confirmation:
@@ -816,3 +847,71 @@ class LebeNLUSystem:
             return None
         finally:
             db.close()
+
+    def _process_media_inputs(
+        self,
+        user_id: str,
+        image_media_id: Optional[str] = None,
+        image_url: Optional[str] = None,
+        audio_media_id: Optional[str] = None,
+        audio_url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Process multimodal inputs (images and audio)
+        
+        Args:
+            user_id: User identifier
+            image_media_id: WhatsApp media ID for image
+            image_url: Direct URL to image
+            audio_media_id: WhatsApp media ID for audio
+            audio_url: Direct URL to audio
+            
+        Returns:
+            Dictionary with processed media context
+        """
+        from core.nlu.service.media_processor import MediaProcessor
+        
+        media_processor = MediaProcessor()
+        media_context = {}
+        
+        # Process image if provided
+        if image_media_id or image_url:
+            try:
+                logger.info(f"[MEDIA_PROCESSING] Processing image for user {user_id}")
+                image_data = media_processor.process_image(
+                    media_id=image_media_id or "",
+                    media_url=image_url
+                )
+                
+                if image_data:
+                    media_context["image_base64"] = image_data.get("base64")
+                    media_context["image_url"] = image_data.get("url")
+                    media_context["image_mime_type"] = image_data.get("mime_type")
+                    logger.info(f"[MEDIA_PROCESSING] Image processed successfully")
+                else:
+                    logger.warning(f"[MEDIA_PROCESSING] Failed to process image")
+                    
+            except Exception as e:
+                logger.error(f"[MEDIA_PROCESSING] Error processing image: {e}")
+        
+        # Process audio if provided
+        if audio_media_id or audio_url:
+            try:
+                logger.info(f"[MEDIA_PROCESSING] Processing audio for user {user_id}")
+                audio_data = media_processor.process_audio(
+                    media_id=audio_media_id or "",
+                    media_url=audio_url
+                )
+                
+                if audio_data:
+                    media_context["audio_bytes"] = audio_data.get("bytes")
+                    media_context["audio_filename"] = audio_data.get("filename")
+                    media_context["audio_mime_type"] = audio_data.get("mime_type")
+                    logger.info(f"[MEDIA_PROCESSING] Audio processed successfully: {audio_data.get('size')} bytes")
+                else:
+                    logger.warning(f"[MEDIA_PROCESSING] Failed to process audio")
+                    
+            except Exception as e:
+                logger.error(f"[MEDIA_PROCESSING] Error processing audio: {e}")
+        
+        return media_context

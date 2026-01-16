@@ -181,13 +181,29 @@ def handle_incoming_message(value: dict, db: Session):
                 db=db
             )
 
-        elif message_type in ["image", "video", "audio", "document"]:
+        elif message_type == "image":
+            return handle_image_message(
+                message=message,
+                phone=phone,
+                phone_number_id=phone_number_id,
+                db=db
+            )
+
+        elif message_type == "audio":
+            return handle_audio_message(
+                message=message,
+                phone=phone,
+                phone_number_id=phone_number_id,
+                db=db
+            )
+
+        elif message_type in ["video", "document"]:
             logger.info(f"Received {message_type} message from {phone}")
             whatsapp_service = WhatsAppService()
             whatsapp_service.send_message(
                 phone_number_id=phone_number_id,
                 recipient_phone=phone,
-                message_text=f"Thanks for the {message_type}! Currently, I only support text messages."
+                message_text=f"Thanks for the {message_type}! I currently support text, images, and audio messages."
             )
             return {"status": "ok", "message": f"{message_type} message received"}
 
@@ -452,4 +468,166 @@ def handle_message_status(value: dict, db: Session):
 
     except Exception as e:
         logger.error(f"Error handling message status: {e}", exc_info=True)
+        raise
+
+
+def handle_image_message(message: dict, phone: str, phone_number_id: str, db: Session):
+    """
+    Handle image messages from users.
+    Images are processed by the LLM vision API for visual understanding.
+    """
+    try:
+        image_data = message.get("image", {})
+        media_id = image_data.get("id")
+        
+        if not media_id:
+            logger.warning("Image message has no media ID")
+            return {"status": "ok", "message": "Image received but no media ID"}
+        
+        logger.info(f"Received image message from {phone}, media_id: {media_id}")
+        
+        # Check if user exists
+        existing_user = db.query(User).filter(User.phone == phone).first()
+        whatsapp_service = WhatsAppService()
+        
+        if not existing_user:
+            # New user - send registration template
+            logger.info(f"New user detected: {phone}. Sending registration template.")
+            message_sent = whatsapp_service.send_registration_template(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone
+            )
+            
+            if not message_sent:
+                logger.error("Failed to send WhatsApp registration template")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to send WhatsApp registration template"
+                )
+            
+            return {"status": "success", "message": "Registration template sent"}
+        
+        else:
+            # Existing user - process image through NLU
+            logger.info(f"Processing image for existing user: {phone}")
+            
+            # Initialize NLU system
+            nlu_system = LebeNLUSystem()
+            subscription_service = SubscriptionService(db)
+            
+            # Get user subscription status
+            result = subscription_service.get_user_subscription_status_by_phone(phone)
+            
+            # Default message if no text caption
+            user_message = "I'm sending you an image. Please analyze it."
+            
+            # Process the message with image
+            response_message = nlu_system.process_message(
+                phone,
+                user_message,
+                result["has_active_subscription"],
+                image_media_id=media_id
+            )
+            
+            logger.info(f"Generated response for image message: {response_message}")
+            
+            # Send the response back to the user
+            message_sent = whatsapp_service.send_message(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_text=response_message
+            )
+            
+            if not message_sent:
+                logger.error("Failed to send WhatsApp message")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to send WhatsApp message"
+                )
+            
+            return {"status": "success", "message": "Image processed and response sent"}
+    
+    except Exception as e:
+        logger.error(f"Error handling image message: {e}", exc_info=True)
+        raise
+
+
+def handle_audio_message(message: dict, phone: str, phone_number_id: str, db: Session):
+    """
+    Handle audio messages from users.
+    Audio is transcribed using OpenAI Whisper and processed as text.
+    """
+    try:
+        audio_data = message.get("audio", {})
+        media_id = audio_data.get("id")
+        
+        if not media_id:
+            logger.warning("Audio message has no media ID")
+            return {"status": "ok", "message": "Audio received but no media ID"}
+        
+        logger.info(f"Received audio message from {phone}, media_id: {media_id}")
+        
+        # Check if user exists
+        existing_user = db.query(User).filter(User.phone == phone).first()
+        whatsapp_service = WhatsAppService()
+        
+        if not existing_user:
+            # New user - send registration template
+            logger.info(f"New user detected: {phone}. Sending registration template.")
+            message_sent = whatsapp_service.send_registration_template(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone
+            )
+            
+            if not message_sent:
+                logger.error("Failed to send WhatsApp registration template")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to send WhatsApp registration template"
+                )
+            
+            return {"status": "success", "message": "Registration template sent"}
+        
+        else:
+            # Existing user - process audio through NLU
+            logger.info(f"Processing audio for existing user: {phone}")
+            
+            # Initialize NLU system
+            nlu_system = LebeNLUSystem()
+            subscription_service = SubscriptionService(db)
+            
+            # Get user subscription status
+            result = subscription_service.get_user_subscription_status_by_phone(phone)
+            
+            # Default message (will be enhanced with transcription in NLU)
+            user_message = "I'm sending you an audio message."
+            
+            # Process the message with audio
+            response_message = nlu_system.process_message(
+                phone,
+                user_message,
+                result["has_active_subscription"],
+                audio_media_id=media_id
+            )
+            
+            logger.info(f"Generated response for audio message: {response_message}")
+            
+            # Send the response back to the user
+            message_sent = whatsapp_service.send_message(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_text=response_message
+            )
+            
+            if not message_sent:
+                logger.error("Failed to send WhatsApp message")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to send WhatsApp message"
+                )
+            
+            return {"status": "success", "message": "Audio transcribed and response sent"}
+    
+    except Exception as e:
+        logger.error(f"Error handling audio message: {e}", exc_info=True)
         raise

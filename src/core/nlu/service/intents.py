@@ -116,7 +116,7 @@ class IntentDetector:
         - Only switch intent for completely new, unrelated requests
         """
         
-        current_intent_context = f"CURRENT_INTENT: {current_intent if current_intent else 'None (new conversation)'}"
+        current_intent_context = f"CURRENT_INTENT: {current_intent if current_intent else 'Intent Extraction'}"
         
         return f"""
         {intent_guidelines}

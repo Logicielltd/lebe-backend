@@ -73,6 +73,29 @@ class LLMClient:
             )
 
             logger.debug("Responses API call completed: status=%s", getattr(response, 'status', 'unknown'))
+            # Log key response fields for debugging
+            try:
+                # Log concise outputs at INFO to help trace intent failures
+                if getattr(response, "output_text", None):
+                    logger.info("Responses API output_text (truncated): %s", (response.output_text or '')[:1000])
+
+                # Log structured `output` if present at DEBUG
+                output_obj = getattr(response, "output", None)
+                if output_obj is not None:
+                    logger.debug("Responses API 'output' field present. Entries: %d", len(output_obj) if hasattr(output_obj, '__len__') else 1)
+
+                # Attempt a safe full dump at DEBUG level; avoid crashing if to_dict is not available
+                try:
+                    to_dict_fn = getattr(response, "to_dict", None)
+                    if callable(to_dict_fn):
+                        resp_dict = to_dict_fn()
+                        logger.debug("Responses API full payload (truncated): %s", str(resp_dict)[:4000])
+                    else:
+                        logger.debug("Responses API repr payload (truncated): %s", repr(response)[:4000])
+                except Exception as ex:
+                    logger.debug("Failed to serialize Responses API payload: %s", ex)
+            except Exception as ex:
+                logger.debug("Error while logging Responses API payload: %s", ex)
 
             # Preferred simple accessor when available
             if getattr(response, "output_text", None):

@@ -146,11 +146,9 @@ class LLMClient:
         if image_url or image_base64:
             messages: List[Dict] = []
             
-            # For Responses API with images, we need to include the system prompt
-            # as part of the text input, not as a separate output_text type
+            # Build the full prompt including system instructions and history
             full_prompt = system_prompt
             
-            # Add conversation history to the system prompt if available
             if conversation_history:
                 history_text = "\n".join([
                     f"{msg.get('role', 'user').upper()}: {msg.get('content', '')}"
@@ -158,22 +156,24 @@ class LLMClient:
                 ])
                 full_prompt = f"{system_prompt}\n\nPrevious conversation:\n{history_text}"
             
+            full_prompt = f"{full_prompt}\n\nUSER: {user_message}"
+            
             # Build the user content
-            user_content: List[Dict[str, Any]] = []
+            user_content: List[Dict[str, Any]] = [
+                {
+                    "type": "input_text",
+                    "text": full_prompt
+                }
+            ]
             
-            # Add text input with system prompt and user message
-            combined_text = f"{full_prompt}\n\nUSER: {user_message}"
-            user_content.append({
-                "type": "input_text",
-                "text": combined_text
-            })
-            
-            # Add image input
+            # Add image - convert base64 to data URL if needed
             if image_base64:
+                # For base64, create a data URL
+                data_url = f"data:{image_media_type};base64,{image_base64}"
                 user_content.append({
                     "type": "input_image",
-                    "image_base64": image_base64,
-                    "mime_type": image_media_type,
+                    "image_url": data_url,
+                    "mime_type": image_media_type
                 })
             elif image_url:
                 user_content.append({

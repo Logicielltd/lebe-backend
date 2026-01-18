@@ -14,7 +14,9 @@ class MediaProcessor:
     
     def __init__(self):
         self.meta_api_key = os.getenv("META_API_KEY")
-        self.base_url = "https://graph.instagram.com"
+        # Use the Facebook Graph API (WhatsApp Cloud API is exposed under the
+        # Facebook Graph endpoints). Allow overriding via env var.
+        self.base_url = os.getenv("WHATSAPP_GRAPH_BASE_URL", "https://graph.facebook.com/v17.0")
         
         # Supported media types
         self.supported_images = {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -38,11 +40,12 @@ class MediaProcessor:
             
             # Step 1: Get media URL from WhatsApp Cloud API
             url = f"{self.base_url}/{media_id}"
-            headers = {
-                "Authorization": f"Bearer {self.meta_api_key}"
-            }
-            
-            response = requests.get(url, headers=headers)
+            # Facebook/WhatsApp Graph endpoints accept the access token as a
+            # query parameter or Authorization header. Use query param to be
+            # compatible with common setups and avoid preflight header issues.
+            params = {"access_token": self.meta_api_key} if self.meta_api_key else None
+
+            response = requests.get(url, params=params, timeout=15)
             response.raise_for_status()
             
             media_data = response.json()
@@ -56,10 +59,14 @@ class MediaProcessor:
             logger.info(f"Media URL retrieved: {media_url[:50]}...")
             
             # Step 2: Download the actual media file
-            media_response = requests.get(
-                media_url,
-                headers={"Authorization": f"Bearer {self.meta_api_key}"}
-            )
+            # Step 2: Download the actual media file. The returned `media_url`
+            # is often protected and requires the same access token. Use the
+            # Authorization header when available, otherwise fall back to
+            # passing the token as a query param.
+            download_headers = {"Authorization": f"Bearer {self.meta_api_key}"} if self.meta_api_key else None
+            download_params = None if download_headers else ({"access_token": self.meta_api_key} if self.meta_api_key else None)
+
+            media_response = requests.get(media_url, headers=download_headers, params=download_params, timeout=30)
             media_response.raise_for_status()
             
             media_bytes = media_response.content
@@ -181,10 +188,12 @@ class MediaProcessor:
         """Download file from URL"""
         try:
             headers = {}
-            if self.meta_api_key and "graph.instagram.com" in url:
+            params = None
+            # If downloading from Graph endpoints, include token
+            if self.meta_api_key and ("graph.instagram.com" in url or "graph.facebook.com" in url):
                 headers["Authorization"] = f"Bearer {self.meta_api_key}"
-            
-            response = requests.get(url, headers=headers, timeout=30)
+
+            response = requests.get(url, headers=headers, params=params, timeout=30)
             response.raise_for_status()
             return response.content
             

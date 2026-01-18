@@ -110,7 +110,7 @@ class LebeNLUSystem:
         
         # Detect intent and extract slots
         intent, extracted_slots, missing_slots = self.intent_detector.detect_intent_and_slots(
-            user_message, state.conversation_history, state.current_intent
+            user_message, state.conversation_history, state.current_intent, media_context
         )
 
         # Validate and merge slots

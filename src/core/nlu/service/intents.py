@@ -7,7 +7,7 @@ class IntentDetector:
         self.intents = INTENTS
         self.llm_client = LLMClient()  # Replace direct openai client with LLMClient
 
-    def detect_intent_and_slots(self, user_message: str, conversation_history: List[Dict], current_intent: str = None) -> Tuple[str, Dict, List[str]]:
+    def detect_intent_and_slots(self, user_message: str, conversation_history: List[Dict], current_intent: str = None, media_context: Dict = None) -> Tuple[str, Dict, List[str]]:
         """
         Detect user intent and extract slots from message
         Returns: (intent, extracted_slots, missing_slots)
@@ -49,14 +49,40 @@ class IntentDetector:
         """
         
         try:
-            # Use LLMClient instead of direct openai call
+            # If audio bytes are present, transcribe and include transcription
+            if media_context and media_context.get("audio_bytes"):
+                try:
+                    transcription = self.llm_client.transcribe_audio_from_bytes(
+                        media_context.get("audio_bytes"),
+                        filename=media_context.get("audio_filename", "audio.mp3")
+                    )
+                    if transcription:
+                        prompt = prompt + f"\n\n[Audio transcription]: {transcription}"
+                except Exception:
+                    # If transcription fails, continue without it
+                    pass
+
+            # Pass image data to the LLM client when available so the model can
+            # perform multimodal intent detection.
+            image_base64 = None
+            image_url = None
+            image_media_type = None
+            if media_context:
+                image_base64 = media_context.get("image_base64")
+                image_url = media_context.get("image_url")
+                image_media_type = media_context.get("image_mime_type")
+
             response_text = self.llm_client.chat_completion(
                 system_prompt=system_prompt,
                 user_message=prompt,
+                conversation_history=conversation_history,
                 temperature=0.1,
-                max_tokens=500
+                max_tokens=500,
+                image_url=image_url,
+                image_base64=image_base64,
+                image_media_type=image_media_type or "image/jpeg",
             )
-            
+
             return self._parse_response(response_text)
             
         except Exception as e:

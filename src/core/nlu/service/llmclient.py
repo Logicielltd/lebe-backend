@@ -56,7 +56,15 @@ class LLMClient:
         try:
             # Use Responses API which supports multimodal inputs (images/audio)
             logger.debug("Sending Responses API request: model=%s", self.model)
-            logger.debug("Responses API input payload keys: %s", [m.get('role') for m in input_payload])
+            # input_payload may be a string prompt or a structured list; handle both
+            if isinstance(input_payload, str):
+                logger.debug("Responses API input payload is a string (len=%d): %s", len(input_payload), input_payload[:200])
+            else:
+                try:
+                    keys = [m.get('role') for m in input_payload]
+                except Exception:
+                    keys = str(input_payload)
+                logger.debug("Responses API input payload keys: %s", keys)
             response = self.client.responses.create(
                 model=self.model,
                 input=input_payload,

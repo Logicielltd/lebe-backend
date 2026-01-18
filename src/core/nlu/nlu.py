@@ -87,11 +87,13 @@ class LebeNLUSystem:
         state = self.conversation_manager.get_conversation_state(user_id)
 
         # Add user message to history
+        logger.info("Received message from %s: %s", user_id, (user_message or '')[:200])
         self.conversation_manager.update_conversation_history(user_id, "user", user_message)
 
         # Process multimodal inputs (images/audio)
         media_context = {}
         if image_media_id or image_url or audio_media_id or audio_url:
+            logger.info("Processing media inputs for user %s", user_id)
             media_context = self._process_media_inputs(
                 user_id,
                 image_media_id=image_media_id,
@@ -99,6 +101,7 @@ class LebeNLUSystem:
                 audio_media_id=audio_media_id,
                 audio_url=audio_url
             )
+            logger.debug("Media context returned: %s", {k: (len(v) if isinstance(v, (bytes, str)) else type(v).__name__) for k,v in (media_context or {}).items()})
 
         # Check if waiting for payment confirmation
         if state.waiting_for_payment_confirmation:
@@ -109,9 +112,11 @@ class LebeNLUSystem:
             return self._handle_pin_verification(user_id, user_message)
         
         # Detect intent and extract slots
+        logger.info("Detecting intent for user %s (current_intent=%s)", user_id, state.current_intent)
         intent, extracted_slots, missing_slots = self.intent_detector.detect_intent_and_slots(
             user_message, state.conversation_history, state.current_intent, media_context
         )
+        logger.info("Detected intent=%s missing=%s", intent, missing_slots)
 
         # Validate and merge slots
         validated_slots = self.slot_manager.validate_slots(intent, extracted_slots)

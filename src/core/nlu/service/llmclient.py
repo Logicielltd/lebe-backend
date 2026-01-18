@@ -53,12 +53,16 @@ class LLMClient:
 
         try:
             # Use Responses API which supports multimodal inputs (images/audio)
+            logger.debug("Sending Responses API request: model=%s", self.model)
+            logger.debug("Responses API input payload keys: %s", [m.get('role') for m in input_payload])
             response = self.client.responses.create(
                 model=self.model,
                 input=input_payload,
                 temperature=temperature,
                 max_output_tokens=max_tokens,
             )
+
+            logger.debug("Responses API call completed: status=%s", getattr(response, 'status', 'unknown'))
 
             # Preferred simple accessor when available
             if getattr(response, "output_text", None):
@@ -80,6 +84,13 @@ class LLMClient:
                         parts.append(c)
 
             result_text = "\n".join([p for p in parts if p]).strip()
+            if not result_text:
+                try:
+                    # Attempt to dump structured response for debugging
+                    logger.debug("Responses API raw output: %s", getattr(response, "to_dict", lambda: response)())
+                except Exception:
+                    logger.debug("Responses API raw output (repr): %s", repr(response))
+
             return result_text
 
         except Exception as e:
@@ -102,13 +113,17 @@ class LLMClient:
         # message-like dicts that include role/content and (for user) inline image items.
         messages: List[Dict[str, Any]] = []
 
-        # System prompt as first input
-        messages.append({"role": "system", "content": system_prompt})
+        # System prompt as first input. Use the content list format expected by
+        # the Responses API (each message's `content` is a list of content items).
+        messages.append({"role": "system", "content": [{"type": "input_text", "text": system_prompt}]})
 
-        # Add conversation history if provided (flattening to simple role/content)
+        # Add conversation history if provided (flattening to content items)
         if conversation_history:
             for msg in conversation_history:
-                messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+                messages.append({
+                    "role": msg.get("role", "user"),
+                    "content": [{"type": "input_text", "text": msg.get("content", "")}]
+                })
 
         # Build the user content: start with plain text
         user_items: List[Dict[str, Any]] = []

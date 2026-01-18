@@ -1,6 +1,9 @@
 from typing import Dict, List, Any, Tuple
+import logging
 from core.nlu.config import INTENTS, SYSTEM_PROMPTS
 from core.nlu.service.llmclient import LLMClient  # Add this import
+
+logger = logging.getLogger(__name__)
 
 class IntentDetector:
     def __init__(self):
@@ -49,18 +52,21 @@ class IntentDetector:
         """
         
         try:
+            logger.debug("Intent detection start: user_message=%s current_intent=%s media_present=%s", user_message, current_intent, bool(media_context))
+
             # If audio bytes are present, transcribe and include transcription
             if media_context and media_context.get("audio_bytes"):
                 try:
+                    logger.info("Transcribing audio for intent detection: filename=%s", media_context.get("audio_filename"))
                     transcription = self.llm_client.transcribe_audio_from_bytes(
                         media_context.get("audio_bytes"),
                         filename=media_context.get("audio_filename", "audio.mp3")
                     )
+                    logger.debug("Audio transcription result: %s", transcription)
                     if transcription:
                         prompt = prompt + f"\n\n[Audio transcription]: {transcription}"
-                except Exception:
-                    # If transcription fails, continue without it
-                    pass
+                except Exception as ex:
+                    logger.warning("Audio transcription failed: %s", ex)
 
             # Pass image data to the LLM client when available so the model can
             # perform multimodal intent detection.
@@ -71,7 +77,9 @@ class IntentDetector:
                 image_base64 = media_context.get("image_base64")
                 image_url = media_context.get("image_url")
                 image_media_type = media_context.get("image_mime_type")
+                logger.debug("Media context keys: %s", list(media_context.keys()))
 
+            logger.info("Calling LLMClient for intent detection (model=%s)", self.llm_client.model)
             response_text = self.llm_client.chat_completion(
                 system_prompt=system_prompt,
                 user_message=prompt,
@@ -83,6 +91,7 @@ class IntentDetector:
                 image_media_type=image_media_type or "image/jpeg",
             )
 
+            logger.debug("Intent detection response text (truncated): %s", (response_text or '')[:1000])
             return self._parse_response(response_text)
             
         except Exception as e:

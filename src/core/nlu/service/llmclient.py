@@ -140,108 +140,67 @@ class LLMClient:
         image_base64: Optional[str] = None,
         image_media_type: str = "image/jpeg"
     ) -> List[Dict]:
-        """Build messages for the Responses API.
-
-        The Responses API has specific requirements for content types.
-        For system messages, we need to use `output_text` instead of `input_text`.
-        """
-
-        # When an image is provided, construct a structured payload compatible
-        # with the Responses API's multimodal format
+        """Build messages for the Responses API."""
+        
+        # When an image is provided, construct a structured payload
         if image_url or image_base64:
             messages: List[Dict] = []
-
-            # Add system prompt as the FIRST item in content (not as a separate message)
-            # For Responses API, system prompts should be included in the first message's content
-            content_items: List[Dict[str, Any]] = []
-
-            # Add system prompt using 'output_text' type (required by Responses API for system content)
-            content_items.append(
-                {
-                    "type": "output_text",  # Changed from 'input_text' to 'output_text'
-                    "text": system_prompt
-                }
-            )
-
-            # Include conversation history as output_text items
+            
+            # For Responses API with images, we need to include the system prompt
+            # as part of the text input, not as a separate output_text type
+            full_prompt = system_prompt
+            
+            # Add conversation history to the system prompt if available
             if conversation_history:
-                for msg in conversation_history[-6:]:
-                    role = msg.get("role", "user")
-                    # For Responses API, we add history as text within the system/user context
-                    if role == "system":
-                        content_items.append({
-                            "type": "output_text",
-                            "text": msg.get("content", "")
-                        })
-                    else:
-                        # User/assistant history can be included as context in the prompt
-                        pass  # We'll handle this differently below
-
+                history_text = "\n".join([
+                    f"{msg.get('role', 'user').upper()}: {msg.get('content', '')}"
+                    for msg in conversation_history[-6:]
+                ])
+                full_prompt = f"{system_prompt}\n\nPrevious conversation:\n{history_text}"
+            
             # Build the user content
-            user_content: List[Dict[str, Any]] = [{"type": "input_text", "text": user_message}]
-
+            user_content: List[Dict[str, Any]] = []
+            
+            # Add text input with system prompt and user message
+            combined_text = f"{full_prompt}\n\nUSER: {user_message}"
+            user_content.append({
+                "type": "input_text",
+                "text": combined_text
+            })
+            
+            # Add image input
             if image_base64:
-                user_content.append(
-                    {
-                        "type": "input_image",
-                        "image_base64": image_base64,
-                        "mime_type": image_media_type,
-                    }
-                )
-            else:
-                # image_url
-                user_content.append(
-                    {"type": "input_image", "image_url": image_url, "mime_type": image_media_type}
-                )
-
-            # Combine system content and user content
-            # For Responses API, the system prompt should be in output_text format
-            # and user content in input_text/input_image format
-            messages = [
-                {
-                    "role": "user",  # Responses API expects user role for input
-                    "content": [
-                        # First include system context as output_text
-                        {
-                            "type": "output_text",
-                            "text": system_prompt
-                        },
-                        # Then include conversation history context
-                        *([
-                            {
-                                "type": "output_text",
-                                "text": f"Previous conversation:\n{' '.join([f'{m.get('role', 'user')}: {m.get('content', '')}' for m in conversation_history[-3:]])}"
-                            }
-                        ] if conversation_history else []),
-                        # Finally include the actual user input with image
-                        {
-                            "type": "input_text",
-                            "text": user_message
-                        },
-                        # Add image
-                        {
-                            "type": "input_image",
-                            "image_url": image_url if image_url else f"data:{image_media_type};base64,{image_base64}",
-                            "mime_type": image_media_type
-                        }
-                    ]
-                }
-            ]
-
+                user_content.append({
+                    "type": "input_image",
+                    "image_base64": image_base64,
+                    "mime_type": image_media_type,
+                })
+            elif image_url:
+                user_content.append({
+                    "type": "input_image", 
+                    "image_url": image_url,
+                    "mime_type": image_media_type
+                })
+            
+            messages = [{
+                "role": "user",
+                "content": user_content
+            }]
+            
             return messages
-
-        # No image provided: keep previous simple plain-text prompt behavior
+        
+        # No image provided: simple text-only prompt
         parts: List[str] = []
         if system_prompt:
             parts.append(f"SYSTEM: {system_prompt}")
-
+        
         if conversation_history:
             parts.append("CONVERSATION HISTORY:")
             for msg in conversation_history[-6:]:
                 parts.append(f"{msg.get('role', 'user')}: {msg.get('content', '')}")
-
+        
         parts.append(f"USER: {user_message}")
-
+        
         return "\n\n".join(parts)
     
     def structured_completion(

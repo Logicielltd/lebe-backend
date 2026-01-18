@@ -41,24 +41,47 @@ class LLMClient:
         Returns:
             LLM response as string
         """
-        messages = self._build_messages(
-            system_prompt, 
-            user_message, 
+        # Build an `input` payload compatible with the Responses API (supports multimodal)
+        input_payload = self._build_messages(
+            system_prompt,
+            user_message,
             conversation_history,
             image_url=image_url,
             image_base64=image_base64,
-            image_media_type=image_media_type
+            image_media_type=image_media_type,
         )
-        
+
         try:
-            response = self.client.chat.completions.create(
+            # Use Responses API which supports multimodal inputs (images/audio)
+            response = self.client.responses.create(
                 model=self.model,
-                messages=messages,
+                input=input_payload,
                 temperature=temperature,
-                max_tokens=max_tokens
+                max_output_tokens=max_tokens,
             )
-            return response.choices[0].message.content.strip()
-            
+
+            # Preferred simple accessor when available
+            if getattr(response, "output_text", None):
+                return response.output_text.strip()
+
+            # Fallback: stitch together textual pieces from the structured output
+            parts: List[str] = []
+            for out in getattr(response, "output", []) or []:
+                for c in out.get("content", []) or []:
+                    # common types: 'output_text' or dicts with 'text'
+                    if isinstance(c, dict):
+                        if c.get("type") in ("output_text", "message", "text"):
+                            text = c.get("text") or c.get("content") or c.get("payload")
+                            if isinstance(text, str):
+                                parts.append(text)
+                        elif c.get("type") == "output_fragment":
+                            parts.append(c.get("text", ""))
+                    elif isinstance(c, str):
+                        parts.append(c)
+
+            result_text = "\n".join([p for p in parts if p]).strip()
+            return result_text
+
         except Exception as e:
             logger.error(f"Error in LLM API call: {e}")
             print(f"Error in LLM API call: {e}")
@@ -74,41 +97,36 @@ class LLMClient:
         image_media_type: str = "image/jpeg"
     ) -> List[Dict]:
         """Build the messages array for the LLM API with multimodal support"""
-        messages = [{"role": "system", "content": system_prompt}]
-        
-        # Add conversation history if provided
+        # Build a multimodal-compatible input for Responses API.
+        # The Responses API accepts a list or single input. We'll provide a list of
+        # message-like dicts that include role/content and (for user) inline image items.
+        messages: List[Dict[str, Any]] = []
+
+        # System prompt as first input
+        messages.append({"role": "system", "content": system_prompt})
+
+        # Add conversation history if provided (flattening to simple role/content)
         if conversation_history:
             for msg in conversation_history:
-                messages.append({"role": msg["role"], "content": msg["content"]})
-        
-        # Build user message content (can be text + image)
-        user_content = []
-        
-        # Add text
-        user_content.append({
-            "type": "text",
-            "text": user_message
-        })
-        
-        # Add image if provided
-        if image_url or image_base64:
-            image_content = {
-                "type": "image_url",
-                "image_url": {}
-            }
-            
+                messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
+
+        # Build the user content: start with plain text
+        user_items: List[Dict[str, Any]] = []
+        user_items.append({"type": "input_text", "text": user_message})
+
+        # Add image item when provided (use data URL for base64, otherwise URL)
+        if image_base64 or image_url:
+            img_url = None
             if image_base64:
-                # Use base64-encoded image data
-                image_content["image_url"]["url"] = f"data:{image_media_type};base64,{image_base64}"
+                img_url = f"data:{image_media_type};base64,{image_base64}"
             else:
-                # Use image URL directly
-                image_content["image_url"]["url"] = image_url
-            
-            user_content.append(image_content)
-        
-        # Add user message with content
-        messages.append({"role": "user", "content": user_content})
-        
+                img_url = image_url
+
+            user_items.append({"type": "input_image", "image_url": img_url})
+
+        # Attach user content as a single user entry
+        messages.append({"role": "user", "content": user_items})
+
         return messages
     
     def structured_completion(

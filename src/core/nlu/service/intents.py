@@ -31,7 +31,7 @@ class IntentDetector:
         
         # Create prompt for intent detection
         prompt = f"""
-        Analyze the user's message and extract:
+        Read the user's message and extract:
         1. The main intent from this list: {list(self.intents.keys())}
         2. Any relevant information (slots) for that intent
         
@@ -51,6 +51,14 @@ class IntentDetector:
         MISSING: network,reason
         """
         
+        # If an image is attached, add an explicit instruction about it so the
+        # model knows there is an image URL or embedded base64 included in the
+        # user message (the actual image marker is appended by LLMClient).
+        image_note = ""
+        if media_context and (media_context.get("image_url") or media_context.get("image_base64")):
+            image_note = "\n\nNOTE: The user has provided an image. The image is referenced below. If you can use the image, use it to infer the user's intent and extract slots. If you cannot access or process the image, respond with the intent: CANNOT_PROCESS_IMAGE."
+            prompt = prompt + image_note
+
         try:
             logger.debug("Intent detection start: user_message=%s current_intent=%s media_present=%s", user_message, current_intent, bool(media_context))
 
@@ -92,6 +100,27 @@ class IntentDetector:
             )
 
             logger.debug("Intent detection response text (truncated): %s", (response_text or '')[:1000])
+
+            # Detect if model refused or reported inability to process images
+            refusal_phrases = [
+                "unable to process images",
+                "i'm unable to process",
+                "cannot process images",
+                "can't process images",
+                "cannot access the image",
+                "cannot view the image",
+                "can't view images",
+                "do not have the ability to view images",
+                "i cannot process images",
+                "i can't process images",
+                "i'm not able to process images"
+            ]
+            if response_text:
+                low = response_text.lower()
+                if any(p in low for p in refusal_phrases) or "cannot_process_image" in low or "cannot_process_image" in (response_text or ""):
+                    logger.info("Model reported it cannot process images; returning special intent")
+                    return "cannot_process_image", {}, []
+
             return self._parse_response(response_text)
             
         except Exception as e:
@@ -103,7 +132,7 @@ class IntentDetector:
         
         intent_guidelines = """
         INTENT DETECTION GUIDELINES:
-        1. Be precise - analyze the exact words and phrasing in the user message
+        1. Be precise - read the exact words and phrasing in the user message
         2. If the message continues the current conversation flow, maintain the same intent
         3. Only change intent if the user clearly introduces a new topic or request
         4. For ambiguous messages, prefer the current intent if it makes contextual sense
@@ -133,7 +162,7 @@ class IntentDetector:
         maintain that same intent **unless** the user clearly starts a new topic.
         4. Accurately identify missing required slots for that intent.
         
-        User message to analyze: "{user_message}"
+        User message to read: "{user_message}"
         
         Available intents and their slots:
         {self._format_intents_for_prompt()}

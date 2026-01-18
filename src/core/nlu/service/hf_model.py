@@ -140,7 +140,7 @@ class HuggingFaceIntentDetector:
         context = self._prepare_context(conversation_history)
         
         prompt = f"""
-        Analyze this user message and extract intent and information.
+        Read this user message and extract intent and information.
         
         User message: "{user_message}"
         

@@ -116,6 +116,12 @@ class LebeNLUSystem:
         intent, extracted_slots, missing_slots = self.intent_detector.detect_intent_and_slots(
             user_message, state.conversation_history, state.current_intent, media_context
         )
+        # If the model explicitly reported it cannot process the image, ask the user
+        if intent == "cannot_process_image":
+            logger.info("Model cannot process image for user %s; asking for description", user_id)
+            response = self.response_formatter.format_response("", "ask_for_image_description")
+            self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+            return response
         logger.info("Detected intent=%s missing=%s", intent, missing_slots)
 
         # Validate and merge slots

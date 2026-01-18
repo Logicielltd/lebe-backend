@@ -140,16 +140,64 @@ class LLMClient:
         image_base64: Optional[str] = None,
         image_media_type: str = "image/jpeg"
     ) -> List[Dict]:
-        """Build a single text prompt string for the Responses API.
+        """Build messages for the Responses API.
 
-        We embed short conversation history and include image references as
-        explicit markers so the model sees them even though the request is
-        delivered as plain text. This avoids invalid structured content types
-        while still providing the model with multimodal context.
+        If an image is provided (`image_url` or `image_base64`), return a
+        structured list of message dicts where the final user message's
+        `content` contains both an `input_text` part and an `input_image`
+        part. When no image is provided, preserve the existing behavior of
+        returning a single text prompt string (for backward compatibility).
         """
 
+        # When an image is provided, construct a structured payload compatible
+        # with the Responses API's multimodal format instead of embedding the
+        # image in plain text.
+        if image_url or image_base64:
+            messages: List[Dict] = []
+
+            # Add system prompt as a separate message if present
+            if system_prompt:
+                messages.append(
+                    {
+                        "role": "system",
+                        "content": [{"type": "input_text", "text": system_prompt}],
+                    }
+                )
+
+            # Include a short slice of conversation history as separate messages
+            if conversation_history:
+                for msg in conversation_history[-6:]:
+                    role = msg.get("role", "user")
+                    text = msg.get("content", "")
+                    messages.append(
+                        {"role": role, "content": [{"type": "input_text", "text": text}]}
+                    )
+
+            # Build the final user message: text + image content item
+            user_content: List[Dict[str, Any]] = [{"type": "input_text", "text": user_message}]
+
+            if image_base64:
+                user_content.append(
+                    {
+                        "type": "input_image",
+                        "image_base64": image_base64,
+                        "mime_type": image_media_type,
+                    }
+                )
+            else:
+                # image_url
+                user_content.append(
+                    {"type": "input_image", "image_url": image_url, "mime_type": image_media_type}
+                )
+
+            messages.append({"role": "user", "content": user_content})
+
+            return messages
+
+        # No image provided: keep previous simple plain-text prompt behavior
         parts: List[str] = []
-        parts.append(f"SYSTEM: {system_prompt}")
+        if system_prompt:
+            parts.append(f"SYSTEM: {system_prompt}")
 
         if conversation_history:
             parts.append("CONVERSATION HISTORY:")
@@ -157,13 +205,6 @@ class LLMClient:
                 parts.append(f"{msg.get('role', 'user')}: {msg.get('content', '')}")
 
         parts.append(f"USER: {user_message}")
-
-        # Include image references inline so the model can use them.
-        if image_url:
-            parts.append(f"[Image URL]: {image_url}")
-        elif image_base64:
-            # Avoid dumping very large base64 blobs into logs; include short marker
-            parts.append(f"[Image base64 embedded with media type {image_media_type}; length={len(image_base64)}]")
 
         return "\n\n".join(parts)
     

@@ -519,7 +519,7 @@ def handle_image_message(message: dict, phone: str, phone_number_id: str, db: Se
             result = subscription_service.get_user_subscription_status_by_phone(phone)
             
             # Default message if no text caption
-            user_message = "I'm sending you an image. Please analyze it."
+            user_message = "I am providing you with an image. The image is referenced below. If you can use the image, use it to infer the user's intent and extract slots."
             
             # Process the message with image
             response_message = nlu_system.process_message(

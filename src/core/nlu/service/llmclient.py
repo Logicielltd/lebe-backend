@@ -155,42 +155,39 @@ class LLMClient:
         if image_url or image_base64:
             messages: List[Dict] = []
 
-            # Add system prompt as a separate message if present
             if system_prompt:
-                messages.append(
-                    {
-                        "role": "system",
-                        "content": [{"type": "input_text", "text": system_prompt}],
-                    }
-                )
+                messages.append({
+                    "role": "system",
+                    "content": [{"type": "text", "text": system_prompt}]
+                })
 
-            # Include a short slice of conversation history as separate messages
             if conversation_history:
                 for msg in conversation_history[-6:]:
-                    role = msg.get("role", "user")
-                    text = msg.get("content", "")
-                    messages.append(
-                        {"role": role, "content": [{"type": "input_text", "text": text}]}
-                    )
+                    messages.append({
+                        "role": msg.get("role", "user"),
+                        "content": [{"type": "text", "text": msg.get("content", "")}]
+                    })
 
-            # Build the final user message: text + image content item
-            user_content: List[Dict[str, Any]] = [{"type": "input_text", "text": user_message}]
+            user_content = [
+                {"type": "text", "text": user_message}
+            ]
 
             if image_base64:
-                user_content.append(
-                    {
-                        "type": "input_image",
-                        "image_base64": image_base64,
-                        "mime_type": image_media_type,
-                    }
-                )
+                user_content.append({
+                    "type": "image_base64",
+                    "image_base64": image_base64,
+                    "mime_type": image_media_type
+                })
             else:
-                # image_url
-                user_content.append(
-                    {"type": "input_image", "image_url": image_url, "mime_type": image_media_type}
-                )
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": image_url
+                })
 
-            messages.append({"role": "user", "content": user_content})
+            messages.append({
+                "role": "user",
+                "content": user_content
+            })
 
             return messages
 

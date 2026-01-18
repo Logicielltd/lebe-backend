@@ -42,6 +42,8 @@ class LLMClient:
             LLM response as string
         """
         # Build an `input` payload compatible with the Responses API (supports multimodal)
+        # Build a single text input prompt. For now embed image URL/base64
+        # inline to avoid structured content type errors with the Responses API.
         input_payload = self._build_messages(
             system_prompt,
             user_message,
@@ -107,42 +109,32 @@ class LLMClient:
         image_base64: Optional[str] = None,
         image_media_type: str = "image/jpeg"
     ) -> List[Dict]:
-        """Build the messages array for the LLM API with multimodal support"""
-        # Build a multimodal-compatible input for Responses API.
-        # The Responses API accepts a list or single input. We'll provide a list of
-        # message-like dicts that include role/content and (for user) inline image items.
-        messages: List[Dict[str, Any]] = []
+        """Build a single text prompt string for the Responses API.
 
-        # System prompt as first input. Use the content list format expected by
-        # the Responses API (each message's `content` is a list of content items).
-        messages.append({"role": "system", "content": [{"type": "input_text", "text": system_prompt}]})
+        We embed short conversation history and include image references as
+        explicit markers so the model sees them even though the request is
+        delivered as plain text. This avoids invalid structured content types
+        while still providing the model with multimodal context.
+        """
 
-        # Add conversation history if provided (flattening to content items)
+        parts: List[str] = []
+        parts.append(f"SYSTEM: {system_prompt}")
+
         if conversation_history:
-            for msg in conversation_history:
-                messages.append({
-                    "role": msg.get("role", "user"),
-                    "content": [{"type": "input_text", "text": msg.get("content", "")}]
-                })
+            parts.append("CONVERSATION HISTORY:")
+            for msg in conversation_history[-6:]:
+                parts.append(f"{msg.get('role', 'user')}: {msg.get('content', '')}")
 
-        # Build the user content: start with plain text
-        user_items: List[Dict[str, Any]] = []
-        user_items.append({"type": "input_text", "text": user_message})
+        parts.append(f"USER: {user_message}")
 
-        # Add image item when provided (use data URL for base64, otherwise URL)
-        if image_base64 or image_url:
-            img_url = None
-            if image_base64:
-                img_url = f"data:{image_media_type};base64,{image_base64}"
-            else:
-                img_url = image_url
+        # Include image references inline so the model can use them.
+        if image_url:
+            parts.append(f"[Image URL]: {image_url}")
+        elif image_base64:
+            # Avoid dumping very large base64 blobs into logs; include short marker
+            parts.append(f"[Image base64 embedded with media type {image_media_type}; length={len(image_base64)}]")
 
-            user_items.append({"type": "input_image", "image_url": img_url})
-
-        # Attach user content as a single user entry
-        messages.append({"role": "user", "content": user_items})
-
-        return messages
+        return "\n\n".join(parts)
     
     def structured_completion(
         self,

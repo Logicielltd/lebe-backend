@@ -194,8 +194,10 @@ class IntentProcessor:
         # Add user context if available
         user_context_section = ""
         if user_data:
+            # user_data produced by NLU uses the key 'user_id' (not 'id')
+            user_id_for_rag = user_data.get("user_id") or user_data.get("id", "unknown")
             user_context = self.rag_manager.get_optimized_user_context(
-                user_id=user_data.get("id", "unknown"),
+                user_id=user_id_for_rag,
                 intent=intent,
                 current_slots=slots,
                 full_user_data=user_data

@@ -105,7 +105,7 @@ class LebeNLUSystem:
 
         # Check if waiting for payment confirmation
         if state.waiting_for_payment_confirmation:
-            return self._handle_payment_confirmation(user_id, user_message)
+            return self._handle_payment_confirmation(user_id, user_message, media_context)
 
         # Check if waiting for PIN
         if state.waiting_for_pin:
@@ -216,7 +216,7 @@ class LebeNLUSystem:
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
         return response
 
-    def _handle_payment_confirmation(self, user_id: str, user_response: str) -> str:
+    def _handle_payment_confirmation(self, user_id: str, user_response: str, media_context: Optional[Dict[str, Any]] = None) -> str:
         """Handle user's yes/no response for payment confirmation"""
         state = self.conversation_manager.get_conversation_state(user_id)
 
@@ -228,8 +228,56 @@ class LebeNLUSystem:
             self.conversation_manager._save_conversation_state(state)
             return error_response
 
+        # If media (audio/image) was provided, try to extract a textual yes/no
+        if media_context:
+            # Prefer audio transcription if available
+            try:
+                if media_context.get("audio_bytes"):
+                    transcription = None
+                    try:
+                        transcription = self.intent_detector.llm_client.transcribe_audio_from_bytes(
+                            media_context.get("audio_bytes"),
+                            filename=media_context.get("audio_filename", "audio.mp3")
+                        )
+                    except Exception:
+                        transcription = None
+                    if transcription:
+                        user_response = transcription
+                # If no audio, try to ask the LLM to interpret the image as a yes/no
+                elif media_context.get("image_base64") or media_context.get("image_url"):
+                    try:
+                        system_prompt = (
+                            "You are a concise classifier. Given an image supplied by the user, "
+                            "determine whether the image indicates a CONFIRMATION (yes) or a REJECTION (no) of a pending payment. "
+                            "Respond with a single word: yes or no. Do not add any extra text."
+                        )
+                        user_msg = (
+                            "Interpret the attached image and respond with only 'yes' or 'no' "
+                            "to indicate whether the user CONFIRMS the pending payment."
+                        )
+                        image_base64 = media_context.get("image_base64")
+                        image_url = media_context.get("image_url")
+                        image_mime = media_context.get("image_mime_type") or media_context.get("mime_type") or "image/jpeg"
+                        img_response = self.intent_detector.llm_client.chat_completion(
+                            system_prompt=system_prompt,
+                            user_message=user_msg,
+                            conversation_history=None,
+                            temperature=0.0,
+                            max_tokens=10,
+                            image_url=image_url,
+                            image_base64=image_base64,
+                            image_media_type=image_mime,
+                        )
+                        if img_response:
+                            user_response = img_response
+                    except Exception:
+                        pass
+            except Exception:
+                # If any media handling fails, fall back to textual user_response
+                pass
+
         # Check user's response (yes/no/confirm/proceed/etc.)
-        user_response_lower = user_response.lower().strip()
+        user_response_lower = (user_response or "").lower().strip()
         confirmation_keywords = ["yes", "y", "confirm", "ok", "okay", "proceed", "go ahead"]
         rejection_keywords = ["no", "n", "cancel", "don't", "dont", "stop"]
 

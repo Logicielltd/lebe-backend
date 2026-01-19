@@ -53,10 +53,13 @@ class BeneficiaryService:
                 network = network.upper()
 
             # Validate network
-            try:
-                network_enum = Network[network]
-            except KeyError:
-                return False, None, f"Invalid network: {network}. Must be one of: {', '.join([n.value for n in Network])}"
+            network_enum = getattr(Network, network, None)
+            if not network_enum:
+                valid_networks = [
+                    Network.MTN, Network.VOD, Network.AIR,
+                    Network.BNK, Network.MAS, Network.VIS
+                ]
+                return False, None, f"Invalid network: {network}. Must be one of: {', '.join(valid_networks)}"
 
             # Validate customer number for this network
             is_valid, validation_msg = NetworkDetector.validate_customer_number(customer_number, network_enum)

@@ -195,7 +195,9 @@ class IntentProcessor:
         user_context_section = ""
         if user_data:
             # user_data produced by NLU uses the key 'user_id' (not 'id')
-            user_id_for_rag = user_data.get("user_id") or user_data.get("id", "unknown")
+            # Ensure we pass a string user_id to the RAG manager so it matches
+            # the History.user_id column (which is stored as string).
+            user_id_for_rag = str(user_data.get("user_id") or user_data.get("id", "unknown"))
             user_context = self.rag_manager.get_optimized_user_context(
                 user_id=user_id_for_rag,
                 intent=intent,

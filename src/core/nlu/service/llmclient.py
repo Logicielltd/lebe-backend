@@ -26,111 +26,39 @@ class LLMClient:
         image_media_type: str = "image/jpeg"
     ) -> str:
         """
-        Generic method for LLM chat completions with optional image support (vision)
-        
-        Args:
-            system_prompt: The system prompt/instruction
-            user_message: The current user message
-            conversation_history: Previous conversation messages
-            temperature: Creativity level (0-1)
-            max_tokens: Maximum response length
-            image_url: URL to an image (for vision capabilities)
-            image_base64: Base64-encoded image data
-            image_media_type: MIME type of the image (image/jpeg, image/png, image/gif, image/webp)
-            
-        Returns:
-            LLM response as string
+        Updated to use Chat Completions API (which works better with vision)
         """
-        # Build an `input` payload compatible with the Responses API (supports multimodal)
-        # Build a single text input prompt. For now embed image URL/base64
-        # inline to avoid structured content type errors with the Responses API.
-        input_payload = self._build_messages(
+        
+        # Build messages for Chat Completions API
+        messages = self._build_messages_for_chat_completions(
             system_prompt,
             user_message,
             conversation_history,
-            image_url=image_url,
-            image_base64=image_base64,
-            image_media_type=image_media_type,
+            image_url,
+            image_base64,
+            image_media_type
         )
-
+        
         try:
-            # Use Responses API which supports multimodal inputs (images/audio)
-            logger.debug("Sending Responses API request: model=%s", self.model)
-            # input_payload may be a string prompt or a structured list; handle both
-            if isinstance(input_payload, str):
-                logger.debug("Responses API input payload is a string (len=%d): %s", len(input_payload), input_payload[:200])
-            else:
-                try:
-                    keys = [m.get('role') for m in input_payload]
-                except Exception:
-                    keys = str(input_payload)
-                logger.debug("Responses API input payload keys: %s", keys)
-            response = self.client.responses.create(
-                model=self.model,
-                input=input_payload,
+            logger.debug("Sending Chat Completions API request: model=%s", self.model)
+            
+            # Use Chat Completions API
+            response = self.client.chat.completions.create(
+                model=self.model,  # Make sure MODEL is set to a vision-capable model like "gpt-4-vision-preview" or "gpt-4o"
+                messages=messages,
                 temperature=temperature,
-                max_output_tokens=max_tokens,
+                max_tokens=max_tokens
             )
-
-            logger.debug("Responses API call completed: status=%s", getattr(response, 'status', 'unknown'))
-            # Log key response fields for debugging
-            try:
-                # Log concise outputs at INFO to help trace intent failures
-                if getattr(response, "output_text", None):
-                    logger.info("Responses API output_text (truncated): %s", (response.output_text or '')[:1000])
-
-                # Log structured `output` if present at DEBUG
-                output_obj = getattr(response, "output", None)
-                if output_obj is not None:
-                    logger.debug("Responses API 'output' field present. Entries: %d", len(output_obj) if hasattr(output_obj, '__len__') else 1)
-
-                # Attempt a safe full dump at DEBUG level; avoid crashing if to_dict is not available
-                try:
-                    to_dict_fn = getattr(response, "to_dict", None)
-                    if callable(to_dict_fn):
-                        resp_dict = to_dict_fn()
-                        logger.debug("Responses API full payload (truncated): %s", str(resp_dict)[:4000])
-                    else:
-                        logger.debug("Responses API repr payload (truncated): %s", repr(response)[:4000])
-                except Exception as ex:
-                    logger.debug("Failed to serialize Responses API payload: %s", ex)
-            except Exception as ex:
-                logger.debug("Error while logging Responses API payload: %s", ex)
-
-            # Preferred simple accessor when available
-            if getattr(response, "output_text", None):
-                return response.output_text.strip()
-
-            # Fallback: stitch together textual pieces from the structured output
-            parts: List[str] = []
-            for out in getattr(response, "output", []) or []:
-                for c in out.get("content", []) or []:
-                    # common types: 'output_text' or dicts with 'text'
-                    if isinstance(c, dict):
-                        if c.get("type") in ("output_text", "message", "text"):
-                            text = c.get("text") or c.get("content") or c.get("payload")
-                            if isinstance(text, str):
-                                parts.append(text)
-                        elif c.get("type") == "output_fragment":
-                            parts.append(c.get("text", ""))
-                    elif isinstance(c, str):
-                        parts.append(c)
-
-            result_text = "\n".join([p for p in parts if p]).strip()
-            if not result_text:
-                try:
-                    # Attempt to dump structured response for debugging
-                    logger.debug("Responses API raw output: %s", getattr(response, "to_dict", lambda: response)())
-                except Exception:
-                    logger.debug("Responses API raw output (repr): %s", repr(response))
-
-            return result_text
-
+            
+            if response.choices and response.choices[0].message.content:
+                return response.choices[0].message.content.strip()
+            
+            return ""
+            
         except Exception as e:
             logger.error(f"Error in LLM API call: {e}")
-            print(f"Error in LLM API call: {e}")
             return ""
-    
+
     def _build_messages(
         self,
         system_prompt: str,
@@ -140,68 +68,38 @@ class LLMClient:
         image_base64: Optional[str] = None,
         image_media_type: str = "image/jpeg"
     ) -> List[Dict]:
-        """Build messages for the Responses API."""
+        """Build messages for standard Chat Completions API (vision support)"""
         
-        # When an image is provided, construct a structured payload
-        if image_url or image_base64:
-            messages: List[Dict] = []
-            
-            # Build the full prompt including system instructions and history
-            full_prompt = system_prompt
-            
-            if conversation_history:
-                history_text = "\n".join([
-                    f"{msg.get('role', 'user').upper()}: {msg.get('content', '')}"
-                    for msg in conversation_history[-6:]
-                ])
-                full_prompt = f"{system_prompt}\n\nPrevious conversation:\n{history_text}"
-            
-            full_prompt = f"{full_prompt}\n\nUSER: {user_message}"
-            
-            # Build the user content
-            user_content: List[Dict[str, Any]] = [
-                {
-                    "type": "input_text",
-                    "text": full_prompt
-                }
-            ]
-            
-            # Add image - convert base64 to data URL if needed
-            if image_base64:
-                # For base64, create a data URL
-                data_url = f"data:{image_media_type};base64,{image_base64}"
-                user_content.append({
-                    "type": "input_image",
-                    "image_url": data_url,
-                    "mime_type": image_media_type
-                })
-            elif image_url:
-                user_content.append({
-                    "type": "input_image", 
-                    "image_url": image_url,
-                    "mime_type": image_media_type
-                })
-            
-            messages = [{
-                "role": "user",
-                "content": user_content
-            }]
-            
-            return messages
+        messages = []
         
-        # No image provided: simple text-only prompt
-        parts: List[str] = []
-        if system_prompt:
-            parts.append(f"SYSTEM: {system_prompt}")
+        # Add system message
+        messages.append({"role": "system", "content": system_prompt})
         
+        # Add conversation history
         if conversation_history:
-            parts.append("CONVERSATION HISTORY:")
-            for msg in conversation_history[-6:]:
-                parts.append(f"{msg.get('role', 'user')}: {msg.get('content', '')}")
+            messages.extend(conversation_history[-6:])
         
-        parts.append(f"USER: {user_message}")
+        # Build user message with potential image
+        user_content = [{"type": "text", "text": user_message}]
         
-        return "\n\n".join(parts)
+        if image_url:
+            user_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": image_url
+                }
+            })
+        elif image_base64:
+            user_content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{image_media_type};base64,{image_base64}"
+                }
+            })
+        
+        messages.append({"role": "user", "content": user_content})
+        
+        return messages
     
     def structured_completion(
         self,

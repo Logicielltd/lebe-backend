@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
 
-from core.beneficiaries.model.beneficiary import Beneficiary
+from core.beneficiaries.model.beneficiary import Beneficiary, AccountType as BeneficiaryAccountType
 from core.beneficiaries.utility.network_detector import NetworkDetector, Network, AccountType
 
 logger = logging.getLogger(__name__)
@@ -83,8 +83,13 @@ class BeneficiaryService:
             if existing:
                 return False, None, f"Beneficiary '{existing.name}' with this {network} account already exists"
 
-            # Determine account type
-            account_type = NetworkDetector.determine_account_type(network_enum)
+            # Determine account type and map to the DB enum values
+            detected_account_type = NetworkDetector.determine_account_type(network_enum)
+            if isinstance(detected_account_type, str):
+                account_type_key = detected_account_type.lower()
+            else:
+                account_type_key = str(detected_account_type).lower()
+            account_type = BeneficiaryAccountType(account_type_key)
 
             # Create beneficiary
             beneficiary = Beneficiary(

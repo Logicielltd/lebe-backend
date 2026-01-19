@@ -65,11 +65,16 @@ class LLMClient:
                 except Exception:
                     keys = str(input_payload)
                 logger.debug("Responses API input payload keys: %s", keys)
+            
+            # Ensure we respect the Responses API minimum for max_output_tokens (>=16)
+            out_tokens = max(16, max_tokens)
+            if out_tokens != max_tokens:
+                logger.debug("Adjusted max_output_tokens from %d to minimum %d", max_tokens, out_tokens)
             response = self.client.responses.create(
                 model=self.model,
                 input=input_payload,
                 temperature=temperature,
-                max_output_tokens=max_tokens,
+                max_output_tokens=out_tokens,
             )
 
             logger.debug("Responses API call completed: status=%s", getattr(response, 'status', 'unknown'))

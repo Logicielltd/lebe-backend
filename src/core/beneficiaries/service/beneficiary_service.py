@@ -47,7 +47,7 @@ class BeneficiaryService:
                 detected_network, network_msg = NetworkDetector.detect_network_from_phone(customer_number)
                 if not detected_network:
                     return False, None, f"Could not auto-detect network: {network_msg}"
-                network = detected_network.value
+                network = detected_network.value if hasattr(detected_network, "value") else str(detected_network)
                 logger.info(f"[BENEFICIARY_SERVICE] Auto-detected network: {network}")
             else:
                 network = network.upper()

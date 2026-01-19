@@ -92,7 +92,9 @@ class SlotManager:
             "purpose": "What will you use the loan for?",
             "category": "Which category?",
             "period": "For what period?",
-            "time_period": "For what time period?"
+            "time_period": "For what time period?",
+            "beneficiary_name": "Beneficiary name?",
+            "customer_number": "Beneficiary mobile number?"
         }
 
         prompts = []

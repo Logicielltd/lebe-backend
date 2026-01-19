@@ -93,8 +93,8 @@ class SlotManager:
             "category": "Which category?",
             "period": "For what period?",
             "time_period": "For what time period?",
-            "beneficiary_name": "What name should I save this beneficiary as?",
-            "customer_number": "What's the beneficiary's account or wallet number?"
+            "beneficiary_name": "Beneficiary name?",
+            "customer_number": "Beneficiary mobile number?"
         }
 
         prompts = []

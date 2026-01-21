@@ -6,6 +6,12 @@ from core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES, INTENT_CATEGORIE
 from core.nlu.service.user_rag import UserRAGManager
 from core.user.controller.usercontroller import get_db
 from core.beneficiaries.service.beneficiary_service import BeneficiaryService
+from core.histories.service.historyservice import HistoryService
+from utilities.dbconfig import SessionLocal
+from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 class IntentProcessor:
     """Processes conversational and financial tips intents using LLM with User RAG"""
@@ -78,7 +84,7 @@ class IntentProcessor:
         user_message: str,
         conversation_history: List[Dict],
         slots: Dict[str, Any],
-        user_data: Optional[Dict] = None  # Add user_data parameter
+        user_data: Optional[Dict] = None
     ) -> str:
         """
         Process expense report with user spending context
@@ -188,34 +194,31 @@ class IntentProcessor:
         """
         Build enhanced system prompt with user context RAG
         """
-        # Prepare conversation context
-        conversation_context = self._prepare_conversation_context(conversation_history)
-        
         # Add user context if available
         user_context_section = ""
         if user_data:
             # user_data produced by NLU uses the key 'user_id' (not 'id')
             # Ensure we pass a string user_id to the RAG manager so it matches
             # the History.user_id column (which is stored as string).
-            user_id_for_rag = str(user_data.get("user_id") or user_data.get("id", "unknown"))
-            user_context = self.rag_manager.get_optimized_user_context(
+            user_id_for_rag = str(user_data.get("user_id"))
+            user_context = self.rag_manager.get_extracted_user_context(
                 user_id=user_id_for_rag,
                 intent=intent,
                 current_slots=slots,
                 full_user_data=user_data
             )
-            user_context_section = self.rag_manager.format_context_for_prompt(user_context)
+        
         
         # Build the enhanced prompt
         enhanced_prompt = base_prompt.format(
-            context=conversation_context,
+            context=user_context,
             missing_slots="",
             category=slots.get('category', 'general')
         )
         
         # Append user context if available
-        if user_context_section:
-            enhanced_prompt += f"\n\n{user_context_section}\n\nIMPORTANT: Use the above user context to personalize your response. Consider their financial situation, goals, and history when providing advice."
+        if user_context:
+            enhanced_prompt += f"\n\n{user_context}\n\nIMPORTANT: Use the above user context to personalize your response. Consider their financial situation, goals, and history when providing advice."
         
         return enhanced_prompt
 
@@ -245,7 +248,7 @@ class IntentProcessor:
             return "New conversation"
         
         context = "Recent conversation history:\n"
-        for msg in conversation_history[-6:]:
+        for msg in conversation_history:
             role = "User" if msg["role"] == "user" else "Assistant"
             context += f"{role}: {msg['content']}\n"
         

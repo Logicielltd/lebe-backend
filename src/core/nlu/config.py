@@ -114,7 +114,7 @@ INTENTS = {
         "category": "transactional"
     },
     "expense_report": {
-        "description": "View expense tracking",
+        "description": "Know transaction history and expense reports",
         "slots": ["time_period", "category"],
         "required_slots": [],
         "category": "expense_report"
@@ -202,8 +202,9 @@ SYSTEM_PROMPTS = {
     AI Response: "I'm not sure which 'Mom' you mean! Please provide the full phone number of the person you'd like to send money to."
     
     Be warm, engaging, and natural in your conversations. Keep responses concise but friendly.
-
-    Current conversation context: {context}
+    
+    Current User context: {context}
+    
     """,
     
     "financial_tips": """
@@ -216,7 +217,7 @@ SYSTEM_PROMPTS = {
     The following comprises of the user's spending data.
     If there is no user financial data available, return with a message indicating user data not acquired yet.
 
-    User context: {context}
+    Current User context: {context}
     Financial topic: {category}
 
     Notes for accuracy:
@@ -232,10 +233,10 @@ SYSTEM_PROMPTS = {
     - Providing insights on spending patterns
     - Suggesting ways to reduce expenses
 
-    The following comprises of the user's spending data.
-    If there is no data available, return with a message indicating no data generated yet.
+    The following section includes the user's spending data.
+    If there is no transactions data available, return with a message indicating no data generated yet.
 
-    User context: {context}
+    Current User context: {context}
     Expense report criteria: {category}
 
     Notes for accuracy:
@@ -256,7 +257,7 @@ SYSTEM_PROMPTS = {
     Always be conversational, helpful, and clear. Ask for missing information politely.
     If unsure, ask clarifying questions.
     
-    Current context: {context}
+    Current User Context: {context}
     Missing slots: {missing_slots}
     """,
 
@@ -267,7 +268,7 @@ SYSTEM_PROMPTS = {
     - Viewing saved beneficiaries
     - Deleting beneficiaries
 
-    User context: {context}
+    Current User Context: {context}
     Missing slots: {missing_slots}
     """
 }
@@ -312,6 +313,6 @@ INTENT_CATEGORIES = {
     "conversational": ["greeting", "normal_conversation", "small_talk", "goodbye"],
     "financial_tips": ["financial_tips", "budgeting_advice", "savings_tips", "investment_advice", "debt_management"],
     "transactional": ["send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
-    "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report"],
+    "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report","transaction_info"],
     "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary"]
 }

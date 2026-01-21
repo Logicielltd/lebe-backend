@@ -85,7 +85,7 @@ class LebeNLUSystem:
 
         # Get conversation state
         state = self.conversation_manager.get_conversation_state(user_id)
-
+        
         # Add user message to history
         logger.info("Received message from %s: %s", user_id, (user_message or '')[:200])
         self.conversation_manager.update_conversation_history(user_id, "user", user_message)
@@ -101,7 +101,6 @@ class LebeNLUSystem:
                 audio_media_id=audio_media_id,
                 audio_url=audio_url
             )
-            logger.debug("Media context returned: %s", {k: (len(v) if isinstance(v, (bytes, str)) else type(v).__name__) for k,v in (media_context or {}).items()})
 
         # Check if waiting for payment confirmation
         if state.waiting_for_payment_confirmation:
@@ -320,16 +319,12 @@ class LebeNLUSystem:
     def _execute_action(self, user_id: str, intent: str, slots: Dict, user_message: str = "", conversation_history: List[Dict] = None) -> str:
         """Execute the actual financial action through payment service"""
         try:
-            print(f"[EXECUTE_ACTION] User {user_id}: intent={intent}, slots={slots}")
-
             # Payment intents that require Orchard API
             payment_intents = ["buy_airtime", "send_money", "pay_bill", "get_loan"]
 
             if intent in payment_intents:
-                print(f"[EXECUTE_ACTION] Routing to payment processor for intent: {intent}")
                 return self._process_payment_intent(user_id, intent, slots)
             else:
-                print(f"[EXECUTE_ACTION] Routing to non-payment processor for intent: {intent}")
                 return self._process_non_payment_intent(user_id, intent, user_message, conversation_history, slots)
 
         except Exception as e:
@@ -340,9 +335,6 @@ class LebeNLUSystem:
 
     def _process_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
         """Process payment intents through PaymentService"""
-
-        print(f"[PAYMENT_INTENT] Starting payment processing for intent: {intent}")
-        print(f"[PAYMENT_INTENT] Slots received: {slots}")
 
         db = SessionLocal()
         try:
@@ -881,7 +873,7 @@ class LebeNLUSystem:
             if user:
                 # Convert user data to dictionary format expected by RAG manager
                 user_data = {
-                    "user_id": user.id,
+                    "user_id": user.phone,
                     "username": user.username,
                     "email": user.email,
                     "first_name": user.first_name,

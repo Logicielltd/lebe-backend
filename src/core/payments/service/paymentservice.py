@@ -1241,31 +1241,33 @@ class PaymentService:
             whatsapp_service = WhatsAppService()
 
             if is_success:
-                # Generate receipt using NLU system's method
-                intent = payment.intent or "payment"
+                # Generate receipt using NLU system's method (skip for airtime/bill payments).
+                intent = (payment.intent or "payment").lower()
                 receipt_url = None
+                should_send_receipt_image = intent not in {"buy_airtime", "pay_bill"}
 
-                try:
-                    # Use NLU's receipt generation method
-                    nlu_system = LebeNLUSystem()
-                    receipt_url = nlu_system.generate_receipt_after_payment(
-                        transaction_id=payment.transaction_id,
-                        user_id=payment.sender_phone,
-                        intent=intent,
-                        amount=payment.amount_paid,
-                        status='SUCCESS',
-                        sender=payment.sender_phone,
-                        receiver=payment.receiver_phone,
-                        sender_name=payment.sender_name or payment.customer_name or "N/A",
-                        receiver_name=payment.receiver_name or "N/A",
-                        sender_provider=payment.sender_provider or "N/A",
-                        receiver_provider=payment.receiver_provider or "N/A",
-                        payment_method=payment.payment_method.name,
-                        timestamp=payment.updated_on or datetime.now()
-                    )
-                except Exception as e:
-                    logger.error(f"[RECEIPT_GENERATION_FAILED] Failed to generate receipt for payment {payment.id}: {str(e)}")
-                    receipt_url = None  # Will fall back to text-only message
+                if should_send_receipt_image:
+                    try:
+                        # Use NLU's receipt generation method
+                        nlu_system = LebeNLUSystem()
+                        receipt_url = nlu_system.generate_receipt_after_payment(
+                            transaction_id=payment.transaction_id,
+                            user_id=payment.sender_phone,
+                            intent=intent,
+                            amount=payment.amount_paid,
+                            status='SUCCESS',
+                            sender=payment.sender_phone,
+                            receiver=payment.receiver_phone,
+                            sender_name=payment.sender_name or payment.customer_name or "N/A",
+                            receiver_name=payment.receiver_name or "N/A",
+                            sender_provider=payment.sender_provider or "N/A",
+                            receiver_provider=payment.receiver_provider or "N/A",
+                            payment_method=payment.payment_method.name,
+                            timestamp=payment.updated_on or datetime.now()
+                        )
+                    except Exception as e:
+                        logger.error(f"[RECEIPT_GENERATION_FAILED] Failed to generate receipt for payment {payment.id}: {str(e)}")
+                        receipt_url = None  # Will fall back to text-only message
 
                 # Prepare success message
                 success_caption = (

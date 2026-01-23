@@ -122,7 +122,8 @@ class IntentProcessor:
 
         beneficiary_service = BeneficiaryService(db)
         
-        user_id = user_data.get("user_id") if user_data else "unknown"
+        # For beneficiary DB operations we need the internal `users.id` (FK target).
+        user_id = (user_data or {}).get("db_user_id") or (user_data or {}).get("user_id") or "unknown"
         
         if intent == "add_beneficiary":
             return self._handle_add_beneficiary(beneficiary_service, user_id, slots)

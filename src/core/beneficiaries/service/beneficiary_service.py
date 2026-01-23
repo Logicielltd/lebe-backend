@@ -5,6 +5,7 @@ import logging
 
 from core.beneficiaries.model.beneficiary import Beneficiary, AccountType as BeneficiaryAccountType
 from core.beneficiaries.utility.network_detector import NetworkDetector, Network, AccountType
+from core.user.model.User import User
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,44 @@ class BeneficiaryService:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def _normalize_phone_like(self, value: str) -> str:
+        cleaned = "".join(ch for ch in (value or "") if ch.isdigit())
+        if cleaned.startswith("233") and len(cleaned) > 3:
+            cleaned = "0" + cleaned[3:]
+        elif cleaned and not cleaned.startswith("0") and len(cleaned) == 9:
+            cleaned = "0" + cleaned
+        return cleaned
+
+    def _resolve_user_db_id(self, user_identifier: str) -> Optional[str]:
+        """
+        Resolve a user identifier (db id, email, or phone) to the internal `users.id`.
+        Beneficiaries uses a FK to `users.id`, so we must persist that value.
+        """
+        if not user_identifier:
+            return None
+
+        # 1) Direct match on primary key
+        user = self.db.query(User).filter(User.id == user_identifier).first()
+        if user:
+            return user.id
+
+        # 2) Email match (common JWT subject choice)
+        user = self.db.query(User).filter(User.email == user_identifier).first()
+        if user:
+            return user.id
+
+        # 3) Phone match (common WhatsApp/user_id choice)
+        normalized_phone = self._normalize_phone_like(user_identifier)
+        phone_candidates = {user_identifier}
+        if normalized_phone:
+            phone_candidates.add(normalized_phone)
+
+        user = self.db.query(User).filter(User.phone.in_(list(phone_candidates))).first()
+        if user:
+            return user.id
+
+        return None
 
     def add_beneficiary(
         self,
@@ -40,7 +79,11 @@ class BeneficiaryService:
             Tuple of (success, beneficiary_object, message)
         """
         try:
-            logger.info(f"[BENEFICIARY_SERVICE] Adding beneficiary for user: {user_id}, name: {name}")
+            resolved_user_id = self._resolve_user_db_id(user_id)
+            if not resolved_user_id:
+                return False, None, "User not found. Please log in again."
+
+            logger.info(f"[BENEFICIARY_SERVICE] Adding beneficiary for user: {resolved_user_id}, name: {name}")
 
             # If network not provided, try to detect it
             if not network:
@@ -77,7 +120,7 @@ class BeneficiaryService:
 
             # Check for duplicates
             existing = self.db.query(Beneficiary).filter(
-                Beneficiary.user_id == user_id,
+                Beneficiary.user_id == resolved_user_id,
                 Beneficiary.customer_number == customer_number,
                 Beneficiary.network == network,
                 Beneficiary.is_active == True
@@ -96,7 +139,7 @@ class BeneficiaryService:
 
             # Create beneficiary
             beneficiary = Beneficiary(
-                user_id=user_id,
+                user_id=resolved_user_id,
                 name=name.strip(),
                 customer_number=customer_number.strip(),
                 network=network,
@@ -119,9 +162,13 @@ class BeneficiaryService:
     def get_beneficiaries(self, user_id: str) -> List[Beneficiary]:
         """Get all active beneficiaries for a user."""
         try:
-            logger.info(f"[BENEFICIARY_SERVICE] Fetching beneficiaries for user: {user_id}")
+            resolved_user_id = self._resolve_user_db_id(user_id)
+            if not resolved_user_id:
+                return []
+
+            logger.info(f"[BENEFICIARY_SERVICE] Fetching beneficiaries for user: {resolved_user_id}")
             beneficiaries = self.db.query(Beneficiary).filter(
-                Beneficiary.user_id == user_id,
+                Beneficiary.user_id == resolved_user_id,
                 Beneficiary.is_active == True
             ).all()
             logger.info(f"[BENEFICIARY_SERVICE] Found {len(beneficiaries)} beneficiaries")
@@ -133,10 +180,14 @@ class BeneficiaryService:
     def get_beneficiary(self, beneficiary_id: int, user_id: str) -> Optional[Beneficiary]:
         """Get a specific beneficiary by ID (with user ownership check)."""
         try:
+            resolved_user_id = self._resolve_user_db_id(user_id)
+            if not resolved_user_id:
+                return None
+
             logger.info(f"[BENEFICIARY_SERVICE] Fetching beneficiary: {beneficiary_id}")
             beneficiary = self.db.query(Beneficiary).filter(
                 Beneficiary.id == beneficiary_id,
-                Beneficiary.user_id == user_id,
+                Beneficiary.user_id == resolved_user_id,
                 Beneficiary.is_active == True
             ).first()
             return beneficiary
@@ -147,10 +198,14 @@ class BeneficiaryService:
     def delete_beneficiary(self, beneficiary_id: int, user_id: str) -> Tuple[bool, str]:
         """Soft-delete a beneficiary (mark as inactive)."""
         try:
+            resolved_user_id = self._resolve_user_db_id(user_id)
+            if not resolved_user_id:
+                return False, "User not found. Please log in again."
+
             logger.info(f"[BENEFICIARY_SERVICE] Deleting beneficiary: {beneficiary_id}")
             beneficiary = self.db.query(Beneficiary).filter(
                 Beneficiary.id == beneficiary_id,
-                Beneficiary.user_id == user_id
+                Beneficiary.user_id == resolved_user_id
             ).first()
 
             if not beneficiary:
@@ -178,10 +233,14 @@ class BeneficiaryService:
     ) -> Tuple[bool, Beneficiary, str]:
         """Update beneficiary details."""
         try:
+            resolved_user_id = self._resolve_user_db_id(user_id)
+            if not resolved_user_id:
+                return False, None, "User not found. Please log in again."
+
             logger.info(f"[BENEFICIARY_SERVICE] Updating beneficiary: {beneficiary_id}")
             beneficiary = self.db.query(Beneficiary).filter(
                 Beneficiary.id == beneficiary_id,
-                Beneficiary.user_id == user_id
+                Beneficiary.user_id == resolved_user_id
             ).first()
 
             if not beneficiary:
@@ -193,9 +252,12 @@ class BeneficiaryService:
 
             # Update customer number if provided
             if customer_number:
+                network_enum = getattr(Network, beneficiary.network, None)
+                if not network_enum:
+                    return False, None, f"Invalid stored network on beneficiary: {beneficiary.network}"
                 is_valid, validation_msg = NetworkDetector.validate_customer_number(
                     customer_number,
-                    Network[beneficiary.network]
+                    network_enum
                 )
                 if not is_valid:
                     return False, None, f"Invalid customer number: {validation_msg}"

@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 import json
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from core.histories.model.history import History
+from core.payments.model.payment import Payment
+from core.payments.model.paymentstatus import PaymentStatus
 from utilities.dbconfig import SessionLocal
 
 class UserRAGManager:
@@ -58,32 +59,35 @@ class UserRAGManager:
             #Log user id and intent
             print(f"[USER_RAG] Fetching transactions for user_id: {user_id}, intent: {intent}")
             
-            # Base query for user's transactions
-            query = db.query(History).filter(History.user_id == user_id)
-            
-            # Apply time filters based on intent
+            # Base query: use Payment table (only SUCCESS) and filter by sender phone
+            query = db.query(Payment).filter(
+                Payment.sender_phone == user_id,
+                Payment.status == PaymentStatus.SUCCESS
+            )
+
+            # Apply time filters based on intent (use date_paid)
             days_to_look_back = self._get_lookback_period(intent)
             start_date = datetime.utcnow() - timedelta(days=days_to_look_back)
-            query = query.filter(History.created_at >= start_date)
-         
+            query = query.filter(Payment.date_paid >= start_date)
+
             # Order by most recent and limit
-            transactions = query.order_by(History.created_at.desc()).limit(100).all()
-            
-            # Convert to dictionary format
+            transactions = query.order_by(Payment.date_paid.desc()).limit(100).all()
+
+            # Convert to dictionary format (map Payment fields)
             transaction_list = []
             for tx in transactions:
                 transaction_list.append({
                     "id": str(tx.id),
                     "intent": tx.intent,
-                    "transaction_type": tx.transaction_type,
-                    "amount": float(tx.amount) if tx.amount else 0.0,
-                    "recipient": tx.recipient,
-                    "phone_number": tx.phone_number,
-                    "category": tx.category,
-                    "status": tx.status,
-                    "description": tx.description,
-                    "created_at": tx.created_at.isoformat() if tx.created_at else None,
-                    "metadata": tx.transaction_metadata or {}
+                    "transaction_type": "debit",
+                    "amount": float(tx.amount_paid) if tx.amount_paid else 0.0,
+                    "recipient": tx.receiver_name or tx.receiver_phone,
+                    "phone_number": tx.receiver_phone,
+                    "category": tx.intent,
+                    "status": tx.status.value if hasattr(tx.status, 'value') else str(tx.status),
+                    "description": None,
+                    "created_at": tx.date_paid.isoformat() if tx.date_paid else None,
+                    "metadata": {}
                 })
             
             return transaction_list

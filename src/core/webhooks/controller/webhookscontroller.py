@@ -518,8 +518,17 @@ def handle_image_message(message: dict, phone: str, phone_number_id: str, db: Se
             # Get user subscription status
             result = subscription_service.get_user_subscription_status_by_phone(phone)
             
-            # Default message if no text caption
-            user_message = "I am providing you with an image. The image is referenced below. If you can use the image, use it to infer the user's intent and extract slots."
+            # Check if image has a caption
+            caption = image_data.get("caption", "").strip()
+            
+            if caption:
+                # Use the caption as the user message
+                user_message = caption
+                logger.info(f"Image caption found: {caption}")
+            else:
+                # Default message if no caption provided
+                user_message = "I am providing you with an image. The image is referenced below, use it to infer the user's intent and extract slots."
+                logger.info("No caption provided with image, using default message")
             
             # Process the message with image
             response_message = nlu_system.process_message(
@@ -599,8 +608,17 @@ def handle_audio_message(message: dict, phone: str, phone_number_id: str, db: Se
             # Get user subscription status
             result = subscription_service.get_user_subscription_status_by_phone(phone)
             
-            # Default message (will be enhanced with transcription in NLU)
-            user_message = "I'm sending you an audio message."
+            # Check if audio has a caption
+            caption = audio_data.get("caption", "").strip()
+            
+            if caption:
+                # Use the caption as the user message
+                user_message = caption
+                logger.info(f"Audio caption found: {caption}")
+            else:
+                # Default message (will be enhanced with transcription in NLU)
+                user_message = "I'm sending you an audio message."
+                logger.info("No caption provided with audio, using default message")
             
             # Process the message with audio
             response_message = nlu_system.process_message(

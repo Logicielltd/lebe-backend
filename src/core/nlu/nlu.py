@@ -873,7 +873,10 @@ class LebeNLUSystem:
             if user:
                 # Convert user data to dictionary format expected by RAG manager
                 user_data = {
+                    # `user_id` is used across NLU as the conversation/history key (phone-based).
                     "user_id": user.phone,
+                    # `db_user_id` is the internal primary key used for relational FK lookups.
+                    "db_user_id": user.id,
                     "username": user.username,
                     "email": user.email,
                     "first_name": user.first_name,

@@ -93,7 +93,7 @@ class SlotManager:
             "category": "Which category?",
             "period": "For what period?",
             "time_period": "For what time period?",
-            "beneficiary_name": "Beneficiary name?",
+            "beneficiary_name": "Whose name do you want to send to (from your saved contacts)?",
             "customer_number": "Beneficiary mobile number?"
         }
 

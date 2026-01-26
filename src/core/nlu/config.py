@@ -85,13 +85,13 @@ INTENTS = {
     # ===== TRANSACTIONAL INTENTS =====
     "send_money": {
         "description": "Send money to another person",
-        "slots": ["recipient", "amount", "network", "reason"],
+        "slots": ["recipient", "amount", "network", "reason", "beneficiary_name"],
         "required_slots": ["recipient", "amount"],
         "category": "transactional"
     },
     "buy_airtime": {
         "description": "Purchase airtime credit",
-        "slots": ["phone_number", "amount", "network"],
+        "slots": ["phone_number", "amount", "network", "beneficiary_name"],
         "required_slots": ["phone_number", "amount"],
         "category": "transactional"
     },

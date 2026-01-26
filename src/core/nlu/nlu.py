@@ -9,6 +9,7 @@ import openai
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import logging
+from sqlalchemy.orm import Session
 from core.auth.service.authservice import AuthService
 from core.nlu.config import INTENT_CATEGORIES
 from core.nlu.service.intentprocessor import IntentProcessor
@@ -60,7 +61,7 @@ class LebeNLUSystem:
         self.response_formatter = ResponseFormatter()
         self.intent_processor = IntentProcessor()
     
-    def _resolve_beneficiary(self, user_id: str, beneficiary_name: str, db: 'Session') -> Optional[Dict]:
+    def _resolve_beneficiary(self, user_id: str, beneficiary_name: str, db: Session) -> Optional[Dict]:
         """
         Lookup a beneficiary by name and extract the customer number.
         

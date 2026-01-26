@@ -336,9 +336,10 @@ class LebeNLUSystem:
             # Execute the payment with confirmed slots
             response = self._execute_action(user_id, intent, slots, user_response, state.conversation_history)
 
-            # Clear confirmation state
+            # Clear confirmation state and collected slots
             state.waiting_for_payment_confirmation = False
             state.pending_payment_dto = {}
+            state.collected_slots = {}
             self.conversation_manager._save_conversation_state(state)
 
         elif any(keyword in user_response_lower for keyword in rejection_keywords):

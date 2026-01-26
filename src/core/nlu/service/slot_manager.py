@@ -64,6 +64,10 @@ class SlotManager:
     
     def generate_slot_prompt(self, intent: str, missing_slots: List[str]) -> str:
         """Generate natural language prompt for missing slots with intent-aware context"""
+        
+        # If no missing slots provided, ask for the entire operation again
+        if not missing_slots:
+            return "I didn't quite catch that. Could you please tell me what you'd like to do again?"
 
         # Available bill providers and their codes
         bill_providers = {

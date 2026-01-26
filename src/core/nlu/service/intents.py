@@ -54,13 +54,13 @@ class IntentDetector:
         
         Example with beneficiary name:
         INTENT: send_money
-        SLOTS: {{"amount": "50", "beneficiary_name": "John", "network": "MTN"}}
+        SLOTS: {{"amount": "50", "beneficiary_name": "John"}}
         MISSING: 
         
         Example with direct phone number:
         INTENT: send_money
         SLOTS: {{"amount": "50", "recipient": "0234567890"}}
-        MISSING: network
+        MISSING:
         """
         
         # If an image is attached, add an explicit instruction about it so the
@@ -193,7 +193,7 @@ class IntentDetector:
         User starts send_money: "Send 50 cedis to 0234567890"
         INTENT: send_money
         SLOTS: {{"amount": "50", "recipient": "0234567890"}}
-        MISSING: network,reason
+        MISSING: reason
 
         User starts bill payment: "Make bill payment of 1 cedi to 95200204493"
         INTENT: pay_bill
@@ -238,7 +238,7 @@ class IntentDetector:
         User continues current intent: "Actually, make it 100 cedis instead"
         INTENT: send_money
         SLOTS: {{"amount": "100"}}
-        MISSING: recipient,network,reason
+        MISSING: recipient,reason
 
         User starts new intent: "I want to check my balance"
         INTENT: check_balance

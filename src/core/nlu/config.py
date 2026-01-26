@@ -86,13 +86,13 @@ INTENTS = {
     "send_money": {
         "description": "Send money to another person",
         "slots": ["recipient", "amount", "reason", "beneficiary_name"],
-        "required_slots": ["recipient", "amount"],
+        "required_slots": ["amount"],
         "category": "transactional"
     },
     "buy_airtime": {
         "description": "Purchase airtime credit",
         "slots": ["phone_number", "amount", "beneficiary_name"],
-        "required_slots": ["phone_number", "amount"],
+        "required_slots": ["amount"],
         "category": "transactional"
     },
     "pay_bill": {

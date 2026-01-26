@@ -195,13 +195,13 @@ class LebeNLUSystem:
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
 
-        if current_missing:
+        if current_missing or (len(state.collected_slots) == 1 and 'amount' in state.collected_slots):
             # Ask for missing slots
             prompt = self.slot_manager.generate_slot_prompt(intent, current_missing)
             response = self.response_formatter.format_response(
                 intent, "missing_slots", prompt=prompt
             )
- 
+
         else:
             # All slots collected, execute action directly (PIN verification commented out for testing)
             # TODO: Re-enable PIN verification after payment flow is working

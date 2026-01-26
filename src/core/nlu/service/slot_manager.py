@@ -67,7 +67,7 @@ class SlotManager:
         
         # If no missing slots provided, ask for the entire operation again
         if not missing_slots:
-            return "I didn't quite catch that. Could you please tell me what you'd like to do again?"
+            return "Can be a little more specific"
 
         # Available bill providers and their codes
         bill_providers = {

@@ -6,7 +6,7 @@ class ResponseFormatter:
         """Format responses in a friendly financial assistant style"""
         
         if message_type == "missing_slots":
-            return f"💬 {kwargs.get('message', 'I need a few more details to help you:')} {kwargs.get('prompt', '')}"
+            return f"{kwargs.get('message', 'I need a few more details,')} {kwargs.get('prompt', '')}"
         
         elif message_type == "confirm_action":
             action_descriptions = {

@@ -479,13 +479,12 @@ class PaymentService:
 
         logger.info(f"[MTC_NETWORK_DETECTION] Receiver phone: {payment.receiver_phone} -> Detected network: {detected_network} ({network_message})")
 
-        reference_value = payment.reference or f"Payout for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}"
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": convert_to_local_ghana_format(payment.receiver_phone),  # MTC: receiver (in 0xxx format)
             "exttrid": mtc_transaction_id,
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": reference_value,
+            "reference": f"Payout for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -679,13 +678,12 @@ class PaymentService:
 
         logger.info(f"[ATP_NETWORK_DETECTION] Receiver phone: {payment.receiver_phone} -> Detected network: {detected_network} ({network_message})")
 
-        reference_value = payment.reference or f"Airtime for {payment.intent.replace('_', ' ').title() if payment.intent else 'Airtime'}"
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": convert_to_local_ghana_format(payment.receiver_phone),  # ATP: receiver (in 0xxx format)
             "exttrid": atp_transaction_id,
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": reference_value,
+            "reference": f"Airtime for {payment.intent.replace('_', ' ').title() if payment.intent else 'Airtime'}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -709,13 +707,12 @@ class PaymentService:
 
         logger.info(f"[BLP_REQUEST] Building BLP request for account: {payment.receiver_phone} (stored as account_number), utility: {utility_network}")
 
-        reference_value = payment.reference or f"Bill payment for {payment.intent.replace('_', ' ').title() if payment.intent else 'Bill Payment'}"
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
             "account_number": payment.receiver_phone,  # BLP uses account_number (smart card number)
             "exttrid": blp_transaction_id,
             "nw": utility_network,  # Telco biller network codes: GOT, DST, MPP, VPP, STT, VBB
-            "reference": reference_value,
+            "reference": f"Bill payment for {payment.intent.replace('_', ' ').title() if payment.intent else 'Bill Payment'}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -853,13 +850,12 @@ class PaymentService:
 
         logger.info(f"[REVERSAL_NETWORK_DETECTION] Sender phone: {payment.sender_phone} -> Detected network: {detected_network} ({network_message})")
 
-        reference_value = payment.reference or f"Reversal for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}"
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": convert_to_local_ghana_format(payment.sender_phone),  # Reversal: refund to sender
             "exttrid": reversal_transaction_id,
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": reference_value,
+            "reference": f"Reversal for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -1077,13 +1073,12 @@ class PaymentService:
         logger.info(f"[CTM_NETWORK_DETECTION] Sender phone: {payment.sender_phone} -> Detected network: {detected_network} ({network_message})")
 
         amount = payment.amount_paid if isinstance(payment.amount_paid, Decimal) else Decimal(str(payment.amount_paid))
-        reference_value = payment.reference or f"{intent.replace('_', ' ').title()}"
         request_data = {
             "amount": str(amount.quantize(Decimal('0.00'))),
             "customer_number": convert_to_local_ghana_format(payment.sender_phone),  # CTM: sender (in 0xxx format)
             "exttrid": payment.transaction_id,  # Keep as string, not int
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": reference_value,
+            "reference": f"{intent.replace('_', ' ').title()}",
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),

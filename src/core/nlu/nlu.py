@@ -3,6 +3,7 @@ import base64
 from dataclasses import dataclass
 from decimal import Decimal
 import io
+import re
 from core.cloudstorage.service.storageservice import StorageService
 from core.histories.service.historyservice import HistoryService
 import openai
@@ -108,6 +109,51 @@ class LebeNLUSystem:
                 
         except Exception as e:
             logger.error(f"[BENEFICIARY_LOOKUP_ERROR] Error during beneficiary lookup: {str(e)}", exc_info=True)
+            return None
+
+    def _resolve_beneficiary_from_message(self, user_id: str, user_message: str, db: Session) -> Optional[Dict]:
+        """
+        Fallback beneficiary resolution using regex matching against the raw user message.
+        This helps when the LLM doesn't extract beneficiary_name but the message contains it.
+        """
+        try:
+            from core.beneficiaries.service.beneficiary_service import BeneficiaryService
+
+            beneficiary_service = BeneficiaryService(db)
+            beneficiaries = beneficiary_service.get_beneficiaries(user_id)
+
+            if not beneficiaries or not user_message:
+                return None
+
+            message_lower = user_message.lower()
+            matches = []
+            for benef in beneficiaries:
+                name = (benef.name or "").strip()
+                if not name:
+                    continue
+                name_lower = name.lower()
+                pattern = r"\b" + re.escape(name_lower) + r"\b"
+                if re.search(pattern, message_lower) or name_lower in message_lower:
+                    matches.append(benef)
+
+            if not matches:
+                return None
+
+            # Prefer the longest matching name to reduce partial-match mistakes.
+            matched_beneficiary = max(matches, key=lambda b: len((b.name or "").strip()))
+            logger.info(
+                f"[BENEFICIARY_REGEX_MATCH] Matched beneficiary from message: "
+                f"{matched_beneficiary.name} ({matched_beneficiary.customer_number})"
+            )
+            return {
+                "customer_number": matched_beneficiary.customer_number,
+                "network": matched_beneficiary.network,
+                "name": matched_beneficiary.name,
+                "account_type": matched_beneficiary.account_type,
+                "bank_code": matched_beneficiary.bank_code,
+            }
+        except Exception as e:
+            logger.error(f"[BENEFICIARY_REGEX_MATCH_ERROR] Error during regex beneficiary lookup: {str(e)}", exc_info=True)
             return None
     
     def process_message(
@@ -371,7 +417,7 @@ class LebeNLUSystem:
             payment_intents = ["buy_airtime", "send_money", "pay_bill", "get_loan"]
 
             if intent in payment_intents:
-                return self._process_payment_intent(user_id, intent, slots)
+                return self._process_payment_intent(user_id, intent, slots, user_message)
             else:
                 return self._process_non_payment_intent(user_id, intent, user_message, conversation_history, slots)
 
@@ -381,7 +427,7 @@ class LebeNLUSystem:
             traceback.print_exc()
             return self.response_formatter.format_response(intent, "error", message=str(e))
 
-    def _process_payment_intent(self, user_id: str, intent: str, slots: Dict) -> str:
+    def _process_payment_intent(self, user_id: str, intent: str, slots: Dict, user_message: str = "") -> str:
         """Process payment intents through PaymentService"""
 
         db = SessionLocal()
@@ -666,6 +712,21 @@ class LebeNLUSystem:
                         logger.info(f"[BENEFICIARY_RESOLUTION] Beneficiary resolved: {beneficiary_info['name']} → {beneficiary_info['customer_number']}")
                     else:
                         return self.response_formatter.format_response(intent, "error", message=f"Beneficiary '{beneficiary_name}' not found in your saved contacts. Please provide the phone number directly or save this beneficiary first.")
+
+                # Fallback: if no recipient yet but we have a reference, try regex matching on raw message
+                if not slots.get('recipient') and slots.get('reference'):
+                    regex_match = self._resolve_beneficiary_from_message(user_id, user_message, db)
+                    if regex_match:
+                        slots['recipient'] = regex_match['customer_number']
+                        slots['network'] = slots.get('network') or regex_match['network']
+                        slots['beneficiary_matched'] = regex_match['name']
+                        slots['beneficiary_name'] = slots.get('beneficiary_name') or regex_match['name']
+                    else:
+                        return self.response_formatter.format_response(
+                            intent,
+                            "missing_slots",
+                            prompt="Please provide the recipient's phone number or a saved beneficiary name."
+                        )
                 
                 try:
                     payment_service = PaymentService(db)

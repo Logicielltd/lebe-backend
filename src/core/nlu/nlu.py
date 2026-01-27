@@ -456,7 +456,8 @@ class LebeNLUSystem:
             # Resolve beneficiary for buy_airtime and send_money if beneficiary_name slot exists
             if intent == "buy_airtime" or intent == "send_money":
                 beneficiary_name = slots.get('beneficiary_name')
-                if beneficiary_name:
+                needs_lookup = (not slots.get('phone_number')) if intent == "buy_airtime" else (not slots.get('recipient'))
+                if beneficiary_name and needs_lookup:
                     logger.info(f"[BENEFICIARY_RESOLUTION] Resolving beneficiary for {intent}: {beneficiary_name}")
                     beneficiary_info = self._resolve_beneficiary(user_id, beneficiary_name, db)
                     if beneficiary_info:

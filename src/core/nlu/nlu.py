@@ -9,6 +9,7 @@ import openai
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import logging
+from sqlalchemy.orm import Session
 from core.auth.service.authservice import AuthService
 from core.nlu.config import INTENT_CATEGORIES
 from core.nlu.service.intentprocessor import IntentProcessor
@@ -59,6 +60,55 @@ class LebeNLUSystem:
         self.security_manager = SecurityManager()
         self.response_formatter = ResponseFormatter()
         self.intent_processor = IntentProcessor()
+    
+    def _resolve_beneficiary(self, user_id: str, beneficiary_name: str, db: Session) -> Optional[Dict]:
+        """
+        Lookup a beneficiary by name and extract the customer number.
+        
+        Args:
+            user_id: User identifier
+            beneficiary_name: Name of the beneficiary to lookup
+            db: Database session
+            
+        Returns:
+            Dictionary with beneficiary info (customer_number, network, name) or None if not found
+        """
+        try:
+            from core.beneficiaries.service.beneficiary_service import BeneficiaryService
+            
+            beneficiary_service = BeneficiaryService(db)
+            beneficiaries = beneficiary_service.get_beneficiaries(user_id)
+            
+            if not beneficiaries:
+                logger.info(f"[BENEFICIARY_LOOKUP] No beneficiaries found for user {user_id}")
+                return None
+            
+            # Search for matching beneficiary by name (case-insensitive partial match)
+            beneficiary_name_lower = beneficiary_name.lower().strip()
+            matched_beneficiary = None
+            
+            for benef in beneficiaries:
+                if benef.name.lower() == beneficiary_name_lower or \
+                   beneficiary_name_lower in benef.name.lower():
+                    matched_beneficiary = benef
+                    break
+            
+            if matched_beneficiary:
+                logger.info(f"[BENEFICIARY_LOOKUP] Found beneficiary: {matched_beneficiary.name} ({matched_beneficiary.customer_number})")
+                return {
+                    "customer_number": matched_beneficiary.customer_number,
+                    "network": matched_beneficiary.network,
+                    "name": matched_beneficiary.name,
+                    "account_type": matched_beneficiary.account_type,
+                    "bank_code": matched_beneficiary.bank_code
+                }
+            else:
+                logger.info(f"[BENEFICIARY_LOOKUP] No beneficiary found matching name: {beneficiary_name}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"[BENEFICIARY_LOOKUP_ERROR] Error during beneficiary lookup: {str(e)}", exc_info=True)
+            return None
     
     def process_message(
         self, 
@@ -144,18 +194,14 @@ class LebeNLUSystem:
         
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
-        
-        if intent in ["greeting"]:
-            # Handle simple intents directly
-            response = self.response_formatter.format_response(intent, "greeting")
 
-        elif current_missing:
+        if current_missing or (len(state.collected_slots) == 1 and 'amount' in state.collected_slots):
             # Ask for missing slots
             prompt = self.slot_manager.generate_slot_prompt(intent, current_missing)
             response = self.response_formatter.format_response(
                 intent, "missing_slots", prompt=prompt
             )
- 
+
         else:
             # All slots collected, execute action directly (PIN verification commented out for testing)
             # TODO: Re-enable PIN verification after payment flow is working
@@ -290,9 +336,10 @@ class LebeNLUSystem:
             # Execute the payment with confirmed slots
             response = self._execute_action(user_id, intent, slots, user_response, state.conversation_history)
 
-            # Clear confirmation state
+            # Clear confirmation state and collected slots
             state.waiting_for_payment_confirmation = False
             state.pending_payment_dto = {}
+            state.collected_slots = {}
             self.conversation_manager._save_conversation_state(state)
 
         elif any(keyword in user_response_lower for keyword in rejection_keywords):
@@ -354,6 +401,21 @@ class LebeNLUSystem:
             }
 
             print(f"[PAYMENT_INTENT] Creating PaymentDto for intent: {intent}")
+
+            # Resolve beneficiary for buy_airtime and send_money if beneficiary_name slot exists
+            if intent == "buy_airtime" or intent == "send_money":
+                beneficiary_name = slots.get('beneficiary_name')
+                if beneficiary_name:
+                    logger.info(f"[BENEFICIARY_RESOLUTION] Resolving beneficiary for {intent}: {beneficiary_name}")
+                    beneficiary_info = self._resolve_beneficiary(user_id, beneficiary_name, db)
+                    if beneficiary_info:
+                        # Update slots with resolved beneficiary information
+                        slots['phone_number'] = beneficiary_info['customer_number']
+                        slots['network'] = beneficiary_info['network']
+                        slots['beneficiary_matched'] = beneficiary_info['name']
+                        logger.info(f"[BENEFICIARY_RESOLUTION] Beneficiary resolved: {beneficiary_info['name']} → {beneficiary_info['customer_number']}")
+                    else:
+                        return self.response_formatter.format_response(intent, "error", message=f"Beneficiary '{beneficiary_name}' not found in your saved contacts. Please provide the phone number directly or save this beneficiary first.")
 
             # Create PaymentDto based on intent
             if intent == "buy_airtime":
@@ -589,6 +651,21 @@ class LebeNLUSystem:
             # For send_money, perform account inquiry and wait for confirmation (only if not already done)
             if intent == "send_money" and not state.pending_payment_dto:
                 logger.info(f"[ACCOUNT_INQUIRY] Performing account inquiry for send_money")
+                
+                # First, resolve beneficiary if beneficiary_name slot exists
+                beneficiary_name = slots.get('beneficiary_name')
+                if beneficiary_name:
+                    logger.info(f"[BENEFICIARY_RESOLUTION] Resolving beneficiary: {beneficiary_name}")
+                    beneficiary_info = self._resolve_beneficiary(user_id, beneficiary_name, db)
+                    if beneficiary_info:
+                        # Update slots with resolved beneficiary information
+                        slots['recipient'] = beneficiary_info['customer_number']
+                        slots['network'] = beneficiary_info['network']
+                        slots['beneficiary_matched'] = beneficiary_info['name']
+                        logger.info(f"[BENEFICIARY_RESOLUTION] Beneficiary resolved: {beneficiary_info['name']} → {beneficiary_info['customer_number']}")
+                    else:
+                        return self.response_formatter.format_response(intent, "error", message=f"Beneficiary '{beneficiary_name}' not found in your saved contacts. Please provide the phone number directly or save this beneficiary first.")
+                
                 try:
                     payment_service = PaymentService(db)
                     recipient_phone = slots.get('recipient')

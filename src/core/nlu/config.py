@@ -85,14 +85,14 @@ INTENTS = {
     # ===== TRANSACTIONAL INTENTS =====
     "send_money": {
         "description": "Send money to another person",
-        "slots": ["recipient", "amount", "network", "reference"],
+        "slots": ["recipient", "amount", "network", "reference", "beneficiary_name"],
         "required_slots": ["recipient", "amount", "reference"],
         "category": "transactional"
     },
     "buy_airtime": {
         "description": "Purchase airtime credit",
-        "slots": ["phone_number", "amount", "network"],
-        "required_slots": ["phone_number", "amount"],
+        "slots": ["phone_number", "amount", "beneficiary_name"],
+        "required_slots": ["amount"],
         "category": "transactional"
     },
     "pay_bill": {
@@ -276,7 +276,6 @@ SYSTEM_PROMPTS = {
 # Enhanced Response Templates
 RESPONSE_TEMPLATES = {
     "conversational": {
-        "greeting": "Hello! 👋 I'm Lebe, your friendly financial assistant. How can I help you today?",
         "normal_conversation": "{response}",
         "small_talk": "{response}",
         "goodbye": "Goodbye! 👋 Feel free to reach out if you need any financial assistance!"

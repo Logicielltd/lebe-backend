@@ -5,11 +5,8 @@ class ResponseFormatter:
     def format_response(intent: str, message_type: str, **kwargs) -> str:
         """Format responses in a friendly financial assistant style"""
         
-        if message_type == "greeting":
-            return "💳 Hello! I'm Lebe, your financial assistant. How can I help you today? I can help you send money, buy airtime, pay bills, and more!"
-        
-        elif message_type == "missing_slots":
-            return f"💬 {kwargs.get('message', 'I need a few more details to help you:')} {kwargs.get('prompt', '')}"
+        if message_type == "missing_slots":
+            return f"{kwargs.get('message', 'I need a few more details,')} {kwargs.get('prompt', '')}"
         
         elif message_type == "confirm_action":
             action_descriptions = {

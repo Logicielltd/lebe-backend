@@ -85,9 +85,9 @@ class UserRAGManager:
                     "phone_number": tx.receiver_phone,
                     "category": tx.intent,
                     "status": tx.status.value if hasattr(tx.status, 'value') else str(tx.status),
-                    "description": None,
+                    "description": tx.reference or None,
                     "created_at": tx.date_paid.isoformat() if tx.date_paid else None,
-                    "metadata": {}
+                    "metadata": {"reference": tx.reference} if tx.reference else {}
                 })
             
             return transaction_list

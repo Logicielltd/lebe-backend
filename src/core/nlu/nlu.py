@@ -196,8 +196,9 @@ class LebeNLUSystem:
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
 
         if current_missing or (len(state.collected_slots) == 1 and 'amount' in state.collected_slots):
-            # Ask for missing slots
-            prompt = self.slot_manager.generate_slot_prompt(intent, current_missing)
+            # Ask for one missing slot at a time to keep the flow predictable
+            next_missing = [current_missing[0]] if current_missing else []
+            prompt = self.slot_manager.generate_slot_prompt(intent, next_missing)
             response = self.response_formatter.format_response(
                 intent, "missing_slots", prompt=prompt
             )

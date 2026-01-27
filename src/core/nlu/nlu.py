@@ -389,6 +389,7 @@ class LebeNLUSystem:
                     senderProvider=slots.get('sender_provider'),  # Provider for sender
                     receiverProvider=slots.get('receiver_provider'),  # Provider for receiver
                     serviceName=f"Money Transfer to {slots.get('recipient')}",
+                    reference=slots.get('reference'),
                     amountPaid=Decimal(slots.get('amount', '0')),
                     transactionId=str(UniqueIdGenerator.generate())
                 )
@@ -633,7 +634,12 @@ class LebeNLUSystem:
 
                         # Create confirmation message with provider information
                         receiver_provider = ProviderMapper.get_provider(recipient_network)
-                        confirmation_msg = f"Are you sure you want to send GHS {amount} to {recipient_phone} ({account_name}) on {receiver_provider}?\nPlease reply 'yes' to confirm or 'no' to cancel."
+                        reference = slots.get('reference')
+                        reference_line = f"\nReference: {reference}" if reference else ""
+                        confirmation_msg = (
+                            f"Are you sure you want to send GHS {amount} to {recipient_phone} ({account_name}) on {receiver_provider}?"
+                            f"{reference_line}\nPlease reply 'yes' to confirm or 'no' to cancel."
+                        )
 
                         # Store payment info and set waiting for confirmation
                         state.current_intent = intent

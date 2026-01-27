@@ -28,6 +28,7 @@ class PaymentDto(BaseModel):
     updatedOn: Optional[datetime] = None
     # External biller information (for non-telco/ABS bill payments)
     extBillerRefId: Optional[str] = None  # Biller ID for ABS bill payments
+    reference: Optional[str] = None  # User-provided reference for tracking
     # Sender and receiver information
     senderName: Optional[str] = None  # Name of user initiating transaction
     receiverName: Optional[str] = None  # Verified account holder name

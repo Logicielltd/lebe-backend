@@ -45,6 +45,7 @@ class Payment(Base):
 
     # External biller information (for non-telco/ABS bill payments)
     ext_biller_ref_id: Mapped[Optional[str]] = mapped_column(String)  # Biller ID for ABS bill payments
+    reference: Mapped[Optional[str]] = mapped_column(Text)  # User-provided reference for tracking
 
     # Sender and receiver information
     sender_name: Mapped[Optional[str]] = mapped_column(String)  # Name of user initiating transaction

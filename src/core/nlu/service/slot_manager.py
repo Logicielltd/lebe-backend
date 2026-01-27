@@ -81,7 +81,7 @@ class SlotManager:
             "recipient": "Who would you like to send money to? Please provide the phone number.",
             "amount": "How much would you like to send?",
             "network": "Which mobile network? (MTN, Vodafone, AirtelTigo)",
-            "reason": "What's the reason for this transfer?",
+            "reference": "What's the reference for this transfer?",
             "phone_number": "Which phone number should I top up?",
             "data_plan": "Which data plan would you like?",
             "bill_type": self._generate_bill_type_prompt(bill_providers),

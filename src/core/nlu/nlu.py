@@ -241,6 +241,10 @@ class LebeNLUSystem:
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
 
+        # If a beneficiary name is present, defer asking for recipient phone and ask for reference first.
+        if intent == "send_money" and state.collected_slots.get("beneficiary_name"):
+            current_missing = [s for s in current_missing if s != "recipient"]
+
         if current_missing or (len(state.collected_slots) == 1 and 'amount' in state.collected_slots):
             # Ask for one missing slot at a time to keep the flow predictable
             next_missing = [current_missing[0]] if current_missing else []

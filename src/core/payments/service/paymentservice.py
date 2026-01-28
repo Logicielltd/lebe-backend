@@ -484,7 +484,7 @@ class PaymentService:
             "customer_number": convert_to_local_ghana_format(payment.receiver_phone),  # MTC: receiver (in 0xxx format)
             "exttrid": mtc_transaction_id,
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": f"Payout for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
+            "reference": os.getenv("PAYMENT_REFERENCE", "Lemo Financial"),
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -683,7 +683,7 @@ class PaymentService:
             "customer_number": convert_to_local_ghana_format(payment.receiver_phone),  # ATP: receiver (in 0xxx format)
             "exttrid": atp_transaction_id,
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": f"Airtime for {payment.intent.replace('_', ' ').title() if payment.intent else 'Airtime'}",
+            "reference": os.getenv("PAYMENT_REFERENCE", "Lemo Financial"),
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -712,7 +712,7 @@ class PaymentService:
             "account_number": payment.receiver_phone,  # BLP uses account_number (smart card number)
             "exttrid": blp_transaction_id,
             "nw": utility_network,  # Telco biller network codes: GOT, DST, MPP, VPP, STT, VBB
-            "reference": f"Bill payment for {payment.intent.replace('_', ' ').title() if payment.intent else 'Bill Payment'}",
+            "reference": os.getenv("PAYMENT_REFERENCE", "Lemo Financial"),
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -855,7 +855,7 @@ class PaymentService:
             "customer_number": convert_to_local_ghana_format(payment.sender_phone),  # Reversal: refund to sender
             "exttrid": reversal_transaction_id,
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": f"Reversal for {payment.intent.replace('_', ' ').title() if payment.intent else 'Payment'}",
+            "reference": os.getenv("PAYMENT_REFERENCE", "Lemo Financial"),
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),
@@ -1078,7 +1078,7 @@ class PaymentService:
             "customer_number": convert_to_local_ghana_format(payment.sender_phone),  # CTM: sender (in 0xxx format)
             "exttrid": payment.transaction_id,  # Keep as string, not int
             "nw": network_to_use,  # Use detected network instead of stored network
-            "reference": f"{intent.replace('_', ' ').title()}",
+            "reference": os.getenv("PAYMENT_REFERENCE", "Lemo Financial"),
             "service_id": self.service_id,
             "ts": self.payment_gateway_client.get_current_timestamp(),
             "callback_url": self.payment_gateway_client.build_callback_url(),

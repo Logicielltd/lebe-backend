@@ -48,10 +48,10 @@ class IntentDetector:
         - The system will look up the saved beneficiary by name and extract the phone number automatically
 
         IMPORTANT RULE FOR REFERENCE EXTRACTION:
-        - Extract "for [purpose]" phrases as the reference slot
-        - Examples: "send 2 cedis to lebeney for food" → extract reference as "food"
-        - Examples: "send 50 to John for transport" → extract reference as "transport"
-        - Examples: "send 100 cedis to Ama for school fees" → extract reference as "school fees"
+        - Extract "for [purpose]" phrases as the reference slot, including the "for" keyword
+        - Examples: "send 2 cedis to lebeney for food" → extract reference as "for food"
+        - Examples: "send 50 to John for transport" → extract reference as "for transport"
+        - Examples: "send 100 cedis to Ama for school fees" → extract reference as "for school fees"
         - The reference describes the purpose or reason for the payment
         
         Respond in this exact format:

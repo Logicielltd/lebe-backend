@@ -225,19 +225,38 @@ class LebeNLUSystem:
         state.collected_slots.update(validated_slots)
 
         state.current_intent = intent
-        
+
         # CHECK SUBSCRIPTION STATUS EARLY
         # print (f"User Subscription Status: {user_subscription_status}")
         # if not user_subscription_status and intent != "create_new_account":
         #     # User needs subscription but isn't trying to create account
         #     response = self.response_formatter.format_response(
-        #         "subscription_required", 
+        #         "subscription_required",
         #         "need_subscription",
         #         current_intent=intent  # Pass the original intent for context
         #     )
         #     self.conversation_manager.update_conversation_history(user_id, "assistant", response)
         #     return response
-        
+
+        # Check if user wants to cancel during slot collection
+        if state.current_intent and user_message:
+            user_msg_lower = user_message.lower().strip()
+            cancellation_keywords = ["cancel", "stop", "abort", "never mind", "nevermind", "quit"]
+
+            if any(keyword in user_msg_lower for keyword in cancellation_keywords):
+                logger.info(f"[CANCELLATION] User {user_id} cancelled {state.current_intent} during slot collection")
+                response = self.response_formatter.format_response(state.current_intent, "payment_cancelled")
+
+                # Clear all transaction state
+                state.current_intent = ""
+                state.collected_slots = {}
+                state.pending_payment_dto = {}
+                state.waiting_for_payment_confirmation = False
+                self.conversation_manager._save_conversation_state(state)
+
+                self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+                return response
+
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
 

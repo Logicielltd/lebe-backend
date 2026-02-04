@@ -233,7 +233,7 @@ SYSTEM_PROMPTS = {
     - Summarizing expenses over specified time periods
 
     The following section includes the user's spending data.
-    If there is no transactions data available, return with a message indicating no data generated yet.
+    If there is no transactions data available, return with a message indicating no data generated yet for that scenario.
 
     Current User context: {context}
     Expense report criteria: {category}
@@ -241,7 +241,6 @@ SYSTEM_PROMPTS = {
     Notes for accuracy:
         - If specific time periods are mentioned, focus on those.
         - Keep response very short and concise.
-        - If there is no spending data, respond with "You have not generated any expense data for the specified criteria.
         - There is field called 'transaction_success_or_failure' indicating if a transaction was successful or failed.
     """,
 

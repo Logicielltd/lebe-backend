@@ -2,6 +2,8 @@ from typing import List, Optional, Tuple
 from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
+import re
+from difflib import SequenceMatcher
 
 from core.beneficiaries.model.beneficiary import Beneficiary, AccountType as BeneficiaryAccountType
 from core.beneficiaries.utility.network_detector import NetworkDetector, Network, AccountType
@@ -18,6 +20,25 @@ class BeneficiaryService:
 
     def __init__(self, db: Session):
         self.db = db
+
+    def _normalize_name(self, value: str) -> str:
+        normalized = re.sub(r"\s+", " ", (value or "").strip().lower())
+        normalized = re.sub(r"[^a-z0-9 ]", "", normalized)
+        return normalized
+
+    def _is_similar_name(self, left: str, right: str) -> bool:
+        left_n = self._normalize_name(left)
+        right_n = self._normalize_name(right)
+        if not left_n or not right_n:
+            return False
+
+        if left_n == right_n:
+            return True
+
+        if len(left_n) >= 4 and len(right_n) >= 4 and (left_n in right_n or right_n in left_n):
+            return True
+
+        return SequenceMatcher(None, left_n, right_n).ratio() >= 0.86
 
     def _normalize_phone_like(self, value: str) -> str:
         cleaned = "".join(ch for ch in (value or "") if ch.isdigit())
@@ -128,6 +149,18 @@ class BeneficiaryService:
 
             if existing:
                 return False, None, f"Beneficiary '{existing.name}' with this {network} account already exists"
+
+            # Enforce unique-ish names per user to avoid ambiguous send_money resolution.
+            existing_names = self.db.query(Beneficiary).filter(
+                Beneficiary.user_id == resolved_user_id,
+                Beneficiary.is_active == True
+            ).all()
+            for item in existing_names:
+                if self._is_similar_name(name, item.name):
+                    return False, None, (
+                        f"Beneficiary name '{name}' is too similar to existing beneficiary '{item.name}'. "
+                        "Please use a more distinct name."
+                    )
 
             # Determine account type and map to the DB enum values
             detected_account_type = NetworkDetector.determine_account_type(network_enum)

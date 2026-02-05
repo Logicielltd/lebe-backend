@@ -62,7 +62,6 @@ class UserRAGManager:
             # Base query: use Payment table (only SUCCESS) and filter by sender phone
             query = db.query(Payment).filter(
                 Payment.sender_phone == user_id,
-                Payment.status == PaymentStatus.SUCCESS
             )
 
             # Apply time filters based on intent (use date_paid)
@@ -84,7 +83,7 @@ class UserRAGManager:
                     "recipient": tx.receiver_name or tx.receiver_phone,
                     "phone_number": tx.receiver_phone,
                     "category": tx.intent,
-                    "status": tx.status.value if hasattr(tx.status, 'value') else str(tx.status),
+                    "transaction_success_or_failure": tx.status.value if hasattr(tx.status, 'value') else str(tx.status),
                     "description": tx.reference or None,
                     "created_at": tx.date_paid.isoformat() if tx.date_paid else None,
                     "metadata": {"reference": tx.reference} if tx.reference else {}

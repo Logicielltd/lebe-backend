@@ -85,6 +85,8 @@ class PaymentService:
             'receiver_provider': payment_dto.receiverProvider or receiver_provider,
             'ext_biller_ref_id': payment_dto.extBillerRefId,  # Biller ID for ABS bill payments
             'reference': payment_dto.reference,
+            'beneficiary_id': payment_dto.beneficiaryId,
+            'beneficiary_name': payment_dto.beneficiaryName,
         }
 
         # Create or retrieve payment record

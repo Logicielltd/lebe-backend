@@ -97,6 +97,7 @@ class LebeNLUSystem:
             if matched_beneficiary:
                 logger.info(f"[BENEFICIARY_LOOKUP] Found beneficiary: {matched_beneficiary.name} ({matched_beneficiary.customer_number})")
                 return {
+                    "id": matched_beneficiary.id,
                     "customer_number": matched_beneficiary.customer_number,
                     "network": matched_beneficiary.network,
                     "name": matched_beneficiary.name,
@@ -146,6 +147,7 @@ class LebeNLUSystem:
                 f"{matched_beneficiary.name} ({matched_beneficiary.customer_number})"
             )
             return {
+                "id": matched_beneficiary.id,
                 "customer_number": matched_beneficiary.customer_number,
                 "network": matched_beneficiary.network,
                 "name": matched_beneficiary.name,
@@ -484,6 +486,7 @@ class LebeNLUSystem:
                         slots['phone_number'] = beneficiary_info['customer_number']
                         slots['network'] = beneficiary_info['network']
                         slots['beneficiary_matched'] = beneficiary_info['name']
+                        slots['beneficiary_id'] = beneficiary_info['id']
                         logger.info(f"[BENEFICIARY_RESOLUTION] Beneficiary resolved: {beneficiary_info['name']} → {beneficiary_info['customer_number']}")
                     else:
                         return self.response_formatter.format_response(intent, "error", message=f"Beneficiary '{beneficiary_name}' not found in your saved contacts. Please provide the phone number directly or save this beneficiary first.")
@@ -523,6 +526,8 @@ class LebeNLUSystem:
                     receiverProvider=slots.get('receiver_provider'),  # Provider for receiver
                     serviceName=f"Money Transfer to {slots.get('recipient')}",
                     reference=slots.get('reference'),
+                    beneficiaryId=slots.get('beneficiary_id'),
+                    beneficiaryName=slots.get('beneficiary_matched'),
                     amountPaid=Decimal(slots.get('amount', '0')),
                     transactionId=str(UniqueIdGenerator.generate())
                 )
@@ -725,7 +730,7 @@ class LebeNLUSystem:
                 
                 # First, resolve beneficiary if beneficiary_name slot exists
                 beneficiary_name = slots.get('beneficiary_name')
-                if beneficiary_name:
+                if beneficiary_name and not slots.get('recipient'):
                     logger.info(f"[BENEFICIARY_RESOLUTION] Resolving beneficiary: {beneficiary_name}")
                     beneficiary_info = self._resolve_beneficiary(user_id, beneficiary_name, db)
                     if beneficiary_info:
@@ -733,6 +738,7 @@ class LebeNLUSystem:
                         slots['recipient'] = beneficiary_info['customer_number']
                         slots['network'] = beneficiary_info['network']
                         slots['beneficiary_matched'] = beneficiary_info['name']
+                        slots['beneficiary_id'] = beneficiary_info['id']
                         logger.info(f"[BENEFICIARY_RESOLUTION] Beneficiary resolved: {beneficiary_info['name']} → {beneficiary_info['customer_number']}")
                     else:
                         return self.response_formatter.format_response(intent, "error", message=f"Beneficiary '{beneficiary_name}' not found in your saved contacts. Please provide the phone number directly or save this beneficiary first.")
@@ -744,6 +750,7 @@ class LebeNLUSystem:
                         slots['recipient'] = regex_match['customer_number']
                         slots['network'] = slots.get('network') or regex_match['network']
                         slots['beneficiary_matched'] = regex_match['name']
+                        slots['beneficiary_id'] = regex_match['id']
                         slots['beneficiary_name'] = slots.get('beneficiary_name') or regex_match['name']
                     else:
                         return self.response_formatter.format_response(

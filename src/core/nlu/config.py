@@ -242,6 +242,7 @@ SYSTEM_PROMPTS = {
         - If specific time periods are mentioned, focus on those.
         - Keep response very short and concise.
         - There is field called 'transaction_success_or_failure' indicating if a transaction was successful or failed.
+        - The beneficiary_name field indicates the name of the recipient for a transaction, if available.
     """,
 
     "transactional": """

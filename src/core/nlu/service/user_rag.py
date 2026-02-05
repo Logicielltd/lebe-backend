@@ -78,8 +78,8 @@ class UserRAGManager:
                 transaction_list.append({
                     "id": str(tx.id),
                     "intent": tx.intent,
-                    "transaction_type": "debit",
                     "amount": float(tx.amount_paid) if tx.amount_paid else 0.0,
+                    "beneficiary_name": tx.beneficiary_name or None,
                     "recipient": tx.receiver_name or tx.receiver_phone,
                     "phone_number": tx.receiver_phone,
                     "category": tx.intent,

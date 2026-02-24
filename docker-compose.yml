@@ -72,41 +72,16 @@ services:
       DB_ECHO: ${DB_ECHO:-false}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       
-      # Message Queue Configuration (if needed)
-      RABBIT_MQ_URL: ${RABBIT_MQ_URL:-}
-      RABBIT_MQ_ROUTING_KEY: ${RABBIT_MQ_ROUTING_KEY:-}
-      RABBIT_MQ_AUDIT_QUEUE: ${RABBIT_MQ_AUDIT_QUEUE:-}
-      SMS_MQ_QUEUE: ${SMS_MQ_QUEUE:-}
-      EMAIL_MQ_QUEUE: ${EMAIL_MQ_QUEUE:-}
-      BATCH_CUSTOMER_UPLOAD_QUEUE: ${BATCH_CUSTOMER_UPLOAD_QUEUE:-}
-      COMPANY_QUEUE: ${COMPANY_QUEUE:-}
-
-      # Wirepick SMS Configuration
-      WIREPICK_API_URL: "https://api.wirepick.com/httpsms"
-      WIREPICK_PUBLIC_KEY: ${WIREPICK_PUBLIC_KEY:-8YyJoInAPwhngnjbD_5u5y2kC0CCvPnMk_F0cKLE3vc}
-      WIREPICK_SENDER_ID: ${WIREPICK_SENDER_ID:-mumcycle}
-      USE_WIREPICK_API_KEY: ${USE_WIREPICK_API_KEY:-true}
-      
       # Frontend and Other URLs
       BASE_FRONTEND_URL: ${BASE_FRONTEND_URL:-http://localhost:3000}
       
       # OTP Configuration
       OTP_EXPIRE_MINUTES: ${OTP_EXPIRE_MINUTES:-5}
       
-      # MongoDB Configuration
-      MONGO_URI: ${MONGO_URI:-mongodb://localhost:27017/}
-      MONGO_DB_NAME: ${MONGO_DB_NAME:-api_logs_db}
-      
       # Auto Migration Flag
       AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
 
-      # Language Model API Key
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-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}
-      # Hugging Face API keys (set these in .env or your environment)
-      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY:-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}
-      HUGGINGFACEHUB_API_TOKEN: ${HUGGINGFACEHUB_API_TOKEN:-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}
-      HF_TOKEN: ${HF_TOKEN:-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}
-      HF_API_KEY: ${HF_API_KEY:-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}
+
       
     
     ports:

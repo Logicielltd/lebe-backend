@@ -81,9 +81,9 @@ services:
       # Auto Migration Flag
       AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
 
+      # OpenAi API Key
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
 
-      
-    
     ports:
       - "8000:8000"
     depends_on:

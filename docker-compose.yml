@@ -84,6 +84,11 @@ services:
       # OpenAi API Key
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
 
+      CONTABO_ACCESS_KEY: ${CONTABO_ACCESS_KEY:-b2ee38bebb5adffb5b9affc355f95be7}
+      CONTABO_SECRET_KEY: ${CONTABO_SECRET_KEY:-ee6212139797848b6a68ab04974c9376}
+      CONTABO_BUCKET: ${CONTABO_BUCKET:-lebebucket}
+      CONTABO_ENDPOINT: ${CONTABO_ENDPOINT:-https://eu2.contabostorage.com}
+
     ports:
       - "8000:8000"
     depends_on:

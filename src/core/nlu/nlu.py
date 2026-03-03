@@ -493,6 +493,16 @@ class LebeNLUSystem:
 
             # Create PaymentDto based on intent
             if intent == "buy_airtime":
+                
+                from core.user.model.User import User
+                sender_name = "User"
+                try:
+                    sender_user = db.query(User).filter(User.phone == user_id).first()
+                    if sender_user:
+                        sender_name = f"{sender_user.first_name} {sender_user.last_name}".strip()
+                except Exception as e:
+                    logger.warning(f"Could not fetch user name for {user_id}: {e}")
+                    
                 payment_dto = PaymentDto(
                     senderPhone=user_id,  # User initiating the payment
                     receiverPhone=slots.get('phone_number', user_id),  # Use extracted phone number (supports buying airtime for others)
@@ -500,7 +510,15 @@ class LebeNLUSystem:
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     serviceName="Airtime Top-Up",
                     amountPaid=Decimal(slots.get('amount', '0')),
-                    transactionId=str(UniqueIdGenerator.generate())
+                    transactionId=str(UniqueIdGenerator.generate()),
+                    customerName=slots.get('recipient_name', 'Unknown'),
+                    senderName=sender_name,  # Actual user name from database
+                    receiverName=slots.get('receiver_name'),  # Verified account holder name from account inquiry
+                    senderProvider=slots.get('sender_provider'),  # Provider for sender
+                    receiverProvider=slots.get('receiver_provider'),  # Provider for receiver
+                    reference=slots.get('reference'),
+                    beneficiaryId=slots.get('beneficiary_id'),
+                    beneficiaryName=slots.get('beneficiary_matched'),
                 )
 
             elif intent == "send_money":

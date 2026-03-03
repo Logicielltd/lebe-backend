@@ -29,55 +29,6 @@ class IntentDetector:
         # Enhanced prompt with context awareness and precision
         prompt = self._create_enhanced_prompt(user_message, current_intent)
         
-        # Create prompt for intent detection
-        prompt = f"""
-        Read the user's message and extract:
-        1. The main intent from this list: {list(self.intents.keys())}
-        2. Any relevant information (slots) for that intent
-        
-        User message: "{user_message}"
-        
-        Available intents and their slots:
-        {self._format_intents_for_prompt()}
-        
-        IMPORTANT RULES FOR BENEFICIARY DETECTION:
-        - For send_money and buy_airtime intents: If the user mentions a NAME (not a phone number), extract it as "beneficiary_name" slot
-        - Examples of names: "Send to John", "Buy airtime for Mom", "Send money to Ama"
-        - If a phone number is provided directly, use it as "recipient" or "phone_number" slot
-        - Both name and number can be provided; if name is provided, prefer extracting the name as beneficiary_name slot
-        - The system will look up the saved beneficiary by name and extract the phone number automatically
-
-        IMPORTANT RULE FOR REFERENCE EXTRACTION:
-        - Extract "for [purpose]" phrases as the reference slot, including the "for" keyword
-        - Examples: "send 2 cedis to lebeney for food" → extract reference as "for food"
-        - Examples: "send 50 to John for transport" → extract reference as "for transport"
-        - Examples: "send 100 cedis to Ama for school fees" → extract reference as "for school fees"
-        - The reference describes the purpose or reason for the payment
-        
-        Respond in this exact format:
-        INTENT: [detected_intent]
-        SLOTS: [json_object_with_slots]
-        MISSING: [comma_separated_missing_slots]
-        
-        Example with beneficiary name:
-        INTENT: send_money
-        SLOTS: {{"amount": "50", "beneficiary_name": "John"}}
-        MISSING: 
-        
-        Example with direct phone number:
-        INTENT: send_money
-        SLOTS: {{"amount": "50", "recipient": "0234567890"}}
-        MISSING: reference
-        """
-        
-        # If an image is attached, add an explicit instruction about it so the
-        # model knows there is an image URL or embedded base64 included in the
-        # user message (the actual image marker is appended by LLMClient).
-        image_note = ""
-        if media_context and (media_context.get("image_url") or media_context.get("image_base64")):
-            image_note = "\n\nNOTE: The user has provided an image. The image is referenced below. If you can use the image, use it to infer the user's intent and extract slots. If you cannot access or process the image, respond with the intent: CANNOT_PROCESS_IMAGE."
-            prompt = prompt + image_note
-
         try:
             logger.debug("Intent detection start: user_message=%s current_intent=%s media_present=%s", user_message, current_intent, bool(media_context))
 
@@ -95,11 +46,10 @@ class IntentDetector:
                 except Exception as ex:
                     logger.warning("Audio transcription failed: %s", ex)
 
-            # Pass image data to the LLM client when available so the model can
-            # perform multimodal intent detection.
             image_base64 = None
             image_url = None
             image_media_type = None
+            
             if media_context:
                 image_base64 = media_context.get("image_base64")
                 image_url = media_context.get("image_url")
@@ -107,6 +57,7 @@ class IntentDetector:
                 logger.debug("Media context keys: %s", list(media_context.keys()))
 
             logger.info("Calling LLMClient for intent detection (model=%s)", self.llm_client.model)
+            
             response_text = self.llm_client.chat_completion(
                 system_prompt=system_prompt,
                 user_message=prompt,
@@ -156,6 +107,7 @@ class IntentDetector:
         3. Only change intent if the user clearly introduces a new topic or request
         4. For ambiguous messages, prefer the current intent if it makes contextual sense
         5. Consider conversation history when determining if this is a continuation
+        6. A user can provide an image and an image data will be included in user message, use the image to infer the user's intent and extract slots. If you cannot access or process the image.
         
         CRITICAL RULES:
         - If user provides additional information for current intent: KEEP SAME INTENT
@@ -170,6 +122,7 @@ class IntentDetector:
         {intent_guidelines}
         
         {current_intent_context}
+        
         You are an expert conversational AI that identifies user intents and extracts relevant slot information.
         A slot is a specific piece of information needed to fulfill an intent (e.g., amount, recipient).
 
@@ -181,7 +134,7 @@ class IntentDetector:
         maintain that same intent **unless** the user clearly starts a new topic.
         4. Accurately identify missing required slots for that intent.
         
-        User message to read: "{user_message}"
+        User message: "{user_message}"
         
         Available intents and their slots:
         {self._format_intents_for_prompt()}

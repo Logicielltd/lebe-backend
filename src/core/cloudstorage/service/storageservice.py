@@ -92,8 +92,13 @@ class StorageService:
                     ExtraArgs=extra_args if extra_args else None
                 )
                 
-                # Generate URL for the uploaded object
-                url = f"{self.endpoint}/{self.bucket}/{file_name}"
+                # Generate public URL for the uploaded object using pre-signed URL
+                # This ensures the URL is in the correct Contabo format and publicly accessible
+                url = self.s3_client.generate_presigned_url(
+                    'get_object',
+                    Params={'Bucket': self.bucket, 'Key': file_name},
+                    ExpiresIn=31536000  # 1 year expiration
+                )
                 return url
             except Exception as e:
                 logger.error(f"Contabo S3 upload error: {str(e)}")
@@ -117,15 +122,26 @@ class StorageService:
                 raise
 
     def download_file(self, file_name: str, destination_path: str) -> str:
-        """Download blob to local file path.
+        """Download file from Contabo S3 to local file path.
 
-        Raises exceptions from Azure SDK if blob not found.
+        Args:
+            file_name: Name/path of the object in S3
+            destination_path: Local path to save the file
+
+        Returns:
+            str: Confirmation message
+
+        Raises:
+            Exception: S3 storage exceptions if file not found
         """
-        blob_client = self.container_client.get_blob_client(file_name)
-        downloader = blob_client.download_blob()
-
-        # Write bytes to the destination file
-        with open(destination_path, "wb") as f:
-            downloader.readinto(f)
-
-        return f"Downloaded {file_name} to {destination_path}"
+        try:
+            self.s3_client.download_file(
+                self.bucket,
+                file_name,
+                destination_path
+            )
+            logger.info(f"Successfully downloaded {file_name} from Contabo S3 to {destination_path}")
+            return f"Downloaded {file_name} to {destination_path}"
+        except ClientError as e:
+            logger.error(f"Contabo S3 download error for {file_name}: {str(e)}")
+            raise

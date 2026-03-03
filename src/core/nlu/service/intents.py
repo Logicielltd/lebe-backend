@@ -37,9 +37,11 @@ class IntentDetector:
                         media_context.get("audio_bytes"),
                         filename=media_context.get("audio_filename", "audio.mp3")
                     )
-                    logger.debug("Audio transcription result: %s", transcription)
+                    logger.info("Audio transcription result: %s", transcription)
+                    
                     if transcription:
                         user_message = user_message + f"\n{transcription}"
+                        
                 except Exception as ex:
                     logger.warning("Audio transcription failed: %s", ex)
 
@@ -65,6 +67,8 @@ class IntentDetector:
             logger.info("Calling LLMClient for intent detection (model=%s)", self.llm_client.model)
             
             # Enhanced prompt with context awareness and precision
+            logger.info("User message for intent detection (truncated): %s", (user_message))
+            
             prompt = self._create_enhanced_prompt(user_message, current_intent)
             
             response_text = self.llm_client.chat_completion(

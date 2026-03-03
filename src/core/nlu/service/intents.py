@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class IntentDetector:
     def __init__(self):
         self.intents = INTENTS
-        self.llm_client = LLMClient()  # Replace direct openai client with LLMClient
+        self.llm_client = LLMClient()
 
     def detect_intent_and_slots(self, user_message: str, conversation_history: List[Dict], current_intent: str = None, media_context: Dict = None) -> Tuple[str, Dict, List[str]]:
         """
@@ -39,7 +39,7 @@ class IntentDetector:
                     )
                     logger.debug("Audio transcription result: %s", transcription)
                     if transcription:
-                        prompt = prompt + f"\n\n[Audio transcription]: {transcription}"
+                        user_message = user_message + f"\n\n[Audio transcription]: {transcription}"
                 except Exception as ex:
                     logger.warning("Audio transcription failed: %s", ex)
 

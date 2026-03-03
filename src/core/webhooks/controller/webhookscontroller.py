@@ -617,7 +617,7 @@ def handle_audio_message(message: dict, phone: str, phone_number_id: str, db: Se
                 logger.info(f"Audio caption found: {caption}")
             else:
                 # Default message (will be enhanced with transcription in NLU)
-                user_message = "I'm sending you an audio message."
+                user_message = ""
                 logger.info("No caption provided with audio, using default message")
             
             # Process the message with audio

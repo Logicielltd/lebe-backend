@@ -39,7 +39,7 @@ class IntentDetector:
                     )
                     logger.debug("Audio transcription result: %s", transcription)
                     if transcription:
-                        user_message = user_message + f"\n\n[Audio transcription]: {transcription}"
+                        user_message = user_message + f"\n{transcription}"
                 except Exception as ex:
                     logger.warning("Audio transcription failed: %s", ex)
 
@@ -58,7 +58,7 @@ class IntentDetector:
                     )
                     logger.debug("Image text extraction result: %s", extracted_text)
                     if extracted_text:
-                        user_message = user_message + f"\n\nImage content: {extracted_text}"
+                        user_message = user_message + f"\n{extracted_text}"
                 except Exception as ex:
                     logger.warning("Image text extraction failed: %s", ex)
 
@@ -113,8 +113,7 @@ class IntentDetector:
         3. Only change intent if the user clearly introduces a new topic or request
         4. For ambiguous messages, prefer the current intent if it makes contextual sense
         5. Consider conversation history when determining if this is a continuation
-        6. A user can provide an image and an image data will be included in user message, use the image to infer the user's intent and extract slots. If you cannot access or process the image.
-        
+
         CRITICAL RULES:
         - If user provides additional information for current intent: KEEP SAME INTENT
         - If user corrects or modifies previous information: KEEP SAME INTENT  

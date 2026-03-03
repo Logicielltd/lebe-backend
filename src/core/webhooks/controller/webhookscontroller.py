@@ -527,7 +527,7 @@ def handle_image_message(message: dict, phone: str, phone_number_id: str, db: Se
                 logger.info(f"Image caption found: {caption}")
             else:
                 # Default message if no caption provided
-                user_message = "I am providing you with an image. The image is referenced below, use it to infer the user's intent and extract slots."
+                user_message = ""
                 logger.info("No caption provided with image, using default message")
             
             # Process the message with image

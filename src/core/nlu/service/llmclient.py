@@ -288,6 +288,51 @@ class LLMClient:
             logger.error(f"Error transcribing audio from bytes: {e}")
             return None
     
+    def extract_text_from_image(
+        self,
+        image_base64: Optional[str] = None,
+        image_url: Optional[str] = None,
+        image_media_type: str = "image/jpeg"
+    ) -> Optional[str]:
+        """
+        Extract all text content from an image using vision capabilities
+        
+        Args:
+            image_base64: Base64-encoded image data
+            image_url: Direct URL to image
+            image_media_type: MIME type of the image (image/jpeg, image/png, image/gif, image/webp)
+            
+        Returns:
+            Extracted text from image or None if extraction fails
+        """
+        if not image_base64 and not image_url:
+            logger.warning("extract_text_from_image: No image provided (both base64 and url are None)")
+            return None
+        
+        try:
+            logger.info("Extracting text from image")
+            
+            system_prompt = "You are an expert at extracting all visible text from images. Extract and return all text you can see in the image, preserving the structure and layout as much as possible."
+            
+            user_message = "Please extract and return all text visible in this image:"
+            
+            response = self.chat_completion(
+                system_prompt=system_prompt,
+                user_message=user_message,
+                temperature=0.1,
+                max_tokens=1000,
+                image_base64=image_base64,
+                image_url=image_url,
+                image_media_type=image_media_type
+            )
+            
+            logger.info(f"Text extraction successful. Extracted text length: {len(response) if response else 0}")
+            return response if response else None
+            
+        except Exception as e:
+            logger.error(f"Error extracting text from image: {e}")
+            return None
+    
     def chat_completion_with_audio(
         self,
         system_prompt: str,

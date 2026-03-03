@@ -25,9 +25,6 @@ class IntentDetector:
             missing_slots="",
             category="intent detection"
         )
-
-        # Enhanced prompt with context awareness and precision
-        prompt = self._create_enhanced_prompt(user_message, current_intent)
         
         try:
             logger.debug("Intent detection start: user_message=%s current_intent=%s media_present=%s", user_message, current_intent, bool(media_context))
@@ -46,17 +43,29 @@ class IntentDetector:
                 except Exception as ex:
                     logger.warning("Audio transcription failed: %s", ex)
 
-            image_base64 = None
-            image_url = None
-            image_media_type = None
-            
-            if media_context:
-                image_base64 = media_context.get("image_base64")
-                image_url = media_context.get("image_url")
-                image_media_type = media_context.get("image_mime_type")
-                logger.debug("Media context keys: %s", list(media_context.keys()))
+            # If image is present, extract text and include in prompt (not as image parameter)
+            if media_context and (media_context.get("image_base64") or media_context.get("image_url")):
+                try:
+                    logger.info("Extracting text from image for intent detection")
+                    image_base64 = media_context.get("image_base64")
+                    image_url = media_context.get("image_url")
+                    image_media_type = media_context.get("image_mime_type", "image/jpeg")
+                    
+                    extracted_text = self.llm_client.extract_text_from_image(
+                        image_base64=image_base64,
+                        image_url=image_url,
+                        image_media_type=image_media_type
+                    )
+                    logger.debug("Image text extraction result: %s", extracted_text)
+                    if extracted_text:
+                        user_message = user_message + f"\n\nImage content: {extracted_text}"
+                except Exception as ex:
+                    logger.warning("Image text extraction failed: %s", ex)
 
             logger.info("Calling LLMClient for intent detection (model=%s)", self.llm_client.model)
+            
+            # Enhanced prompt with context awareness and precision
+            prompt = self._create_enhanced_prompt(user_message, current_intent)
             
             response_text = self.llm_client.chat_completion(
                 system_prompt=system_prompt,
@@ -64,9 +73,6 @@ class IntentDetector:
                 conversation_history=conversation_history,
                 temperature=0.1,
                 max_tokens=500,
-                image_url=image_url,
-                image_base64=image_base64,
-                image_media_type=image_media_type or "image/jpeg",
             )
 
             logger.debug("Intent detection response text (truncated): %s", (response_text or '')[:1000])

@@ -342,9 +342,11 @@ def handle_interactive_message(message: dict, phone: str, phone_number_id: str, 
             logger.info(f"Phone normalization - Form: {user_phone} -> {normalized_user_phone}")
             logger.info(f"Phone normalization - WhatsApp: {phone} -> {normalized_wa_id}")
 
-            # Check if user already exists
+            # Check if user already exists (match by WhatsApp or form phone)
             existing_user = db.query(User).filter(
-                (User.phone == normalized_wa_id) | (User.email == email)
+                (User.phone == normalized_wa_id) |
+                (User.phone == normalized_user_phone) |
+                (User.email == email)
             ).first()
 
             if existing_user:
@@ -372,7 +374,7 @@ def handle_interactive_message(message: dict, phone: str, phone_number_id: str, 
                 username=email,  # Use email as username
                 first_name=first_name,
                 last_name=last_name,
-                phone=normalized_wa_id,  # Use WhatsApp ID as primary phone
+                phone=normalized_user_phone,  # Use form phone as primary phone
                 email=email,
                 hashed_pin=hashed_pin,
                 enabled=True,  # Enable immediately for WhatsApp users

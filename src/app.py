@@ -73,10 +73,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# print("Initializing database tables...")
-# Base.metadata.create_all(bind=engine)
-# print("Database tables initialized successfully.")
-
 # -----------------------------------------------------------
 # Middleware (CORS)
 # -----------------------------------------------------------

@@ -1,54 +1,110 @@
 services:
   db:
-    image: postgres:15
-    restart: always
+    image: postgres:15-alpine
+    container_name: lebe_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: lebeadmin
-      POSTGRES_PASSWORD: lebe098
-      POSTGRES_DB: lebe
+      POSTGRES_USER: ${POSTGRES_USER:-lebeadmin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lebe098}
+      POSTGRES_DB: ${POSTGRES_DB:-lebe}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lebe_network
+  
   redis:
-    image: redis:latest
-    container_name: leberedis
-    restart: always
+    image: redis:7-alpine
+    container_name: lebe_redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
-    command: redis-server --requirepass lebe098
-    environment:
-      REDIS_PASSWORD: lebe098
+    command: redis-server --requirepass ${REDIS_PASSWORD:-lebe098} --appendonly yes
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lebe_network
 
   backend:
-    build: .
-    command: python src/main.py
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lebe_backend
+    restart: unless-stopped
+    working_dir: /app
+    command: bash startup.sh
     volumes:
       - .:/app
     environment:
-      SQLALCHEMY_DATABASE_URL: postgresql://lebeadmin:lebe098@db:5432/lebe
-      REDIS_HOST: redis-1
-      REDIS_PORT: 6379
-      JWT_SECRET_KEY: green-secret-keeps-gamma
-      JWT_ALGORITHM: HS256
-      DEBUG: true
-      DB_ECHO: true
-      DB_HOST: ent_core_user_db
-      DB_PORT: 5432
-      DB_USER: user_admin
-      DB_PASSWORD: changeme321
-      DB_DATABASE: ent_core_db
-      MULTI_TENANT: false
-    restart: always
-    depends_on:
-      - db
-      - redis
+      # PostgreSQL Environment Variables (for config.py)
+      PGHOST: ${PGHOST:-db}
+      PGPORT: ${PGPORT:-5432}
+      PGUSER: ${PGUSER:-lebeadmin}
+      PGPASSWORD: ${PGPASSWORD:-lebe098}
+      PGDATABASE: ${PGDATABASE:-lebe}
+      
+      # SQLAlchemy Database URL (legacy support)
+      SQLALCHEMY_DATABASE_URL: "postgresql://lebeadmin:lebe098@db:5432/lebe"
+      
+      # Redis Configuration
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-lebe098}
+      
+      # JWT Configuration
+      SECRET_KEY: ${SECRET_KEY:-green-secret-keeps-gamma}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      KID: ${KID:-lebe-kid}
+      
+      # Application Configuration
+      DEBUG: ${DEBUG:-false}
+      DB_ECHO: ${DB_ECHO:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Frontend and Other URLs
+      BASE_FRONTEND_URL: ${BASE_FRONTEND_URL:-http://localhost:3000}
+      
+      # OTP Configuration
+      OTP_EXPIRE_MINUTES: ${OTP_EXPIRE_MINUTES:-5}
+      
+      # Auto Migration Flag
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
+
+      # OpenAi API Key
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+
+      CONTABO_ACCESS_KEY: ${CONTABO_ACCESS_KEY:-b2ee38bebb5adffb5b9affc355f95be7}
+      CONTABO_SECRET_KEY: ${CONTABO_SECRET_KEY:-ee6212139797848b6a68ab04974c9376}
+      CONTABO_BUCKET: ${CONTABO_BUCKET:-lebebucket}
+      CONTABO_ENDPOINT: ${CONTABO_ENDPOINT:-https://eu2.contabostorage.com}
+
     ports:
       - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lebe_network
 
 volumes:
-  redis_data:
   postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  lebe_network:
+    driver: bridge

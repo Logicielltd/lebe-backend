@@ -104,7 +104,7 @@ class IntentProcessor:
             temperature=0.3
         )
         
-        return response
+        return self._clean_markdown_formatting(response)
     
     def process_beneficiaries_intent(
     self,
@@ -242,6 +242,32 @@ class IntentProcessor:
             return template.format(response=response, **slots)
         
         return response
+
+    def _clean_markdown_formatting(self, response: str) -> str:
+        """
+        Remove markdown formatting from response.
+        Removes bold (**text**), italic (*text*), and other common markdown symbols
+        """
+        import re
+        
+        # Remove bold (**text** or __text__)
+        response = re.sub(r'\*\*(.+?)\*\*', r'\1', response)
+        response = re.sub(r'__(.+?)__', r'\1', response)
+        
+        # Remove italic (*text* or _text_) - be careful not to remove single asterisks
+        response = re.sub(r'\*([^*\n]+)\*', r'\1', response)
+        response = re.sub(r'_([^_\n]+)_', r'\1', response)
+        
+        # Remove markdown headings (# ## ### etc)
+        response = re.sub(r'^#+\s+', '', response, flags=re.MULTILINE)
+        
+        # Remove markdown code blocks (```code```)
+        response = re.sub(r'```.*?```', '', response, flags=re.DOTALL)
+        
+        # Remove inline code (`code`)
+        response = re.sub(r'`([^`]+)`', r'\1', response)
+        
+        return response.strip()
 
     def _prepare_conversation_context(self, conversation_history: List[Dict]) -> str:
         """Prepare conversation context from history"""

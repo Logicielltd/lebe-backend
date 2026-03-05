@@ -235,13 +235,15 @@ SYSTEM_PROMPTS = {
     The following section includes the user's spending data.
     If there is no transactions data available, return with a message indicating no data generated yet for that scenario.
 
-    Current User context: {context}
+    User Transaction History: {context}
     Expense report criteria: {category}
 
     Notes for accuracy:
+        - Within the user transaction history, beneficiary_name is equal to recipient, do not confuse them with username.
         - If specific time periods are mentioned, focus on those.
         - Keep response very short and concise.
         - There is field called 'transaction_success_or_failure' indicating if a transaction was successful or failed.
+        - The beneficiary_name field indicates the name of the recipient for a transaction, if available.
     """,
 
     "transactional": """

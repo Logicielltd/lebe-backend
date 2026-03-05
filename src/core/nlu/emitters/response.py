@@ -23,7 +23,7 @@ class ResponseFormatter:
             return f"✅ {kwargs.get('message', 'Action completed successfully!')}"
         
         elif message_type == "error":
-            return f"System error. Please try again."
+            return f"Invalid response. Please try again."
 
         elif message_type == "ask_for_image_description":
             return "I couldn't process the image automatically. Could you please describe what's in the image, or send a short caption?"

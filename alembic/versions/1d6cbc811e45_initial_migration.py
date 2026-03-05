@@ -3,7 +3,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = 'c1e53695c925'
+revision = '1d6cbc811e45'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -86,36 +86,6 @@ def upgrade():
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('payment',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('bill_id', sa.Integer(), nullable=False),
-    sa.Column('response_id', sa.Integer(), nullable=True),
-    sa.Column('amount_paid', sa.Numeric(precision=10, scale=2), nullable=False),
-    sa.Column('payment_method', sa.Enum('CARD', 'MOBILE_MONEY', 'BANK_TRANSFER', 'CASH', name='paymentmethod'), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'CTM_PROCESSING', 'CTM_SUCCESS', 'CTM_FAILED', 'MTC_PROCESSING', 'MTC_SUCCESS', 'MTC_FAILED', 'ATP_PROCESSING', 'ATP_SUCCESS', 'ATP_FAILED', 'BLP_PROCESSING', 'BLP_SUCCESS', 'BLP_FAILED', 'REVERSAL_PROCESSING', 'REVERSAL_SUCCESS', 'REVERSAL_FAILED', 'SUCCESS', 'FAILED', name='paymentstatus'), nullable=False),
-    sa.Column('transaction_id', sa.String(), nullable=False),
-    sa.Column('ctm_transaction_id', sa.String(), nullable=True),
-    sa.Column('mtc_transaction_id', sa.String(), nullable=True),
-    sa.Column('atp_transaction_id', sa.String(), nullable=True),
-    sa.Column('blp_transaction_id', sa.String(), nullable=True),
-    sa.Column('original_payment_id', sa.Integer(), nullable=True),
-    sa.Column('service_name', sa.String(), nullable=True),
-    sa.Column('intent', sa.String(), nullable=True),
-    sa.Column('customer_email', sa.String(), nullable=True),
-    sa.Column('customer_name', sa.String(), nullable=True),
-    sa.Column('sender_phone', sa.String(), nullable=True),
-    sa.Column('receiver_phone', sa.String(), nullable=True),
-    sa.Column('bank_code', sa.String(), nullable=True),
-    sa.Column('network', sa.Enum('MTN', 'VOD', 'AIR', 'MAS', 'VIS', 'BNK', 'GOT', 'DST', 'ECG', 'GHW', 'SFL', 'TLS', 'STT', 'BXO', name='network'), nullable=True),
-    sa.Column('sender_name', sa.String(), nullable=True),
-    sa.Column('receiver_name', sa.String(), nullable=True),
-    sa.Column('sender_provider', sa.String(), nullable=True),
-    sa.Column('receiver_provider', sa.String(), nullable=True),
-    sa.Column('date_paid', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.Column('updated_on', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('transaction_id')
     )
     op.create_table('receipts',
     sa.Column('id', sa.String(length=20), nullable=False),
@@ -257,11 +227,47 @@ def upgrade():
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('payment',
+    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+    sa.Column('bill_id', sa.Integer(), nullable=False),
+    sa.Column('response_id', sa.Integer(), nullable=True),
+    sa.Column('amount_paid', sa.Numeric(precision=10, scale=2), nullable=False),
+    sa.Column('payment_method', sa.Enum('CARD', 'MOBILE_MONEY', 'BANK_TRANSFER', 'CASH', name='paymentmethod'), nullable=False),
+    sa.Column('status', sa.Enum('PENDING', 'CTM_PROCESSING', 'CTM_SUCCESS', 'CTM_FAILED', 'MTC_PROCESSING', 'MTC_SUCCESS', 'MTC_FAILED', 'ATP_PROCESSING', 'ATP_SUCCESS', 'ATP_FAILED', 'BLP_PROCESSING', 'BLP_SUCCESS', 'BLP_FAILED', 'REVERSAL_PROCESSING', 'REVERSAL_SUCCESS', 'REVERSAL_FAILED', 'SUCCESS', 'FAILED', name='paymentstatus'), nullable=False),
+    sa.Column('transaction_id', sa.String(), nullable=False),
+    sa.Column('ctm_transaction_id', sa.String(), nullable=True),
+    sa.Column('mtc_transaction_id', sa.String(), nullable=True),
+    sa.Column('atp_transaction_id', sa.String(), nullable=True),
+    sa.Column('blp_transaction_id', sa.String(), nullable=True),
+    sa.Column('original_payment_id', sa.Integer(), nullable=True),
+    sa.Column('service_name', sa.String(), nullable=True),
+    sa.Column('intent', sa.String(), nullable=True),
+    sa.Column('customer_email', sa.String(), nullable=True),
+    sa.Column('customer_name', sa.String(), nullable=True),
+    sa.Column('sender_phone', sa.String(), nullable=True),
+    sa.Column('receiver_phone', sa.String(), nullable=True),
+    sa.Column('bank_code', sa.String(), nullable=True),
+    sa.Column('network', sa.Enum('MTN', 'VOD', 'AIR', 'MAS', 'VIS', 'BNK', 'GOT', 'DST', 'MPP', 'VPP', 'STT', 'VBB', 'ABS', name='network'), nullable=True),
+    sa.Column('ext_biller_ref_id', sa.String(), nullable=True),
+    sa.Column('reference', sa.Text(), nullable=True),
+    sa.Column('beneficiary_id', sa.Integer(), nullable=True),
+    sa.Column('beneficiary_name', sa.String(), nullable=True),
+    sa.Column('sender_name', sa.String(), nullable=True),
+    sa.Column('receiver_name', sa.String(), nullable=True),
+    sa.Column('sender_provider', sa.String(), nullable=True),
+    sa.Column('receiver_provider', sa.String(), nullable=True),
+    sa.Column('date_paid', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_on', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['beneficiary_id'], ['beneficiaries.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('transaction_id')
+    )
     # ### end Alembic commands ###
 
 
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('payment')
     op.drop_table('user_subscriptions')
     op.drop_table('refresh_tokens')
     op.drop_table('profiles')
@@ -274,7 +280,6 @@ def downgrade():
     op.drop_index(op.f('ix_receipts_user_id'), table_name='receipts')
     op.drop_index(op.f('ix_receipts_transaction_id'), table_name='receipts')
     op.drop_table('receipts')
-    op.drop_table('payment')
     op.drop_table('otps')
     op.drop_table('invoice')
     op.drop_index(op.f('ix_histories_user_id'), table_name='histories')

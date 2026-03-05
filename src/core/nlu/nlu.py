@@ -516,7 +516,6 @@ class LebeNLUSystem:
                     receiverName=slots.get('receiver_name'),  # Verified account holder name from account inquiry
                     senderProvider=slots.get('sender_provider'),  # Provider for sender
                     receiverProvider=slots.get('receiver_provider'),  # Provider for receiver
-                    reference=slots.get('reference'),
                     beneficiaryId=slots.get('beneficiary_id'),
                     beneficiaryName=slots.get('beneficiary_matched'),
                 )

@@ -32,8 +32,7 @@ class UserRAGManager:
         transaction_data = self._get_transaction_history(user_id, intent, current_slots)
         
         rag_context = {
-            "user_bio": core_bio,
-            "transactions": transaction_data
+            "User Transaction History": transaction_data
         }
         
         return rag_context

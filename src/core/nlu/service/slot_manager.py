@@ -98,6 +98,7 @@ class SlotManager:
             "period": "For what period?",
             "time_period": "For what time period?",
             "beneficiary_name": "Whose name do you want to send to (from your saved contacts)?",
+            "update_field": "What would you like to update? (name, number, bank code)",
             "new_beneficiary_name": "What should the new beneficiary name be?",
             "customer_number": "Beneficiary mobile number?"
         }

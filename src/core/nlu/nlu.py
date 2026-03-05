@@ -262,6 +262,35 @@ class LebeNLUSystem:
         # Check for missing required slots
         current_missing = self.slot_manager.get_missing_slots(intent, state.collected_slots)
 
+        # For beneficiary edits, guide the user through a strict field-selection flow.
+        if intent == "update_beneficiary":
+            if not state.collected_slots.get("update_field"):
+                if state.collected_slots.get("new_beneficiary_name"):
+                    state.collected_slots["update_field"] = "name"
+                elif state.collected_slots.get("customer_number"):
+                    state.collected_slots["update_field"] = "number"
+                elif state.collected_slots.get("bank_code"):
+                    state.collected_slots["update_field"] = "bank_code"
+
+            update_field = (state.collected_slots.get("update_field") or "").lower().strip()
+            field_map = {
+                "name": "new_beneficiary_name",
+                "rename": "new_beneficiary_name",
+                "new name": "new_beneficiary_name",
+                "number": "customer_number",
+                "phone": "customer_number",
+                "phone number": "customer_number",
+                "mobile": "customer_number",
+                "bank": "bank_code",
+                "bank code": "bank_code",
+                "bank_code": "bank_code",
+            }
+            target_slot = field_map.get(update_field)
+            if update_field and not target_slot:
+                current_missing = ["update_field"]
+            elif target_slot and not state.collected_slots.get(target_slot):
+                current_missing = [target_slot]
+
         # If a beneficiary name is present, defer asking for recipient phone and ask for reference first.
         if intent == "send_money" and state.collected_slots.get("beneficiary_name"):
             current_missing = [s for s in current_missing if s != "recipient"]

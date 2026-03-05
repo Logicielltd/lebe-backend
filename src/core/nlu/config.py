@@ -143,8 +143,8 @@ INTENTS = {
     },
     "update_beneficiary": {
         "description": "Edit a saved beneficiary",
-        "slots": ["beneficiary_name", "new_beneficiary_name", "customer_number", "bank_code"],
-        "required_slots": ["beneficiary_name"]
+        "slots": ["beneficiary_name", "update_field", "new_beneficiary_name", "customer_number", "bank_code"],
+        "required_slots": ["beneficiary_name", "update_field"]
     }
     
 }

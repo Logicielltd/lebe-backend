@@ -207,7 +207,7 @@ class IntentDetector:
 
         User: "Update beneficiary John to John Jr"
         INTENT: update_beneficiary
-        SLOTS: {"beneficiary_name": "John", "new_beneficiary_name": "John Jr"}
+        SLOTS: {"beneficiary_name": "John", "update_field": "name", "new_beneficiary_name": "John Jr"}
         MISSING: 
 
         EXPENSE REPORT:

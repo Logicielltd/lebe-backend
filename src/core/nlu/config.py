@@ -140,6 +140,11 @@ INTENTS = {
         "description": "Remove a saved beneficiary",
         "slots": ["beneficiary_name"],
         "required_slots": ["beneficiary_name"]
+    },
+    "update_beneficiary": {
+        "description": "Edit a saved beneficiary",
+        "slots": ["beneficiary_name", "new_beneficiary_name", "customer_number", "bank_code"],
+        "required_slots": ["beneficiary_name"]
     }
     
 }
@@ -304,7 +309,8 @@ RESPONSE_TEMPLATES = {
     "beneficiaries": {
         "add_beneficiary": "The beneficiary {beneficiary_name} has been added successfully.",
         "view_beneficiaries": "Here are your saved beneficiaries: {beneficiaries_list}",
-        "delete_beneficiary": "The beneficiary {beneficiary_name} has been removed successfully."
+        "delete_beneficiary": "The beneficiary {beneficiary_name} has been removed successfully.",
+        "update_beneficiary": "The beneficiary {beneficiary_name} has been updated successfully."
     }
 }
 
@@ -314,5 +320,5 @@ INTENT_CATEGORIES = {
     "financial_tips": ["financial_tips", "budgeting_advice", "savings_tips", "investment_advice", "debt_management"],
     "transactional": ["send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
     "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report","transaction_info"],
-    "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary"]
+    "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary", "update_beneficiary"]
 }

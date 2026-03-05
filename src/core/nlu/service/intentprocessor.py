@@ -131,6 +131,8 @@ class IntentProcessor:
             return self._handle_view_beneficiaries(beneficiary_service, user_id)
         elif intent == "delete_beneficiary":
             return self._handle_delete_beneficiary(beneficiary_service, user_id, slots)
+        elif intent == "update_beneficiary":
+            return self._handle_update_beneficiary(beneficiary_service, user_id, slots)
         else:
             return "Beneficiary intent not supported"
 
@@ -182,6 +184,38 @@ class IntentProcessor:
             return f"Beneficiary '{beneficiary_name}' not found in your saved beneficiaries."
         
         success, message = beneficiary_service.delete_beneficiary(target_beneficiary.id, user_id)
+        return message
+
+    def _handle_update_beneficiary(self, beneficiary_service: BeneficiaryService, user_id: str, slots: Dict) -> str:
+        """Handle updating a beneficiary"""
+        beneficiary_name = slots.get("beneficiary_name")
+        new_name = slots.get("new_beneficiary_name")
+        customer_number = slots.get("customer_number")
+        bank_code = slots.get("bank_code")
+
+        if not beneficiary_name:
+            return "Please specify which beneficiary you want to edit."
+
+        if not any([new_name, customer_number, bank_code]):
+            return "What would you like to update? You can send a new name, phone number, or bank code."
+
+        beneficiaries = beneficiary_service.get_beneficiaries(user_id)
+        target_beneficiary = None
+        for beneficiary in beneficiaries:
+            if beneficiary.name.lower() == beneficiary_name.lower():
+                target_beneficiary = beneficiary
+                break
+
+        if not target_beneficiary:
+            return f"Beneficiary '{beneficiary_name}' not found in your saved beneficiaries."
+
+        success, beneficiary, message = beneficiary_service.update_beneficiary(
+            beneficiary_id=target_beneficiary.id,
+            user_id=user_id,
+            name=new_name,
+            customer_number=customer_number,
+            bank_code=bank_code
+        )
         return message
     
     def _build_enhanced_system_prompt(

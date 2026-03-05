@@ -204,7 +204,12 @@ class IntentDetector:
         INTENT: delete_beneficiary
         SLOTS: {"beneficiary_name": "Mary"}
         MISSING: 
-        
+
+        User: "Update beneficiary John to John Jr"
+        INTENT: update_beneficiary
+        SLOTS: {"beneficiary_name": "John", "new_beneficiary_name": "John Jr"}
+        MISSING: 
+
         EXPENSE REPORT:
         User: "Show my expenses for last month"
         INTENT: expense_report

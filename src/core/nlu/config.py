@@ -239,6 +239,8 @@ SYSTEM_PROMPTS = {
     Expense report criteria: {category}
 
     Notes for accuracy:
+        - Within the user context, username is the name of the user  or sender, do not confuse that with beneficiary_name or recipient.
+        - Within the user context is equal to beneficiary_name and also equal to recipient, do not confuse them with username.
         - If specific time periods are mentioned, focus on those.
         - Keep response very short and concise.
         - There is field called 'transaction_success_or_failure' indicating if a transaction was successful or failed.

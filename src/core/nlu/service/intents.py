@@ -111,27 +111,114 @@ class IntentDetector:
         """Create enhanced prompt with context awareness and precision"""
         
         intent_guidelines = """
-        INTENT DETECTION GUIDELINES:
-        1. Be precise - read the exact words and phrasing in the user message
-        2. If the message continues the current conversation flow, maintain the same intent
-        3. Only change intent if the user clearly introduces a new topic or request
-        4. For ambiguous messages, prefer the current intent if it makes contextual sense
-        5. Consider conversation history when determining if this is a continuation
-
-        CRITICAL RULES:
-        - If user provides additional information for current intent: KEEP SAME INTENT
-        - If user corrects or modifies previous information: KEEP SAME INTENT  
-        - If user asks clarifying questions about current task: KEEP SAME INTENT
-        - Only switch intent for completely new, unrelated requests
+        INTENT DETECTION & SLOT EXTRACTION FRAMEWORK:
+        
+        1. **Primary Decision Rules** (in order of priority):
+        - If message contains explicit financial transaction keywords (send, pay, buy, check, loan, budget), prioritize transactional intents
+        - If message is casual (hello, hi, how are you), use conversational intents
+        - If message asks for advice/tips, use financial_tips category intents
+        - If message mentions beneficiaries, use beneficiary management intents
+        
+        2. **Context Preservation Rules**:
+        - When current_intent exists, evaluate message relevance before changing
+        - Message is "continuation" if it provides: additional details, corrections, clarifications, or confirms missing slots
+        - Message is "new intent" only if: topic completely changes, explicit new action verb, or contradicts current flow
+        
+        3. **Slot Extraction Precision**:
+        - Extract only explicitly mentioned values
+        - For numbers: identify if amount, phone, account, or duration based on context
+        - For names: distinguish between beneficiary_name, bill_type, provider
+        - Handle partial information: extract what's present, leave others empty
         """
         
-        current_intent_context = f"CURRENT_INTENT: {current_intent if current_intent else 'Intent Extraction'}"
+        current_intent_context = f"""
+        CURRENT CONTEXT:
+        - Active Intent: {current_intent if current_intent else 'None (Starting Fresh)'}
+        - Priority: {'Maintain current intent' if current_intent else 'Detect new intent'}
+        """
+        
+        # Enhanced examples covering all intent types
+        examples = """
+        EXAMPLES BY CATEGORY:
+        
+        CONVERSATIONAL:
+        User: "Hello there"
+        INTENT: greeting
+        SLOTS: {}
+        MISSING: 
+        
+        User: "How's the weather today?"
+        INTENT: small_talk
+        SLOTS: {"category": "weather"}
+        MISSING: mood
+        
+        User: "Thanks for your help, goodbye"
+        INTENT: goodbye
+        SLOTS: {}
+        MISSING: 
+        
+        FINANCIAL TIPS:
+        User: "Give me some tips to save money"
+        INTENT: savings_tips
+        SLOTS: {}
+        MISSING: 
+        
+        User: "How can I budget better with 2000 income?"
+        INTENT: budgeting_advice
+        SLOTS: {"income_level": "2000"}
+        MISSING: expense_category, savings_goal
+        
+        User: "I have 5000 debt, need advice"
+        INTENT: debt_management
+        SLOTS: {"debt_amount": "5000"}
+        MISSING: debt_type, income
+        
+        TRANSACTIONAL - CONTINUATION PATTERNS:
+        User (new): "Send money to mom for food"
+        INTENT: send_money
+        SLOTS: {"beneficiary_name": "mom", "reference": "food"}
+        MISSING: recipient, amount, reference
+        
+        User (continue): "Her number is 0551234567"
+        INTENT: send_money  
+        SLOTS: {"recipient": "0551234567"}
+        MISSING: amount, reference
+        
+        User (continue): "Send 100 cedis for fuel"
+        INTENT: send_money
+        SLOTS: {"amount": "100", "reference": "fuel"}
+        MISSING: recipient, reference
+        
+        BENEFICIARY MANAGEMENT:
+        User: "Add John as new beneficiary, his number is 0551234567"
+        INTENT: add_beneficiary
+        SLOTS: {"beneficiary_name": "John", "customer_number": "0551234567"}
+        MISSING: network, bank_code
+        
+        User: "Show my saved beneficiaries"
+        INTENT: view_beneficiaries
+        SLOTS: {}
+        MISSING: 
+        
+        User: "Remove beneficiary Mary"
+        INTENT: delete_beneficiary
+        SLOTS: {"beneficiary_name": "Mary"}
+        MISSING: 
+        
+        EXPENSE REPORT:
+        User: "Show my expenses for last month"
+        INTENT: expense_report
+        SLOTS: {"time_period": "last month"}
+        MISSING: category
+        
+        User: "How much did I spend on food?"
+        INTENT: expense_report
+        SLOTS: {"category": "food"}
+        MISSING: time_period
+        """
         
         return f"""
-        {intent_guidelines}
-        
-        {current_intent_context}
-        
+
         You are an expert conversational AI that identifies user intents and extracts relevant slot information.
         A slot is a specific piece of information needed to fulfill an intent (e.g., amount, recipient).
 
@@ -143,81 +230,43 @@ class IntentDetector:
         maintain that same intent **unless** the user clearly starts a new topic.
         4. Accurately identify missing required slots for that intent.
         
-        User message: "{user_message}"
+        {intent_guidelines}
+        
+        {current_intent_context}
         
         Available intents and their slots:
         {self._format_intents_for_prompt()}
+        
+        User message: "{user_message}"
+        
+        {examples}
         
         DECISION PROCESS:
         - Is this message clearly about a NEW intent? → Use new intent
         - Is this message continuing/refining the CURRENT intent? → Keep current intent
         - Is this message ambiguous but contextually related? → Prefer current intent
         
-        Respond in this EXACT format:
-        INTENT: [detected_intent]
-        SLOTS: [json_object_with_slots]
-        MISSING: [comma_separated_missing_slots]
+        CRITICAL SLOT EXTRACTION RULES:
+        - Phone numbers: Extract as "recipient" or "phone_number"
+        - Amounts: Extract as numeric string, preserve currency mentions for context
+        - Beneficiary Names: Extract as beneficiary_name for send_money, buy_airtime
+        - Time periods: Extract as "time_period" for reports, "timeframe" for tips
+        - Reference/Description: Extract any additional details as "reference" or "description"
         
-        Examples:
-        User starts send_money: "Send 50 cedis to 0234567890"
-        INTENT: send_money
-        SLOTS: {{"amount": "50", "recipient": "0234567890"}}
-        MISSING: reference
+        RESPONSE FORMAT (STRICT):
+        INTENT: [one intent from provided list]
+        SLOTS: [valid JSON object with extracted slots]
+        MISSING: [comma-separated list of required slots not yet provided]
+        
+        IMPORTANT VALIDATION:
+        - SLOTS must be valid JSON (use double quotes)
+        - INTENT must exactly match available intent names
+        - MISSING should list only required_slots that are not in SLOTS
+        - If current_intent exists and message relates to it, PREFER keeping same intent
 
-        User starts bill payment: "Make bill payment of 1 cedi to 95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"amount": "1", "account_number": "95200204493"}}
-        MISSING: bill_type
-
-        User continues bill payment: "ECG, the card number is 95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"bill_type": "ECG", "account_number": "95200204493"}}
-        MISSING:
-
-        User continues bill payment: "ECG, My account number is 95200204493 and I would like to send 1 cedi"
-        INTENT: pay_bill
-        SLOTS: {{"bill_type": "ECG", "account_number": "95200204493", "amount": "1"}}
-        MISSING:
-
-        User continues bill payment: "My smart card number is 95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"account_number": "95200204493"}}
-        MISSING: bill_type
-
-        User continues bill payment: "Just the card is 95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"account_number": "95200204493"}}
-        MISSING: bill_type
-
-        User continues bill payment: "95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"account_number": "95200204493"}}
-        MISSING: bill_type
-
-        User starts bill payment: "Pay my DStv bill, account 1234567890, amount is 50 cedis"
-        INTENT: pay_bill
-        SLOTS: {{"bill_type": "DStv", "account_number": "1234567890", "amount": "50"}}
-        MISSING:
-
-        User starts buy_airtime: "Buy me 5 cedis airtime to 0550748724"
-        INTENT: buy_airtime
-        SLOTS: {{"amount": "5", "phone_number": "0550748724"}}
-        MISSING: network
-
-        User continues current intent: "Actually, make it 100 cedis instead"
-        INTENT: send_money
-        SLOTS: {{"amount": "100"}}
-        MISSING: recipient,reference
-
-        User starts new intent: "I want to check my balance"
-        INTENT: check_balance
-        SLOTS: {{}}
-        MISSING:
-        Examples end.
-
-        Notes for accuracy:
-        - If the user's message clarifies or adds to the **current intent**, do not change it.
-        - Only switch intent if the message explicitly refers to a different goal or action.
+        FINAL ACCURACY CHECK:
+        - If the user's message clarifies or adds to the current active intent**, do not change it.
+        - Only switch to a new intent if the user message explicitly refers to a different goal or action.
         - Always ensure `SLOTS` is valid JSON.
         """
     

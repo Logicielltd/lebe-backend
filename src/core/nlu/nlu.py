@@ -281,9 +281,6 @@ class LebeNLUSystem:
                 "phone": "customer_number",
                 "phone number": "customer_number",
                 "mobile": "customer_number",
-                "bank": "bank_code",
-                "bank code": "bank_code",
-                "bank_code": "bank_code",
             }
             target_slot = field_map.get(update_field)
             if update_field and not target_slot:

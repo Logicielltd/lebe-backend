@@ -145,6 +145,28 @@ INTENTS = {
         "description": "Edit a saved beneficiary",
         "slots": ["beneficiary_name", "update_field", "new_beneficiary_name", "customer_number"],
         "required_slots": ["beneficiary_name", "update_field"]
+    },
+    
+    # ===== USER PROFILE MANAGEMENT INTENTS =====
+    "update_user_details": {
+        "description": "Update user profile information",
+        "slots": ["first_name", "last_name", "phone_number", "location", "occupation", "income_level", "financial_goals", "risk_tolerance"],
+        "required_slots": [],
+        "category": "user_management"
+    },
+    "view_user_profile": {
+        "description": "View current user profile information",
+        "slots": [],
+        "required_slots": [],
+        "category": "user_management"
+    },
+    
+    # ===== SYSTEM INTENTS =====
+    "intent_not_clear": {
+        "description": "Intent could not be determined from the message",
+        "slots": [],
+        "required_slots": [],
+        "category": "system"
     }
     
 }
@@ -311,6 +333,14 @@ RESPONSE_TEMPLATES = {
         "view_beneficiaries": "Here are your saved beneficiaries: {beneficiaries_list}",
         "delete_beneficiary": "The beneficiary {beneficiary_name} has been removed successfully.",
         "update_beneficiary": "The beneficiary {beneficiary_name} has been updated successfully."
+    },
+    "system": {
+        "intent_not_clear": "I'm not quite sure what you're asking. Could you please rephrase or provide more details? I can help you with: sending money, buying airtime, paying bills, tracking expenses, managing beneficiaries, or getting financial tips."
+    },
+    "user_management": {
+        "update_user_details": "Your profile information has been updated successfully.",
+        "view_user_profile": "Here's your current profile information: {profile_details}",
+        "missing_slots": "I'd be happy to help you update your profile. Please provide the {missing_slots} you'd like to update."
     }
 }
 
@@ -320,5 +350,7 @@ INTENT_CATEGORIES = {
     "financial_tips": ["financial_tips", "budgeting_advice", "savings_tips", "investment_advice", "debt_management"],
     "transactional": ["send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
     "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report","transaction_info"],
-    "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary", "update_beneficiary"]
+    "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary", "update_beneficiary"],
+    "user_management": ["update_user_details", "view_user_profile"],
+    "system": ["intent_not_clear"]
 }

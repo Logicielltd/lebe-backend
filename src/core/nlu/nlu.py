@@ -219,6 +219,14 @@ class LebeNLUSystem:
             response = self.response_formatter.format_response("", "ask_for_image_description")
             self.conversation_manager.update_conversation_history(user_id, "assistant", response)
             return response
+        
+        # If the intent is not clear due to low confidence, return appropriate response
+        if intent == "intent_not_clear":
+            logger.info("Intent not clear for user %s; asking for clarification", user_id)
+            response = self.response_formatter.format_response("", "intent_not_clear")
+            self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+            return response
+        
         logger.info("Detected intent=%s missing=%s", intent, missing_slots)
 
         # Validate and merge slots
@@ -936,6 +944,7 @@ class LebeNLUSystem:
         financial_tips_intents = INTENT_CATEGORIES["financial_tips"]
         expense_report_intents = INTENT_CATEGORIES["expense_report"]
         beneficiaries_intents = INTENT_CATEGORIES["beneficiaries"]
+        user_management_intents = INTENT_CATEGORIES.get("user_management", [])
 
         user_data = self._get_user_data(user_id)
         
@@ -971,9 +980,88 @@ class LebeNLUSystem:
                 slots,
                 user_data
             )
+        elif intent in user_management_intents:
+            return self._process_user_management_intent(user_id, intent, slots)
         else:
             # Fallback for unhandled intents
             return self.response_formatter.format_response(intent, "error", message="Intent not supported")
+    
+    def _process_user_management_intent(self, user_id: str, intent: str, slots: Dict) -> str:
+        """Process user management intents (update profile, view profile)"""
+        db = SessionLocal()
+        try:
+            from core.user.service.user_service import UserService
+            user_service = UserService(db)
+            
+            if intent == "update_user_details":
+                # Filter slots to only include update-relevant fields
+                update_fields = {
+                    "first_name", "last_name", "phone_number", "location", 
+                    "occupation", "income_level", "financial_goals", "risk_tolerance"
+                }
+                # Map slot names to user model field names
+                slot_to_field = {
+                    "phone_number": "phone"
+                }
+                
+                update_data = {}
+                for slot, value in slots.items():
+                    if slot in update_fields and value is not None:
+                        field_name = slot_to_field.get(slot, slot)
+                        update_data[field_name] = value
+                        logger.info(f"Preparing to update {field_name} for user {user_id}")
+                
+                if not update_data:
+                    return self.response_formatter.format_response(
+                        intent, "error", message="No valid fields to update provided."
+                    )
+                
+                # Update user details
+                user_service.update_user_details(user_id, update_data)
+                response = self.response_formatter.format_response(intent, "success", message="Your profile has been updated successfully! ✅")
+                logger.info(f"User {user_id} profile updated with fields: {list(update_data.keys())}")
+                
+            elif intent == "view_user_profile":
+                # Get user profile
+                profile = user_service.get_user_profile(user_id)
+                
+                # Format profile details for display
+                profile_details = f"""
+📋 **Your Profile:**
+- Name: {profile.get('first_name', 'N/A')} {profile.get('last_name', 'N/A')}
+- Username: {profile.get('username', 'N/A')}
+- Email: {profile.get('email', 'N/A')}
+- Phone: {profile.get('phone', 'N/A')}
+- Location: {profile.get('location', 'N/A')}
+- Occupation: {profile.get('occupation', 'N/A')}
+- Income Level: {profile.get('income_level', 'N/A')}
+- Financial Goals: {profile.get('financial_goals', 'N/A')}
+- Risk Tolerance: {profile.get('risk_tolerance', 'N/A')}
+"""
+                response = self.response_formatter.format_response(
+                    intent, "success", message=profile_details
+                )
+                logger.info(f"User {user_id} viewed their profile")
+            
+            else:
+                response = self.response_formatter.format_response(
+                    intent, "error", message="Unknown user management intent."
+                )
+            
+            return response
+            
+        except HTTPException as e:
+            logger.error(f"HTTP Error in user management intent: {str(e)}")
+            return self.response_formatter.format_response(
+                intent, "error", message=str(e.detail)
+            )
+        except Exception as e:
+            logger.error(f"Error processing user management intent: {str(e)}", exc_info=True)
+            return self.response_formatter.format_response(
+                intent, "error", message="An error occurred while processing your request."
+            )
+        finally:
+            db.close()
         
     def generate_receipt_after_payment(self, transaction_id: str, user_id: str, intent: str,
                                   amount: Decimal, status: str, sender: str, receiver: str,

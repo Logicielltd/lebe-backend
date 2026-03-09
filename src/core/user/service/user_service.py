@@ -123,3 +123,73 @@ class UserService:
         user.role_id = role_id
         self.db.commit()
         return MessageResponse(message="User role updated successfully")
+
+    def update_user_details(self, user_id: str, update_data: Dict) -> UserResponse:
+        """
+        Update user profile details
+        
+        Args:
+            user_id: User identifier
+            update_data: Dictionary containing fields to update (first_name, last_name, phone, location, occupation, income_level, financial_goals, risk_tolerance)
+            
+        Returns:
+            Updated UserResponse
+        """
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Define allowed fields to update
+        allowed_fields = [
+            "first_name", "last_name", "phone", "location", 
+            "occupation", "income_level", "financial_goals", "risk_tolerance"
+        ]
+        
+        # Update only provided and allowed fields
+        for field, value in update_data.items():
+            if field in allowed_fields and value is not None:
+                setattr(user, field, value)
+                logger.info(f"Updated user {user_id} field '{field}' to '{value}'")
+        
+        self.db.commit()
+        logger.info(f"User profile updated successfully for user {user_id}")
+        
+        return UserResponse(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            first_name=user.first_name,
+            last_name=user.last_name,
+            is_active=user.is_active,
+            created_at=user.created_at
+        )
+
+    def get_user_profile(self, user_id: str) -> Dict:
+        """
+        Get complete user profile details
+        
+        Args:
+            user_id: User identifier
+            
+        Returns:
+            Dictionary with user profile details
+        """
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "phone": user.phone,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_active": user.is_active,
+            "location": getattr(user, "location", None),
+            "occupation": getattr(user, "occupation", None),
+            "income_level": getattr(user, "income_level", None),
+            "financial_goals": getattr(user, "financial_goals", None),
+            "risk_tolerance": getattr(user, "risk_tolerance", None),
+            "created_at": user.created_at
+        }

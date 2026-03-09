@@ -256,11 +256,18 @@ class IntentDetector:
         INTENT: [one intent from provided list]
         SLOTS: [valid JSON object with extracted slots]
         MISSING: [comma-separated list of required slots not yet provided]
+        CONFIDENCE: [HIGH, MEDIUM, or LOW]
+        
+        CONFIDENCE SCORING:
+        - HIGH: User message clearly expresses a specific intent with unambiguous language
+        - MEDIUM: Intent is likely but with some ambiguity or less clear language
+        - LOW: User message is vague, unclear, or could refer to multiple intents
         
         IMPORTANT VALIDATION:
         - SLOTS must be valid JSON (use double quotes)
         - INTENT must exactly match available intent names
         - MISSING should list only required_slots that are not in SLOTS
+        - CONFIDENCE must be HIGH, MEDIUM, or LOW
         
         IMPORTANT RULES FOR BENEFICIARY DETECTION:
         - For send_money and buy_airtime intents: If the user mentions a NAME (not a phone number), extract it as "beneficiary_name" slot
@@ -297,6 +304,7 @@ class IntentDetector:
         intent = "unknown"
         slots = {}
         missing_slots = []
+        confidence = "MEDIUM"  # Default confidence
         
         if not response_text:
             return intent, slots, missing_slots
@@ -315,5 +323,12 @@ class IntentDetector:
             elif line.startswith('MISSING:'):
                 missing_str = line.replace('MISSING:', '').strip()
                 missing_slots = [s.strip() for s in missing_str.split(',')] if missing_str else []
+            elif line.startswith('CONFIDENCE:'):
+                confidence = line.replace('CONFIDENCE:', '').strip().upper()
+        
+        # If confidence is LOW, return intent_not_clear instead
+        if confidence == "LOW":
+            logger.info("Low confidence intent detected (original: %s), returning intent_not_clear", intent)
+            return "intent_not_clear", {}, []
         
         return intent, slots, missing_slots

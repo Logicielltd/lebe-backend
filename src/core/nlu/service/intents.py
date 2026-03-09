@@ -113,18 +113,12 @@ class IntentDetector:
         intent_guidelines = """
         INTENT DETECTION & SLOT EXTRACTION FRAMEWORK:
         
-        1. **Primary Decision Rules** (in order of priority):
-        - If message contains explicit financial transaction keywords (send, pay, buy, check, loan, budget), prioritize transactional intents
-        - If message is casual (hello, hi, how are you), use conversational intents
-        - If message asks for advice/tips, use financial_tips category intents
-        - If message mentions beneficiaries, use beneficiary management intents
-        
-        2. **Context Preservation Rules**:
+        1. **Context Preservation Rules**:
         - When current_intent exists, evaluate message relevance before changing
         - Message is "continuation" if it provides: additional details, corrections, clarifications, or confirms missing slots
         - Message is "new intent" only if: topic completely changes, explicit new action verb, or contradicts current flow
         
-        3. **Slot Extraction Precision**:
+        2. **Slot Extraction Precision**:
         - Extract only explicitly mentioned values
         - For numbers: identify if amount, phone, account, or duration based on context
         - For names: distinguish between beneficiary_name, bill_type, provider
@@ -267,7 +261,13 @@ class IntentDetector:
         - SLOTS must be valid JSON (use double quotes)
         - INTENT must exactly match available intent names
         - MISSING should list only required_slots that are not in SLOTS
-        - If current_intent exists and message relates to it, PREFER keeping same intent
+        
+        IMPORTANT RULES FOR BENEFICIARY DETECTION:
+        - For send_money and buy_airtime intents: If the user mentions a NAME (not a phone number), extract it as "beneficiary_name" slot
+        - Examples of names: "Send to John", "Buy airtime for Mom", "Send money to Ama"
+        - If a phone number is provided directly, use it as "recipient" or "phone_number" slot
+        - Both name and number can be provided; if name is provided, prefer extracting the name as beneficiary_name slot
+        - The system will look up the saved beneficiary by name and extract the phone number automatically
 
         FINAL ACCURACY CHECK:
         - If the user's message clarifies or adds to the current active intent**, do not change it.

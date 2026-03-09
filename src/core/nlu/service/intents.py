@@ -61,7 +61,7 @@ class IntentDetector:
         
         Example with beneficiary name:
         INTENT: send_money
-        SLOTS: {{"amount": "50", "beneficiary_name": "John"}}
+        SLOTS: {{"amount": "50", "beneficiary_name": "John", "reference": "for food"}}
         MISSING: 
         
         Example with direct phone number:
@@ -113,10 +113,7 @@ class IntentDetector:
                 user_message=prompt,
                 conversation_history=conversation_history,
                 temperature=0.1,
-                max_tokens=500,
-                image_url=image_url,
-                image_base64=image_base64,
-                image_media_type=image_media_type or "image/jpeg",
+                max_tokens=500
             )
 
             logger.debug("Intent detection response text (truncated): %s", (response_text or '')[:1000])

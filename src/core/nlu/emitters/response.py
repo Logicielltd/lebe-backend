@@ -22,6 +22,9 @@ class ResponseFormatter:
         elif message_type == "success":
             return f"✅ {kwargs.get('message', 'Action completed successfully!')}"
         
+        elif message_type == "intent_not_clear":
+            return "I'm not quite sure what you're asking. Could you please rephrase or provide more details? I can help you with: sending money, buying airtime, paying bills, tracking expenses, managing beneficiaries, or getting financial tips."
+        
         elif message_type == "error":
             return f"Invalid response. Please try again."
 
@@ -42,9 +45,6 @@ class ResponseFormatter:
 
         elif message_type == "processing":
             return kwargs.get('message', 'Your payment is being processed.')
-        
-        elif message_type == "intent_not_clear":
-            return "I'm not quite sure what you're asking. Could you please rephrase or provide more details? I can help you with: sending money, buying airtime, paying bills, tracking expenses, managing beneficiaries, or getting financial tips."
 
         else:
             return f"💬 {kwargs.get('message', '')}"

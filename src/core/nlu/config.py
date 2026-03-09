@@ -148,10 +148,16 @@ INTENTS = {
     },
     
     # ===== USER PROFILE MANAGEMENT INTENTS =====
-    "update_user_details": {
-        "description": "Update user profile information",
-        "slots": ["first_name", "last_name", "phone_number", "location", "occupation", "income_level", "financial_goals", "risk_tolerance"],
-        "required_slots": [],
+    "update_username": {
+        "description": "Update user username",
+        "slots": ["new_username"],
+        "required_slots": ["new_username"],
+        "category": "user_management"
+    },
+    "update_phone_number": {
+        "description": "Update user phone number",
+        "slots": ["phone_number"],
+        "required_slots": ["phone_number"],
         "category": "user_management"
     },
     "view_user_profile": {
@@ -339,7 +345,11 @@ RESPONSE_TEMPLATES = {
     },
     "user_management": {
         "update_user_details": "Your profile information has been updated successfully.",
+        "update_username": "Your username has been updated to '{new_username}' successfully! ✅",
+        "update_phone_number": "Your phone number has been updated to '{phone_number}' successfully! ✅",
         "view_user_profile": "Here's your current profile information: {profile_details}",
+        "missing_slots_username": "I'd be happy to help you update your username. Please provide your new username.",
+        "missing_slots_phone": "I'd be happy to help you update your phone number. Please provide your new phone number.",
         "missing_slots": "I'd be happy to help you update your profile. Please provide the {missing_slots} you'd like to update."
     }
 }
@@ -351,6 +361,6 @@ INTENT_CATEGORIES = {
     "transactional": ["send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
     "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report","transaction_info"],
     "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary", "update_beneficiary"],
-    "user_management": ["update_user_details", "view_user_profile"],
+    "user_management": ["update_user_details", "update_username", "update_phone_number", "view_user_profile"],
     "system": ["intent_not_clear"]
 }

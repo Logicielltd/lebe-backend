@@ -130,7 +130,7 @@ class UserService:
         
         Args:
             user_id: User identifier
-            update_data: Dictionary containing fields to update (first_name, last_name, phone, location, occupation, income_level, financial_goals, risk_tolerance)
+            update_data: Dictionary containing fields to update (username, first_name, last_name, phone, location, occupation, income_level, financial_goals, risk_tolerance)
             
         Returns:
             Updated UserResponse
@@ -141,7 +141,7 @@ class UserService:
         
         # Define allowed fields to update
         allowed_fields = [
-            "first_name", "last_name", "phone", "location", 
+            "username", "first_name", "last_name", "phone", "location", 
             "occupation", "income_level", "financial_goals", "risk_tolerance"
         ]
         

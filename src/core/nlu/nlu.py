@@ -987,14 +987,52 @@ class LebeNLUSystem:
             return self.response_formatter.format_response(intent, "error", message="Intent not supported")
     
     def _process_user_management_intent(self, user_id: str, intent: str, slots: Dict) -> str:
-        """Process user management intents (update profile, view profile)"""
+        """Process user management intents (update profile, view profile, update username, update phone)"""
         db = SessionLocal()
         try:
             from core.user.service.user_service import UserService
             user_service = UserService(db)
             
-            if intent == "update_user_details":
-                # Filter slots to only include update-relevant fields
+            if intent == "update_username":
+                # Handle username update (focused single-field update)
+                new_username = slots.get("new_username")
+                
+                if not new_username:
+                    return self.response_formatter.format_response(
+                        intent, "error", message="No new username provided."
+                    )
+                
+                # Update only username field
+                update_data = {"username": new_username}
+                user_service.update_user_details(user_id, update_data)
+                
+                response = self.response_formatter.format_response(
+                    intent, "success", 
+                    message=f"Your username has been updated to '{new_username}' successfully! ✅"
+                )
+                logger.info(f"User {user_id} username updated to {new_username}")
+                
+            elif intent == "update_phone_number":
+                # Handle phone number update (focused single-field update)
+                phone_number = slots.get("phone_number")
+                
+                if not phone_number:
+                    return self.response_formatter.format_response(
+                        intent, "error", message="No phone number provided."
+                    )
+                
+                # Update only phone field (mapped from phone_number slot)
+                update_data = {"phone": phone_number}
+                user_service.update_user_details(user_id, update_data)
+                
+                response = self.response_formatter.format_response(
+                    intent, "success",
+                    message=f"Your phone number has been updated to '{phone_number}' successfully! ✅"
+                )
+                logger.info(f"User {user_id} phone number updated to {phone_number}")
+            
+            elif intent == "update_user_details":
+                # Handle generic profile update (multiple fields)
                 update_fields = {
                     "first_name", "last_name", "phone_number", "location", 
                     "occupation", "income_level", "financial_goals", "risk_tolerance"

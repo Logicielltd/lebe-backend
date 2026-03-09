@@ -160,6 +160,19 @@ class IntentDetector:
         - If user corrects or modifies previous information: KEEP SAME INTENT  
         - If user asks clarifying questions about current task: KEEP SAME INTENT
         - Only switch intent for completely new, unrelated requests
+        
+        TEMPORAL AND ACTION DISTINCTION:
+        - Past tense queries with "how much", "how many", "have I", "did I send", "have I sent" → expense_report
+        - Action language with "buy", "send", "pay" in imperative form → transactional (send_money, buy_airtime, pay_bill)
+        - Query language with "check", "view", "show", "tell me my" → expense_report or informational
+        - Time references like "today", "this week", "last month" in a query context → expense_report
+        
+        EXAMPLES OF DISTINCTION:
+        - "Send 50 cedis to John" → send_money (action)
+        - "How much have I sent to John today?" → expense_report (query)
+        - "Buy airtime for mom" → buy_airtime (action)
+        - "How much airtime have I bought today?" → expense_report (query)
+        - "How much airtime have I sent to wifey?" → expense_report (query about past transactions)
         """
         
         current_intent_context = f"CURRENT_INTENT: {current_intent if current_intent else 'Intent Extraction'}"
@@ -185,6 +198,8 @@ class IntentDetector:
         {self._format_intents_for_prompt()}
         
         DECISION PROCESS:
+        - Is this a QUERY about PAST transactions? (how much, have I, did I send/bought) → expense_report
+        - Is this an ACTION request? (buy, send, pay in command form) → transactional intent
         - Is this message clearly about a NEW intent? → Use new intent
         - Is this message continuing/refining the CURRENT intent? → Keep current intent
         - Is this message ambiguous but contextually related? → Prefer current intent
@@ -199,6 +214,16 @@ class IntentDetector:
         INTENT: send_money
         SLOTS: {{"amount": "50", "recipient": "0234567890"}}
         MISSING: reference
+
+        User queries expense report: "How much airtime have I sent to wifey today?"
+        INTENT: expense_report
+        SLOTS: {{"category": "airtime", "time_period": "today"}}
+        MISSING:
+
+        User queries expense report: "How much money did I send this week?"
+        INTENT: expense_report
+        SLOTS: {{"category": "money_transfer", "time_period": "this week"}}
+        MISSING:
 
         User starts bill payment: "Make bill payment of 1 cedi to 95200204493"
         INTENT: pay_bill
@@ -240,6 +265,11 @@ class IntentDetector:
         SLOTS: {{"amount": "5", "phone_number": "0550748724"}}
         MISSING: network
 
+        User queries expense: "How much airtime did I buy last month?"
+        INTENT: expense_report
+        SLOTS: {{"category": "airtime", "time_period": "last month"}}
+        MISSING:
+
         User continues current intent: "Actually, make it 100 cedis instead"
         INTENT: send_money
         SLOTS: {{"amount": "100"}}
@@ -252,6 +282,8 @@ class IntentDetector:
         Examples end.
 
         Notes for accuracy:
+        - Past tense verbs with query markers = expense_report
+        - Imperative action verbs (buy, send, pay) = transactional
         - If the user's message clarifies or adds to the **current intent**, do not change it.
         - Only switch intent if the message explicitly refers to a different goal or action.
         - Always ensure `SLOTS` is valid JSON.

@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 from core.auth.service.authservice import AuthService
 from core.nlu.config import INTENT_CATEGORIES
 from core.nlu.service.intentprocessor import IntentProcessor

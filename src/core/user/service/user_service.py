@@ -134,7 +134,7 @@ class UserService:
         Returns:
             Updated UserResponse
         """
-        user = self.get_user_by_phone(user_id)
+        user = self.db.query(User).filter(User.phone == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         

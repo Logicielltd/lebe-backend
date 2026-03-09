@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from pydantic import BaseModel
 from core.auth.service.sessiondriver import SessionDriver, TokenData
 from fastapi_jwt_auth import AuthJWT

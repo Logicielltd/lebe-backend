@@ -175,7 +175,7 @@ class UserService:
         Returns:
             Dictionary with user profile details
         """
-        user = self.db.query(User).filter(User.id == user_id).first()
+        user = self.get_user_by_phone(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         

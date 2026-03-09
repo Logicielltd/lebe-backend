@@ -1066,17 +1066,17 @@ class LebeNLUSystem:
                 
                 # Format profile details for display
                 profile_details = f"""
-📋 **Your Profile:**
-- Name: {profile.get('first_name', 'N/A')} {profile.get('last_name', 'N/A')}
-- Username: {profile.get('username', 'N/A')}
-- Email: {profile.get('email', 'N/A')}
-- Phone: {profile.get('phone', 'N/A')}
-- Location: {profile.get('location', 'N/A')}
-- Occupation: {profile.get('occupation', 'N/A')}
-- Income Level: {profile.get('income_level', 'N/A')}
-- Financial Goals: {profile.get('financial_goals', 'N/A')}
-- Risk Tolerance: {profile.get('risk_tolerance', 'N/A')}
-"""
+                📋 *Your Profile:*
+                - Name: {profile.get('first_name', 'N/A')} {profile.get('last_name', 'N/A')}
+                - Username: {profile.get('username', 'N/A')}
+                - Email: {profile.get('email', 'N/A')}
+                - Phone: {profile.get('phone', 'N/A')}
+                - Location: {profile.get('location', 'N/A')}
+                - Occupation: {profile.get('occupation', 'N/A')}
+                - Income Level: {profile.get('income_level', 'N/A')}
+                - Financial Goals: {profile.get('financial_goals', 'N/A')}
+                - Risk Tolerance: {profile.get('risk_tolerance', 'N/A')}
+                """
                 response = self.response_formatter.format_response(
                     intent, "success", message=profile_details
                 )

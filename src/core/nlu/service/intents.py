@@ -30,45 +30,51 @@ class IntentDetector:
         prompt = self._create_enhanced_prompt(user_message, current_intent)
         
         # Create prompt for intent detection
-        prompt = f"""
-        Read the user's message and extract:
-        1. The main intent from this list: {list(self.intents.keys())}
-        2. Any relevant information (slots) for that intent
+        # prompt = f"""
+        # Read the user's message and extract:
+        # 1. The main intent from this list: {list(self.intents.keys())}
+        # 2. Any relevant information (slots) for that intent
         
-        User message: "{user_message}"
+        # User message: "{user_message}"
         
-        Available intents and their slots:
-        {self._format_intents_for_prompt()}
+        # Available intents and their slots:
+        # {self._format_intents_for_prompt()}
         
-        IMPORTANT RULES FOR BENEFICIARY DETECTION:
-        - For send_money and buy_airtime intents: If the user mentions a NAME (not a phone number), extract it as "beneficiary_name" slot
-        - Examples of names: "Send to John", "Buy airtime for Mom", "Send money to Ama"
-        - If a phone number is provided directly, use it as "recipient" or "phone_number" slot
-        - Both name and number can be provided; if name is provided, prefer extracting the name as beneficiary_name slot
-        - The system will look up the saved beneficiary by name and extract the phone number automatically
+        # IMPORTANT RULES FOR BENEFICIARY DETECTION:
+        # - For send_money and buy_airtime intents: If the user mentions a NAME (not a phone number), extract it as "beneficiary_name" slot
+        # - Examples of names: "Send to John", "Buy airtime for Mom", "Send money to Ama"
+        # - If a phone number is provided directly, use it as "recipient" or "phone_number" slot
+        # - Both name and number can be provided; if name is provided, prefer extracting the name as beneficiary_name slot
+        # - The system will look up the saved beneficiary by name and extract the phone number automatically
 
-        IMPORTANT RULE FOR REFERENCE EXTRACTION:
-        - Extract "for [purpose]" phrases as the reference slot, WITHOUT the "for" keyword
-        - Examples: "send 2 cedis to lebeney for food" → extract reference as "food"
-        - Examples: "send 50 to John for transport" → extract reference as "transport"
-        - Examples: "send 100 cedis to Ama for school fees" → extract reference as "school fees"
-        - The reference describes the purpose or reason for the payment
+        # IMPORTANT RULE FOR REFERENCE EXTRACTION:
+        # - Extract "for [purpose]" phrases as the reference slot, WITHOUT the "for" keyword
+        # - Examples: "send 2 cedis to lebeney for food" → extract reference as "food"
+        # - Examples: "send 50 to John for transport" → extract reference as "transport"
+        # - Examples: "send 100 cedis to Ama for school fees" → extract reference as "school fees"
+        # - The reference describes the purpose or reason for the payment
         
-        Respond in this exact format:
-        INTENT: [detected_intent]
-        SLOTS: [json_object_with_slots]
-        MISSING: [comma_separated_missing_slots]
+        # TEMPORAL AND ACTION DISTINCTION:
+        # - Past tense queries with "how much", "how many", "have I", "did I send", "have I sent" → expense_report
+        # - Action language with "buy", "send", "pay" in imperative form → transactional (send_money, buy_airtime, pay_bill)
+        # - Query language with "check", "view", "show", "tell me my" → expense_report or informational
+        # - Time references like "today", "this week", "last month" in a query context → expense_report
         
-        Example with beneficiary name:
-        INTENT: send_money
-        SLOTS: {{"amount": "50", "beneficiary_name": "John", "reference": "food"}}
-        MISSING: 
+        # Respond in this exact format:
+        # INTENT: [detected_intent]
+        # SLOTS: [json_object_with_slots]
+        # MISSING: [comma_separated_missing_slots]
         
-        Example with direct phone number:
-        INTENT: send_money
-        SLOTS: {{"amount": "50", "recipient": "0234567890"}}
-        MISSING: reference
-        """
+        # Example with beneficiary name:
+        # INTENT: send_money
+        # SLOTS: {{"amount": "50", "beneficiary_name": "John", "reference": "food"}}
+        # MISSING: 
+        
+        # Example with direct phone number:
+        # INTENT: send_money
+        # SLOTS: {{"amount": "50", "recipient": "0234567890"}}
+        # MISSING: reference
+        # """
 
         try:
             logger.debug("Intent detection start: user_message=%s current_intent=%s media_present=%s", user_message, current_intent, bool(media_context))
@@ -239,21 +245,6 @@ class IntentDetector:
         INTENT: pay_bill
         SLOTS: {{"bill_type": "ECG", "account_number": "95200204493", "amount": "1"}}
         MISSING:
-
-        User continues bill payment: "My smart card number is 95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"account_number": "95200204493"}}
-        MISSING: bill_type
-
-        User continues bill payment: "Just the card is 95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"account_number": "95200204493"}}
-        MISSING: bill_type
-
-        User continues bill payment: "95200204493"
-        INTENT: pay_bill
-        SLOTS: {{"account_number": "95200204493"}}
-        MISSING: bill_type
 
         User starts bill payment: "Pay my DStv bill, account 1234567890, amount is 50 cedis"
         INTENT: pay_bill

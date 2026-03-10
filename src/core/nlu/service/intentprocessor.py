@@ -4,7 +4,7 @@ from typing import Dict, List, Any, Optional
 from core.beneficiaries.service.beneficiary_service import BeneficiaryService
 from core.nlu.service.llmclient import LLMClient
 from core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES
-from core.nlu.service.datapipe.dataconfig import FINANCIAL_INSIGHTS_SYSTEM_PROMPT
+from core.nlu.service.datapipe.dataconfig import FINANCIAL_INSIGHTS_SYSTEM_PROMPT, INSIGHTS_SYSTEM_PROMPT
 from core.nlu.service.datapipe.user_rag import UserRAGManager
 from core.user.controller.usercontroller import get_db
 from core.beneficiaries.service.beneficiary_service import BeneficiaryService
@@ -119,7 +119,7 @@ class IntentProcessor:
         
         # Build enhanced system prompt
         system_prompt = self._build_enhanced_system_prompt(
-            base_prompt=FINANCIAL_INSIGHTS_SYSTEM_PROMPT,
+            base_prompt=INSIGHTS_SYSTEM_PROMPT,
             conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,

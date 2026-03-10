@@ -544,6 +544,7 @@ class LebeNLUSystem:
                     network=network_map.get(slots.get('network', 'MTN'), Network.MTN),
                     paymentMethod=PaymentMethod.MOBILE_MONEY,
                     serviceName="Airtime Top-Up",
+                    reference="Airtime Purchase",
                     amountPaid=Decimal(slots.get('amount', '0')),
                     transactionId=str(UniqueIdGenerator.generate()),
                     customerName=slots.get('recipient_name', 'Unknown'),

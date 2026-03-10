@@ -5,6 +5,7 @@ from pathlib import Path
 import requests
 import logging
 from typing import Optional
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +175,65 @@ class WhatsAppService:
             logger.error(f"Failed to send WhatsApp template: {e}")
             if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"Response content: {e.response.text}")
+            return False
+
+    def send_typing_indicator(
+        self,
+        phone_number_id: str,
+        recipient_phone: str,
+        message_id: str
+    ) -> bool:
+        """
+        Mark message as read and show typing indicator to the user.
+
+        Args:
+            phone_number_id: The phone number ID from Meta webhook metadata
+            recipient_phone: The recipient's WhatsApp ID (phone number)
+            message_id: The incoming message ID to mark as read
+
+        Returns:
+            bool: True if typing indicator sent successfully, False otherwise
+        """
+        url = f"{self.base_url}/{phone_number_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        # Step 1: Mark message as read
+        read_payload = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": message_id
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=read_payload)
+            response.raise_for_status()
+            logger.info(f"Marked message {message_id} as read")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Failed to mark message as read: {e}")
+
+        # Step 2: Send typing indicator
+        typing_payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient_phone,
+            "type": "typing",
+            "typing": {
+                "status": "start"
+            }
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=typing_payload)
+            response.raise_for_status()
+            logger.info(f"Typing indicator sent to {recipient_phone}")
+            return True
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Failed to send typing indicator: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.warning(f"Response content: {e.response.text}")
             return False
 
     def send_message_receipt(

@@ -257,6 +257,15 @@ def handle_text_message(message: dict, phone: str, phone_number_id: str, db: Ses
         # Existing user - process message through NLU
         logger.info(f"Existing user detected: {phone}. Processing message through NLU.")
 
+        # Show typing indicator while processing
+        message_id = message.get("id")
+        if message_id:
+            whatsapp_service.send_typing_indicator(
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_id=message_id
+            )
+
         # Initialize NLU system and subscription service
         nlu_system = LebeNLUSystem()
         subscription_service = SubscriptionService(db)
@@ -512,7 +521,16 @@ def handle_image_message(message: dict, phone: str, phone_number_id: str, db: Se
         else:
             # Existing user - process image through NLU
             logger.info(f"Processing image for existing user: {phone}")
-            
+
+            # Show typing indicator while processing
+            message_id = message.get("id")
+            if message_id:
+                whatsapp_service.send_typing_indicator(
+                    phone_number_id=phone_number_id,
+                    recipient_phone=phone,
+                    message_id=message_id
+                )
+
             # Initialize NLU system
             nlu_system = LebeNLUSystem()
             subscription_service = SubscriptionService(db)
@@ -602,7 +620,16 @@ def handle_audio_message(message: dict, phone: str, phone_number_id: str, db: Se
         else:
             # Existing user - process audio through NLU
             logger.info(f"Processing audio for existing user: {phone}")
-            
+
+            # Show typing indicator while processing
+            message_id = message.get("id")
+            if message_id:
+                whatsapp_service.send_typing_indicator(
+                    phone_number_id=phone_number_id,
+                    recipient_phone=phone,
+                    message_id=message_id
+                )
+
             # Initialize NLU system
             nlu_system = LebeNLUSystem()
             subscription_service = SubscriptionService(db)

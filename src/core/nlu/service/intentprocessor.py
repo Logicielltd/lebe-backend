@@ -1,15 +1,15 @@
 # core/nlu/service/intent_processor.py
+import json
 from typing import Dict, List, Any, Optional
 from core.beneficiaries.service.beneficiary_service import BeneficiaryService
 from core.nlu.service.llmclient import LLMClient
-from core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES, INTENT_CATEGORIES
-from core.nlu.service.user_rag import UserRAGManager
+from core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES
+from core.nlu.service.datapipe.dataconfig import FINANCIAL_INSIGHTS_SYSTEM_PROMPT
+from core.nlu.service.datapipe.user_rag import UserRAGManager
 from core.user.controller.usercontroller import get_db
 from core.beneficiaries.service.beneficiary_service import BeneficiaryService
-from core.histories.service.historyservice import HistoryService
-from utilities.dbconfig import SessionLocal
-from datetime import datetime, timedelta
 import logging
+from core.nlu.service.datapipe.dataengine import EnhancedUserRAGManager
 
 logger = logging.getLogger(__name__)
 
@@ -87,21 +87,60 @@ class IntentProcessor:
         user_data: Optional[Dict] = None
     ) -> str:
         """
-        Process expense report with user spending context
+        Process expense report with enhanced financial insights
         """
+        # Get user name
+        user_name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
+        if not user_name:
+            user_name = user_data.get('username', 'User')
+        
+        # Get time frame from slots or default
+        time_frame = slots.get('time_period', 'the selected period')
+        
+        # Fetch transactions using your existing method
+        transactions = self.rag_manager.get_transaction_history(
+            user_id=user_data.get('user_id'),
+            intent=intent,
+            slots=slots
+        )
+        
+        # Use the enhanced query engine
+        
+        
+        rag_manager = EnhancedUserRAGManager()
+        
+        financial_context = rag_manager.get_financial_insights_context(
+            user_name=user_name,
+            user_id=user_data.get('user_id'),
+            transactions=transactions,
+            time_frame=time_frame,
+            user_phone=user_data.get('phone_number')
+        )
+        
+        # Build enhanced system prompt
         system_prompt = self._build_enhanced_system_prompt(
-            base_prompt=SYSTEM_PROMPTS["expense_report"],
+            base_prompt=FINANCIAL_INSIGHTS_SYSTEM_PROMPT,
             conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,
             slots=slots
         )
         
+        # Add the financial context to the user message
+        enhanced_user_message = f"""
+        User Query: {user_message}
+        
+        Financial Data Context:
+        {json.dumps(financial_context, indent=2, default=str)}
+        
+        Please provide insights based on this data.
+        """
+        
         response = self.llm_client.chat_completion(
             system_prompt=system_prompt,
-            user_message=user_message,
+            user_message=enhanced_user_message,
             conversation_history=conversation_history,
-            temperature=0.3
+            temperature=0.4
         )
         
         return self._clean_markdown_formatting(response)
@@ -236,6 +275,7 @@ class IntentProcessor:
             # Ensure we pass a string user_id to the RAG manager so it matches
             # the History.user_id column (which is stored as string).
             user_id_for_rag = str(user_data.get("user_id"))
+            
             user_context = self.rag_manager.get_extracted_user_context(
                 user_id=user_id_for_rag,
                 intent=intent,
@@ -314,3 +354,4 @@ class IntentProcessor:
             context += f"{role}: {msg['content']}\n"
         
         return context
+

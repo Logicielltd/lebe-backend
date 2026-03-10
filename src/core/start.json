@@ -1,0 +1,93 @@
+{
+    "User {User_name} Financial Data for {Time Frame}" : {
+        "User Summary" : {
+            "Total Amount Sent" : "{total_amount_sent}",
+            "Total Amount Received" : "{total_amount_received}",
+            "Total Transactions Sent" : "{total_transactions_sent}",
+            "Total Transactions Received" : "{total_transactions_received}"
+        },
+        "Receiver {Receiver_name_1}" : {
+            "Receiver Summary" : {
+                "Total Amount Sent to Receiver" : "{total_amount_sent_to_receiver}",
+                "Total Amount Received from Receiver" : "{total_amount_received_from_receiver}",
+                "Total Transactions Sent to Receiver" : "{total_transactions_sent_to_receiver}",
+                "Total Transactions Received from Receiver" : "{total_transactions_received_from_receiver}"
+            },
+            "Service Name {Service_name_1}" : {
+                "Service Summary" : {
+                    "Total Amount Sent for Service" : "{total_amount_sent_for_service}",
+                    "Total Amount Received for Service" : "{total_amount_received_for_service}",
+                    "Total Transactions Sent for Service" : "{total_transactions_sent_for_service}",
+                    "Total Transactions Received for Service" : "{total_transactions_received_for_service}"
+                },
+                "Reference {Reference_1}" : {
+                    "Reference Summary" : {
+                        "Total Amount Sent for Reference" : "{total_amount_sent_for_reference}",
+                        "Total Amount Received for Reference" : "{total_amount_received_for_reference}",
+                        "Total Transactions Sent for Reference" : "{total_transactions_sent_for_reference}",
+                        "Total Transactions Received for Reference" : "{total_transactions_received_for_reference}"
+                    },
+                    "Transaction ID 1" : {
+                    "Amount" : "{Amount_1}",
+                    "Currency" : "{Currency_1}",
+                    "senderPhone" : "{user_id}",
+                    "receiverPhone" : "{recipient}",
+                    "network" : "{network_map.get(slots.get('network', 'MTN'), Network.MTN)}",
+                    "paymentMethod" : "{PaymentMethod.MOBILE_MONEY}",
+                    "customerName" : "{recipient_name}",
+                    "senderName" : "{sender_name}",  
+                    "receiverName" : "{receiver_name}",
+                    "senderProvider" : "{sender_provider}",
+                    "receiverProvider" : "{receiver_provider}",
+                    "serviceName" : "Money Transfer to {slots.get('recipient')}",
+                    "reference" : "{reference}",
+                    "beneficiaryId" : "{beneficiary_id}",
+                    "beneficiaryName" : "{beneficiary_matched}",
+                    "amountPaid" : "{Decimal(slots.get('amount', '0'))}"
+                    },
+                    "Transaction ID 3" : {
+                    "Amount" : "{Amount_3}",
+                    "Currency" : "{Currency_3}",
+                    "senderPhone" : "{user_id}",
+                    "receiverPhone" : "{recipient}",
+                    "network" : "{network_map.get(slots.get('network', 'MTN'), Network.MTN)}",
+                    "paymentMethod" : "{PaymentMethod.MOBILE_MONEY}",
+                    "customerName" : "{recipient_name}",
+                    "senderName" : "{sender_name}",  
+                    "receiverName" : "{receiver_name}",
+                    "senderProvider" : "{sender_provider}",
+                    "receiverProvider" : "{receiver_provider}",
+                    "serviceName" : "Money Transfer to {slots.get('recipient')}",
+                    "reference" : "{reference}",
+                    "beneficiaryId" : "{beneficiary_id}",
+                    "beneficiaryName" : "{beneficiary_matched}",
+                    "amountPaid" : "{Decimal(slots.get('amount', '0'))}"
+                    }
+
+                }
+            },
+            "Service Name {Service_name_2}" : {
+                "Reference {Reference_2}" : {
+                    "Transaction ID 2" : {
+                    "Amount" : "{Amount_2}",
+                    "Currency" : "{Currency_2}",
+                    "senderPhone" : "{user_id}",
+                    "receiverPhone" : "{recipient}",
+                    "network" : "{network_map.get(slots.get('network', 'MTN'), Network.MTN)}",
+                    "paymentMethod" : "{PaymentMethod.MOBILE_MONEY}",
+                    "customerName" : "{recipient_name}",
+                    "senderName" : "{sender_name}",  
+                    "receiverName" : "{receiver_name}",
+                    "senderProvider" : "{sender_provider}",
+                    "receiverProvider" : "{receiver_provider}",
+                    "serviceName" : "Money Transfer to {slots.get('recipient')}",
+                    "reference" : "{reference}",
+                    "beneficiaryId" : "{beneficiary_id}",
+                    "beneficiaryName" : "{beneficiary_matched}",
+                    "amountPaid" : "{Decimal(slots.get('amount', '0'))}"
+                }
+            }
+            }
+        }
+    }
+}

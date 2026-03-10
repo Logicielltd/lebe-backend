@@ -29,7 +29,7 @@ class UserRAGManager:
         core_bio = self._extract_core_bio(full_user_data)
         
         # Get transaction history from database
-        transaction_data = self._get_transaction_history(user_id, intent, current_slots)
+        transaction_data = self.get_transaction_history(user_id, intent, current_slots)
         
         rag_context = {
             "User Transaction History": transaction_data
@@ -50,7 +50,7 @@ class UserRAGManager:
             "location": "Ghana"  # Default location
         }
     
-    def _get_transaction_history(self, user_id: str, intent: str, slots: Dict) -> List[Dict]:
+    def get_transaction_history(self, user_id: str, intent: str, slots: Dict) -> List[Dict]:
         """Fetch transaction history from database"""
         try:
             db = SessionLocal()

@@ -268,7 +268,7 @@ SYSTEM_PROMPTS = {
     The following section includes the user's spending data.
     If there is no transactions data available, return with a message indicating no data generated yet for that scenario.
 
-    User Transaction History: {context}
+    User Transaction Data: {context}
     Expense report criteria: {category}
 
     Notes for accuracy:

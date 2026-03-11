@@ -275,7 +275,7 @@ SYSTEM_PROMPTS = {
         - Within the user transaction history, beneficiary_name is equal to recipient, do not confuse them with username.
         - If specific time periods are mentioned, focus on those.
         - Keep response very short and concise.
-        - There is field called 'transaction_success_or_failure' indicating if a transaction was successful or failed.
+        - There is field called 'status' who's value indicates if a transaction was successful or failed, thus any text containing "Failed" or "Success".
         - The beneficiary_name field indicates the name of the recipient for a transaction, if available.
     """,
 

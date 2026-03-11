@@ -106,7 +106,6 @@ class IntentProcessor:
         
         # Use the enhanced query engine
         
-        
         rag_manager = EnhancedUserRAGManager()
         
         financial_context = rag_manager.get_financial_insights_context(
@@ -117,9 +116,11 @@ class IntentProcessor:
             user_phone=user_data.get('phone_number')
         )
         
+        print(f"[INTENT_PROCESSOR] Financial context for user {user_name} ({user_data.get('user_id')}): {financial_context}")
+        
         # Build enhanced system prompt
         system_prompt = self._build_enhanced_system_prompt(
-            base_prompt=INSIGHTS_SYSTEM_PROMPT,
+            base_prompt=SYSTEM_PROMPTS["expense_report"],
             conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,

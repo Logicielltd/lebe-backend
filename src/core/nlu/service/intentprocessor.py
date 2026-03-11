@@ -34,7 +34,6 @@ class IntentProcessor:
         # Prepare enhanced system prompt with user context
         system_prompt = self._build_enhanced_system_prompt(
             base_prompt=SYSTEM_PROMPTS["conversational"],
-            conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,
             slots=slots
@@ -63,7 +62,6 @@ class IntentProcessor:
         # Prepare enhanced system prompt with user context
         system_prompt = self._build_enhanced_system_prompt(
             base_prompt=SYSTEM_PROMPTS["financial_tips"],
-            conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,
             slots=slots
@@ -93,7 +91,6 @@ class IntentProcessor:
         # Build enhanced system prompt
         system_prompt = self._build_enhanced_system_prompt(
             base_prompt=SYSTEM_PROMPTS["expense_report"],
-            conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,
             slots=slots

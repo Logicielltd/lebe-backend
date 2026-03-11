@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 from core.payments.model.payment import Payment
 from core.payments.model.paymentstatus import PaymentStatus
 from utilities.dbconfig import SessionLocal
+from core.nlu.service.datapipe.time_period_parser import TimePeriodParser, get_lookback_days
+import logging
+
+logger = logging.getLogger(__name__)
 
 class UserRAGManager:
     """Manages user data for RAG augmentation using transaction history"""
@@ -63,9 +67,21 @@ class UserRAGManager:
                 Payment.sender_phone == user_id,
             )
 
-            # Apply time filters based on intent (use date_paid)
-            days_to_look_back = self._get_lookback_period(intent)
-            start_date = datetime.utcnow() - timedelta(days=days_to_look_back)
+            # Parse time period intelligently - supports natural language, codes, and numeric formats
+            time_period = slots.get("time_period")
+            date_range = TimePeriodParser.parse(time_period)
+            
+            if date_range:
+                start_date = date_range.start_date
+                logger.info(
+                    f"[USER_RAG] Parsed time_period '{time_period}' -> lookback {date_range.days_back} days "
+                    f"(code: {date_range.period_code}, confidence: {date_range.confidence})"
+                )
+            else:
+                # Fallback: default to 30 days
+                start_date = datetime.utcnow() - timedelta(days=30)
+                logger.warning(f"[USER_RAG] Failed to parse time_period '{time_period}', defaulting to 30 days")
+            
             query = query.filter(Payment.date_paid >= start_date)
 
             # Order by most recent and limit
@@ -88,31 +104,28 @@ class UserRAGManager:
                     "receiver_phone": tx.receiver_phone,
                     "network": tx.network,
                     "reference": tx.reference or None,
-                    "receiver_name": " ".join(filter(None, [tx.beneficiary_name, tx.receiver_name or tx.receiver_phone])),          
+                    "receiver_name": " ".join(filter(None, [tx.beneficiary_name, tx.receiver_name])),          
                     "date_paid": tx.date_paid.isoformat() if tx.date_paid else None,
                 })
             
             return transaction_list
             
         except Exception as e:
-            print(f"Error fetching transaction history: {e}")
+            logger.error(f"Error fetching transaction history: {e}")
             return []
         finally:
             db.close()
     
-    def _get_lookback_period(self, intent: str) -> int:
-        """Determine how far back to look in transaction history based on intent"""
-        lookback_map = {
-            "budgeting_advice": 90,  # 3 months for budgeting patterns
-            "savings_tips": 180,     # 6 months for savings trends
-            "investment_advice": 365, # 1 year for investment history
-            "debt_management": 180,   # 6 months for debt patterns
-            "send_money": 60,         # 2 months for transfer patterns
-            "buy_airtime": 30,        # 1 month for airtime usage
-            "pay_bill": 90,           # 3 months for bill payments
-            "financial_tips": 60,     # 2 months for general tips
-            "expense_report": 30,     # 1 month for current expenses
-            "default": 30             # 1 month default
-        }
-        return lookback_map.get(intent, lookback_map["default"])
+    def _get_lookback_period(self, time_period: str) -> int:
+        """
+        Get number of days to look back based on time period.
+        Now uses smart TimePeriodParser for better natural language support.
+        
+        Supports:
+        - Natural language: "last month", "3 weeks ago", "30 days", etc.
+        - Period codes: "TODAY", "MONTH_1", "YEAR_1", etc.
+        - Numeric: "30", "7 days", "3 months", etc.
+        """
+        return get_lookback_days(time_period)
+
     

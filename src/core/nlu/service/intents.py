@@ -181,6 +181,27 @@ class IntentDetector:
         - "Buy airtime for mom" → buy_airtime (action)
         - "How much airtime have I bought today?" → expense_report (query)
         - "How much airtime have I sent to wifey?" → expense_report (query about past transactions)
+        
+        TIME PERIOD EXTRACTION GUIDANCE:
+        When extracting the "time_period" slot, use one of these standardized codes:
+        - TODAY: for "today", "current day", "right now"
+        - YESTERDAY: for "yesterday", "last day"
+        - WEEK_1: for "last week", "7 days", "this week", "past week"
+        - WEEK_2: for "2 weeks", "14 days", "past 2 weeks"
+        - MONTH_1: for "last month", "30 days", "this month", "past month"
+        - MONTH_3: for "last 3 months", "90 days", "past 3 months", "quarter"
+        - MONTH_6: for "last 6 months", "180 days", "past 6 months"
+        - YEAR_1: for "last year", "12 months", "this year", "annual", "yearly"
+        - ALL_TIME: for "all time", "everything", "entire history", "since creation"
+        
+        IMPORTANT: Prefer the standardized codes above over natural language variations.
+        If the user provides a time period that doesn't exactly match, convert it to the appropriate code.
+        Examples:
+        - "last 3 months" → "MONTH_3"
+        - "for the past week" → "WEEK_1"
+        - "this month's spending" → "MONTH_1"
+        - "all my transactions" → "ALL_TIME"
+        - "over the last 6 months" → "MONTH_6"
         """
         
         current_intent_context = f"CURRENT_INTENT: {current_intent if current_intent else 'Intent Extraction'}"
@@ -225,12 +246,12 @@ class IntentDetector:
 
         User queries expense report: "How much airtime have I sent to wifey today?"
         INTENT: expense_report
-        SLOTS: {{"category": "airtime", "time_period": "today"}}
+        SLOTS: {{"category": "airtime", "time_period": "TODAY"}}
         MISSING:
 
         User queries expense report: "How much money did I send this week?"
         INTENT: expense_report
-        SLOTS: {{"category": "money_transfer", "time_period": "this week"}}
+        SLOTS: {{"category": "money_transfer", "time_period": "WEEK_1"}}
         MISSING:
 
         User starts bill payment: "Make bill payment of 1 cedi to 95200204493"
@@ -260,7 +281,7 @@ class IntentDetector:
 
         User queries expense: "How much airtime did I buy last month?"
         INTENT: expense_report
-        SLOTS: {{"category": "airtime", "time_period": "last month"}}
+        SLOTS: {{"category": "airtime", "time_period": "MONTH_1"}}
         MISSING:
 
         User continues current intent: "Actually, make it 100 cedis instead"

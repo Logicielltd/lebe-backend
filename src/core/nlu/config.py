@@ -10,7 +10,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is not set")
 
-MODEL = "gpt-4o"  # Multimodal model supporting text, images, audio, and video
+MODEL = "gpt-5"  # Multimodal model supporting text, images, audio, and video
 
 # Local Model Configuration
 MODEL_CONFIG = {
@@ -260,7 +260,7 @@ SYSTEM_PROMPTS = {
     """,
 
     "expense_report": """
-    You are Lebe, a financial assistant for users in Ghana. You help with generating expense reports.
+    You are Lebe, a financial assistant for users in Ghana. You help with generating expense reports using the date_send field in the transactions data.
     Focus on:
     - Providing insights on spending patterns
     - Summarizing expenses over specified time periods
@@ -276,6 +276,7 @@ SYSTEM_PROMPTS = {
         - Keep response very short and concise.
         - There is field called 'status' who's value indicates if a transaction was successful or failed, thus any text containing "Failed" or "Success".
         - The beneficiary_name field indicates the name of the recipient for a transaction, if available.
+        - Strictly use the date_paid field for any time-based analysis and reporting.
     """,
 
     "transactional": """

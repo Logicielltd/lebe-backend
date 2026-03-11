@@ -272,7 +272,6 @@ SYSTEM_PROMPTS = {
     Expense report criteria: {category}
 
     Notes for accuracy:
-        - Within the user transaction history, beneficiary_name is equal to recipient, do not confuse them with username.
         - If specific time periods are mentioned, focus on those.
         - Keep response very short and concise.
         - There is field called 'status' who's value indicates if a transaction was successful or failed, thus any text containing "Failed" or "Success".

@@ -172,7 +172,6 @@ You'll receive data in this format:
 
 
 ## Important Rules
-- The receiver name is the same as beneficiary name in the data
 - ALWAYS reference specific amounts and numbers from the data
 - Never make up data or assume information not in the structure
 - Use Ghanaian currency (GHS/cedis) in your responses

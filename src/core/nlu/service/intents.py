@@ -155,6 +155,7 @@ class IntentDetector:
         
         intent_guidelines = """
         INTENT DETECTION GUIDELINES:
+        0. The moment a user send Hello, Hi, Hey or similar greeting, it should be classified as a greeting intent, regardless of any current intent. This is a clear signal of a new conversation flow.
         1. Be precise - read the exact words and phrasing in the user message
         2. If the message continues the current conversation flow, maintain the same intent
         3. Only change intent if the user clearly introduces a new topic or request
@@ -165,7 +166,7 @@ class IntentDetector:
         - If user provides additional information for current intent: KEEP SAME INTENT
         - If user corrects or modifies previous information: KEEP SAME INTENT  
         - If user asks clarifying questions about current task: KEEP SAME INTENT
-        - Only switch intent for completely new, unrelated requests
+        - Only switch intent for completely new, unrelated user text
         
         TEMPORAL AND ACTION DISTINCTION:
         - Past tense queries with "how much", "how many", "have I", "did I send", "have I sent" → expense_report
@@ -174,6 +175,7 @@ class IntentDetector:
         - Time references like "today", "this week", "last month" in a query context → expense_report
         
         EXAMPLES OF DISTINCTION:
+        - "Hello" → greeting (informational)
         - "Send 50 cedis to John" → send_money (action)
         - "How much have I sent to John today?" → expense_report (query)
         - "Buy airtime for mom" → buy_airtime (action)

@@ -10,7 +10,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is not set")
 
-MODEL = "gpt-5"  # Multimodal model supporting text, images, audio, and video
+MODEL = "gpt-4o"  # Multimodal model supporting text, images, audio, and video
 
 # Local Model Configuration
 MODEL_CONFIG = {

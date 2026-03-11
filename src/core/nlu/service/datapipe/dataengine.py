@@ -314,24 +314,22 @@ class FinancialDataQueryEngine:
         amount = self._safe_decimal(tx.get('amount_paid', 0))
         
         return {
-            "Amount": f"{amount:.2f}",
             "Currency": tx.get('currency', 'GHS'),
-            "senderPhone": tx.get('sender_phone', user_identifier),
-            "receiverPhone": tx.get('receiver_phone', tx.get('recipient', '')),
+            "bill_id": tx.get('bill_id', ''),
+            "response_id": tx.get('response_id', ''),
+            "amount_paid": f"{amount:.2f}",
+            "payment_method": tx.get('payment_method', 'MOBILE_MONEY'),
+            "status": tx.get('status', 'SUCCESS'),
+            "transaction_id": tx.get('transaction_id', ''),
+            "service_name": tx.get('service_name', self._infer_service_name(tx)),
+            "intent": tx.get('intent', ''),
+            "sender_phone": tx.get('sender_phone', user_identifier),
+            "receiver_phone": tx.get('receiver_phone', tx.get('receiver_name', '')),
             "network": tx.get('network', 'MTN'),
-            "paymentMethod": tx.get('payment_method', 'MOBILE_MONEY'),
-            "customerName": tx.get('customer_name', ''),
-            "senderName": tx.get('sender_name', ''),
-            "receiverName": tx.get('receiver_name', ''),
-            "senderProvider": tx.get('sender_provider', ''),
-            "receiverProvider": tx.get('receiver_provider', ''),
-            "serviceName": tx.get('service_name', self._infer_service_name(tx)),
             "reference": tx.get('reference', ''),
-            "beneficiaryId": tx.get('beneficiaryId', ''),
-            "beneficiaryName": tx.get('beneficiary_name', ''),
-            "amountPaid": f"{amount:.2f}",
-            "date": tx.get('date_paid', tx.get('created_at', '')),
-            "status": tx.get('status', 'SUCCESS')
+            "receiver_name": tx.get('receiver_name', ''),
+            "date_paid": tx.get('date_paid', tx.get('created_at', '')),
+            
         }
     
     def _get_transaction_direction(
@@ -340,8 +338,8 @@ class FinancialDataQueryEngine:
         user_identifier: str
     ) -> TransactionDirection:
         """Determine if transaction was sent or received by user"""
-        sender = tx.get('senderPhone', '')
-        receiver = tx.get('receiverPhone', tx.get('recipient', ''))
+        sender = tx.get('sender_phone', '')
+        receiver = tx.get('receiver_phone', tx.get('receiver_name', ''))
         
         if sender == user_identifier:
             return TransactionDirection.SENT
@@ -367,7 +365,7 @@ class FinancialDataQueryEngine:
         """Infer service name from transaction data"""
         intent = tx.get('intent', '')
         if intent == 'send_money':
-            return f"Money Transfer to {tx.get('recipient', 'Unknown')}"
+            return f"Money Transfer to {tx.get('receiver_name', 'Unknown')}"
         elif intent == 'buy_airtime':
             return f"Airtime Purchase for {tx.get('phone_number', 'Unknown')}"
         elif intent == 'pay_bill':
@@ -427,7 +425,7 @@ def test_query_engine():
             'intent': 'send_money',
             'amountPaid': 50.00,
             'senderPhone': '233501234567',
-            'recipient': '233247654321',
+            'receiver_name': '233247654321',
             'beneficiaryName': 'John Doe',
             'reference': 'Food',
             'date_paid': '2024-01-15T10:30:00'
@@ -437,7 +435,7 @@ def test_query_engine():
             'intent': 'send_money',
             'amountPaid': 30.00,
             'senderPhone': '233501234567',
-            'recipient': '233247654321',
+            'receiver_name': '233247654321',
             'beneficiaryName': 'John Doe',
             'reference': 'Transport',
             'date_paid': '2024-01-20T14:20:00'

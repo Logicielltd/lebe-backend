@@ -1,176 +1,90 @@
 {
     "User Frederick Ohene Financial Data for yesterday": {
         "User Summary": {
-            "Total Amount Sent": "0.00",
+            "Total Amount Sent": "12.00",
             "Total Amount Received": "0.00",
             "Total Transactions Sent": "6",
             "Total Transactions Received": "0"
         },
-        "Receiver 0508498096": {
+        "Receiver My Telecel": {
             "Receiver Summary": {
-                "Total Amount Sent to Receiver": "0.00",
+                "Total Amount Sent to Receiver": "2.00",
                 "Total Amount Received from Receiver": "0.00",
                 "Total Transactions Sent to Receiver": "1",
                 "Total Transactions Received from Receiver": "0"
             },
             "Service Airtime Purchase": {
                 "Service Summary": {
-                    "Total Amount Sent for Service": "0.00",
+                    "Total Amount Sent for Service": "2.00",
                     "Total Amount Received for Service": "0.00",
                     "Total Transactions Sent for Service": "1",
                     "Total Transactions Received for Service": "0"
                 },
                 "Reference Airtime Purchase": {
                     "Reference Summary": {
-                        "Total Amount Sent for Reference": "0.00",
+                        "Total Amount Sent for Reference": "2.00",
                         "Total Amount Received for Reference": "0.00",
                         "Total Transactions Sent for Reference": "1",
                         "Total Transactions Received for Reference": "0"
                     },
                     "6": {
-                        "Amount": "0.00",
+                        "Amount": "2.00",
                         "Currency": "GHS",
                         "senderPhone": "233207926310",
                         "receiverPhone": "0508498096",
                         "network": "MTN",
                         "paymentMethod": "MOBILE_MONEY",
                         "customerName": ", "senderName": ",
-                        "receiverName": ", "senderProvider": ",
-                        "receiverProvider": ", "serviceName": "Airtime Purchase for 0508498096", "reference": ",
-                        "beneficiaryId": ", "beneficiaryName": ",
-                        "amountPaid": "0.00",
-                        "date": "2026-03-10T16: 00: 08.393360+00: 00",
-                        "status": "SUCCESS"
-                    }
-                }
-            }
-        },
-        "Receiver Unknown Receiver": {
-            "Receiver Summary": {
-                "Total Amount Sent to Receiver": "0.00",
-                "Total Amount Received from Receiver": "0.00",
-                "Total Transactions Sent to Receiver": "4",
-                "Total Transactions Received from Receiver": "0"
-            },
-            "Service Airtime Purchase": {
-                "Service Summary": {
-                    "Total Amount Sent for Service": "0.00",
-                    "Total Amount Received for Service": "0.00",
-                    "Total Transactions Sent for Service": "4",
-                    "Total Transactions Received for Service": "0"
-                },
-                "Reference No Reference": {
-                    "Reference Summary": {
-                        "Total Amount Sent for Reference": "0.00",
-                        "Total Amount Received for Reference": "0.00",
-                        "Total Transactions Sent for Reference": "2",
-                        "Total Transactions Received for Reference": "0"
-                    },
-                    "5": {
-                        "Amount": "0.00",
-                        "Currency": "GHS",
-                        "senderPhone": "233207926310",
-                        "receiverPhone": None,
-                        "network": "MTN",
-                        "paymentMethod": "MOBILE_MONEY",
-                        "customerName": ", "senderName": ",
-                        "receiverName": ", "senderProvider": ",
-                        "receiverProvider": ", "serviceName": "Airtime Purchase for None", "reference": ",
-                        "beneficiaryId": ", "beneficiaryName": ",
-                        "amountPaid": "0.00",
-                        "date": "2026-03-10T15: 59: 43.712450+00: 00",
+                        "receiverName": "0508498096",
+                        "senderProvider": ", "receiverProvider": ",
+                        "serviceName": "Airtime Top-Up",
+                        "reference": "Airtime Purchase",
+                        "beneficiaryId": ", "beneficiaryName": "My Telecel", "amountPaid": "2.00", "date": "2026-03-10T16: 00: 08.393360+00: 00", "status": "SUCCESS"}}}}, "Receiver Unknown Receiver": {"Receiver Summary": {"Total Amount Sent to Receiver": "8.00", "Total Amount Received from Receiver": "0.00", "Total Transactions Sent to Receiver": "4", "Total Transactions Received from Receiver": "0"}, "Service Airtime Purchase": {"Service Summary": {"Total Amount Sent for Service": "8.00", "Total Amount Received for Service": "0.00", "Total Transactions Sent for Service": "4", "Total Transactions Received for Service": "0"}, "Reference No Reference": {"Reference Summary": {"Total Amount Sent for Reference": "4.00", "Total Amount Received for Reference": "0.00", "Total Transactions Sent for Reference": "2", "Total Transactions Received for Reference": "0"}, "5": {"Amount": "2.00", "Currency": "GHS", "senderPhone": "233207926310", "receiverPhone": None, "network": "MTN", "paymentMethod": "MOBILE_MONEY", "customerName": ",
+                        "senderName": ", "receiverName": None, "senderProvider": ",
+                        "receiverProvider": ", "serviceName": "Airtime Top-Up", "reference": None, "beneficiaryId": ",
+                        "beneficiaryName": None,
+                        "amountPaid": "2.00",
+                        "date": "2026-03-10T15:59:43.712450+00:00",
                         "status": "SUCCESS"
                     },
                     "2": {
-                        "Amount": "0.00",
+                        "Amount": "2.00",
                         "Currency": "GHS",
                         "senderPhone": "233207926310",
                         "receiverPhone": None,
                         "network": "MTN",
                         "paymentMethod": "MOBILE_MONEY",
                         "customerName": ", "senderName": ",
-                        "receiverName": ", "senderProvider": ",
-                        "receiverProvider": ", "serviceName": "Airtime Purchase for None", "reference": ",
-                        "beneficiaryId": ", "beneficiaryName": ",
-                        "amountPaid": "0.00",
-                        "date": "2026-03-10T15: 45: 44.473556+00: 00",
-                        "status": "SUCCESS"
-                    }
-                },
-                "Reference Airtime Purchase": {
-                    "Reference Summary": {
-                        "Total Amount Sent for Reference": "0.00",
-                        "Total Amount Received for Reference": "0.00",
-                        "Total Transactions Sent for Reference": "2",
-                        "Total Transactions Received for Reference": "0"
-                    },
-                    "4": {
-                        "Amount": "0.00",
-                        "Currency": "GHS",
-                        "senderPhone": "233207926310",
-                        "receiverPhone": None,
-                        "network": "MTN",
-                        "paymentMethod": "MOBILE_MONEY",
-                        "customerName": ", "senderName": ",
-                        "receiverName": ", "senderProvider": ",
-                        "receiverProvider": ", "serviceName": "Airtime Purchase for None", "reference": ",
-                        "beneficiaryId": ", "beneficiaryName": ",
-                        "amountPaid": "0.00",
-                        "date": "2026-03-10T15: 59: 22.177647+00: 00",
-                        "status": "SUCCESS"
+                        "receiverName": None,
+                        "senderProvider": ", "receiverProvider": ",
+                        "serviceName": "Airtime Top-Up",
+                        "reference": None,
+                        "beneficiaryId": ", "beneficiaryName": None, "amountPaid": "2.00", "date": "2026-03-10T15: 45: 44.473556+00: 00", "status": "SUCCESS"}}, "Reference Airtime Purchase": {"Reference Summary": {"Total Amount Sent for Reference": "4.00", "Total Amount Received for Reference": "0.00", "Total Transactions Sent for Reference": "2", "Total Transactions Received for Reference": "0"}, "4": {"Amount": "2.00", "Currency": "GHS", "senderPhone": "233207926310", "receiverPhone": None, "network": "MTN", "paymentMethod": "MOBILE_MONEY", "customerName": ",
+                        "senderName": ", "receiverName": None, "senderProvider": ",
+                        "receiverProvider": ", "serviceName": "Airtime Top-Up", "reference": "Airtime Purchase", "beneficiaryId": ",
+                        "beneficiaryName": None,
+                        "amountPaid": "2.00",
+                        "date": "2026-03-10T15:59:22.177647+00:00",
+                        "status": "MTC_FAILED"
                     },
                     "1": {
-                        "Amount": "0.00",
+                        "Amount": "2.00",
                         "Currency": "GHS",
                         "senderPhone": "233207926310",
                         "receiverPhone": None,
                         "network": "MTN",
                         "paymentMethod": "MOBILE_MONEY",
                         "customerName": ", "senderName": ",
-                        "receiverName": ", "senderProvider": ",
-                        "receiverProvider": ", "serviceName": "Airtime Purchase for None", "reference": ",
-                        "beneficiaryId": ", "beneficiaryName": ",
-                        "amountPaid": "0.00",
-                        "date": "2026-03-10T15: 45: 22.944738+00: 00",
-                        "status": "SUCCESS"
-                    }
-                }
-            }
-        },
-        "Receiver JANET AKU AFADZINU": {
-            "Receiver Summary": {
-                "Total Amount Sent to Receiver": "0.00",
-                "Total Amount Received from Receiver": "0.00",
-                "Total Transactions Sent to Receiver": "1",
-                "Total Transactions Received from Receiver": "0"
-            },
-            "Service Money Transfer": {
-                "Service Summary": {
-                    "Total Amount Sent for Service": "0.00",
-                    "Total Amount Received for Service": "0.00",
-                    "Total Transactions Sent for Service": "1",
-                    "Total Transactions Received for Service": "0"
-                },
-                "Reference TK": {
-                    "Reference Summary": {
-                        "Total Amount Sent for Reference": "0.00",
-                        "Total Amount Received for Reference": "0.00",
-                        "Total Transactions Sent for Reference": "1",
-                        "Total Transactions Received for Reference": "0"
-                    },
-                    "3": {
-                        "Amount": "0.00",
-                        "Currency": "GHS",
-                        "senderPhone": "233207926310",
-                        "receiverPhone": "JANET AKU AFADZINU",
-                        "network": "MTN",
-                        "paymentMethod": "MOBILE_MONEY",
-                        "customerName": ", "senderName": ",
-                        "receiverName": ", "senderProvider": ",
-                        "receiverProvider": ", "serviceName": "Money Transfer to JANET AKU AFADZINU", "reference": ",
-                        "beneficiaryId": ", "beneficiaryName": ",
-                        "amountPaid": "0.00",
-                        "date": "2026-03-10T15: 49: 54.078082+00: 00",
+                        "receiverName": None,
+                        "senderProvider": ", "receiverProvider": ",
+                        "serviceName": "Airtime Top-Up",
+                        "reference": "Airtime Purchase",
+                        "beneficiaryId": ", "beneficiaryName": None, "amountPaid": "2.00", "date": "2026-03-10T15: 45: 22.944738+00: 00", "status": "MTC_FAILED"}}}}, "Receiver My Wife": {"Receiver Summary": {"Total Amount Sent to Receiver": "2.00", "Total Amount Received from Receiver": "0.00", "Total Transactions Sent to Receiver": "1", "Total Transactions Received from Receiver": "0"}, "Service Money Transfer": {"Service Summary": {"Total Amount Sent for Service": "2.00", "Total Amount Received for Service": "0.00", "Total Transactions Sent for Service": "1", "Total Transactions Received for Service": "0"}, "Reference TK": {"Reference Summary": {"Total Amount Sent for Reference": "2.00", "Total Amount Received for Reference": "0.00", "Total Transactions Sent for Reference": "1", "Total Transactions Received for Reference": "0"}, "3": {"Amount": "2.00", "Currency": "GHS", "senderPhone": "233207926310", "receiverPhone": "0544842479", "network": "MTN", "paymentMethod": "MOBILE_MONEY", "customerName": ",
+                        "senderName": ", "receiverName": "JANET AKU AFADZINU", "senderProvider": ",
+                        "receiverProvider": ", "serviceName": "Money Transfer to 0544842479", "reference": "TK", "beneficiaryId": ",
+                        "beneficiaryName": "My Wife",
+                        "amountPaid": "2.00",
+                        "date": "2026-03-10T15:49:54.078082+00:00",
                         "status": "SUCCESS"
                     }
                 }

@@ -102,7 +102,7 @@ class FinancialDataQueryEngine:
         received_summary = TransactionSummary()
         
         for tx in transactions:
-            amount = self._safe_decimal(tx.get('amountPaid', 0))
+            amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
             
             if direction == TransactionDirection.SENT:
@@ -138,17 +138,17 @@ class FinancialDataQueryEngine:
         if direction == TransactionDirection.SENT:
             # For sent transactions, counterparty is the receiver
             return (
-                tx.get('beneficiaryName') or 
-                tx.get('receiverName') or 
-                tx.get('recipient') or 
+                tx.get('beneficiary_name') or 
+                tx.get('receiver_name') or 
+                tx.get('receiver_phone') or 
                 "Unknown Receiver"
             )
         else:
             # For received transactions, counterparty is the sender
             return (
-                tx.get('senderName') or 
-                tx.get('customerName') or 
-                tx.get('senderPhone') or 
+                tx.get('sender_name') or 
+                tx.get('customer_name') or 
+                tx.get('sender_phone') or 
                 "Unknown Sender"
             )
     
@@ -223,7 +223,7 @@ class FinancialDataQueryEngine:
         received_summary = TransactionSummary()
         
         for tx in transactions:
-            amount = self._safe_decimal(tx.get('amountPaid', 0))
+            amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
             
             if direction == TransactionDirection.SENT:
@@ -259,7 +259,7 @@ class FinancialDataQueryEngine:
         received_summary = TransactionSummary()
         
         for tx in transactions:
-            amount = self._safe_decimal(tx.get('amountPaid', 0))
+            amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
             
             if direction == TransactionDirection.SENT:
@@ -294,7 +294,7 @@ class FinancialDataQueryEngine:
         received_summary = TransactionSummary()
         
         for tx in transactions:
-            amount = self._safe_decimal(tx.get('amountPaid', 0))
+            amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
             
             if direction == TransactionDirection.SENT:
@@ -311,24 +311,24 @@ class FinancialDataQueryEngine:
     
     def _format_transaction(self, tx: Dict, user_identifier: str) -> Dict[str, str]:
         """Format a single transaction for output"""
-        amount = self._safe_decimal(tx.get('amountPaid', 0))
+        amount = self._safe_decimal(tx.get('amount_paid', 0))
         
         return {
             "Amount": f"{amount:.2f}",
             "Currency": tx.get('currency', 'GHS'),
-            "senderPhone": tx.get('senderPhone', user_identifier),
-            "receiverPhone": tx.get('receiverPhone', tx.get('recipient', '')),
+            "senderPhone": tx.get('sender_phone', user_identifier),
+            "receiverPhone": tx.get('receiver_phone', tx.get('recipient', '')),
             "network": tx.get('network', 'MTN'),
-            "paymentMethod": tx.get('paymentMethod', 'MOBILE_MONEY'),
-            "customerName": tx.get('customerName', ''),
-            "senderName": tx.get('senderName', ''),
-            "receiverName": tx.get('receiverName', ''),
-            "senderProvider": tx.get('senderProvider', ''),
-            "receiverProvider": tx.get('receiverProvider', ''),
-            "serviceName": tx.get('serviceName', self._infer_service_name(tx)),
+            "paymentMethod": tx.get('payment_method', 'MOBILE_MONEY'),
+            "customerName": tx.get('customer_name', ''),
+            "senderName": tx.get('sender_name', ''),
+            "receiverName": tx.get('receiver_name', ''),
+            "senderProvider": tx.get('sender_provider', ''),
+            "receiverProvider": tx.get('receiver_provider', ''),
+            "serviceName": tx.get('service_name', self._infer_service_name(tx)),
             "reference": tx.get('reference', ''),
             "beneficiaryId": tx.get('beneficiaryId', ''),
-            "beneficiaryName": tx.get('beneficiaryName', ''),
+            "beneficiaryName": tx.get('beneficiary_name', ''),
             "amountPaid": f"{amount:.2f}",
             "date": tx.get('date_paid', tx.get('created_at', '')),
             "status": tx.get('status', 'SUCCESS')

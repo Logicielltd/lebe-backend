@@ -77,15 +77,15 @@ class UserRAGManager:
                 transaction_list.append({
                     "id": str(tx.id),
                     "intent": tx.intent,
-                    "amount": float(tx.amount_paid) if tx.amount_paid else 0.0,
+                    "amount_paid": float(tx.amount_paid) if tx.amount_paid else 0.0,
+                    "service_name": tx.service_name,
                     "beneficiary_name": tx.beneficiary_name or None,
-                    "recipient": tx.receiver_name or tx.receiver_phone,
-                    "phone_number": tx.receiver_phone,
+                    "receiver_name": tx.receiver_name or tx.receiver_phone,
+                    "receiver_phone": tx.receiver_phone,
                     "category": tx.intent,
-                    "transaction_success_or_failure": tx.status.value if hasattr(tx.status, 'value') else str(tx.status),
-                    "description": tx.reference or None,
+                    "status": tx.status.value if hasattr(tx.status, 'value') else str(tx.status),
+                    "reference": tx.reference or None,
                     "created_at": tx.date_paid.isoformat() if tx.date_paid else None,
-                    "metadata": {"reference": tx.reference} if tx.reference else {}
                 })
             
             return transaction_list

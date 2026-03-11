@@ -229,7 +229,7 @@ class IntentProcessor:
         """
         # Add user context if available
         user_context_section = ""
-        if user_data:
+        if user_data and intent == "expense_report":
             # user_data produced by NLU uses the key 'user_id' (not 'id')
             # Ensure we pass a string user_id to the RAG manager so it matches
             # the History.user_id column (which is stored as string).

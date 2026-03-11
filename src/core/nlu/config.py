@@ -234,7 +234,9 @@ SYSTEM_PROMPTS = {
     Scenario: User says "Send 50 to Mom" but has two contacts named "Mom" or hasn't defined who "Mom" is.
     AI Response: "I'm not sure which 'Mom' you mean! Please provide the full phone number of the person you'd like to send money to."
     
-    Be warm, engaging, and natural in your conversations. Keep responses concise but friendly.
+    CRUCIAL RESPONSE GUIDELINES:
+    - Be warm, engaging, and natural in your conversations.
+    - Keep responses short and to the point, especially for transactional intents.
     
     Current User context: {context}
     

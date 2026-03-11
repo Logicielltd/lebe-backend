@@ -102,11 +102,13 @@ class TimePeriodParser:
         Returns:
             DateRange object with start_date, end_date, days_back, and period_code
         """
+        # Set reference date first, before any use
+        reference_date = reference_date or datetime.utcnow()
+        
         if not time_period:
             logger.warning("Empty time_period provided, defaulting to MONTH_1")
             return cls._create_date_range(TimePeriodCode.MONTH_1, reference_date)
         
-        reference_date = reference_date or datetime.utcnow()
         time_period_clean = time_period.strip().lower()
         
         # Try 1: Check if it's already a period code

@@ -132,25 +132,41 @@ class FinancialDataQueryEngine:
         return dict(counterparty_groups)
     
     def _extract_counterparty(self, tx: Dict, user_identifier: str) -> str:
-        """Extract the counterparty name from a transaction"""
+        """Extract the counterparty identifier from a transaction
+        
+        Primary identifier is phone number, concatenated with name if available.
+        Priority order: beneficiary_name > receiver_name for sent transactions
+        """
         direction = self._get_transaction_direction(tx, user_identifier)
         
         if direction == TransactionDirection.SENT:
             # For sent transactions, counterparty is the receiver
-            return (
-                tx.get('beneficiary_name') or 
-                tx.get('receiver_name') or 
-                tx.get('receiver_phone') or 
-                "Unknown Receiver"
-            )
+            receiver_phone = tx.get('receiver_phone') or "Unknown"
+            
+            # Determine which name to concatenate
+            beneficiary_name = tx.get('beneficiary_name')
+            receiver_name = tx.get('receiver_name')
+            
+            if beneficiary_name:
+                return f"{receiver_phone} - {beneficiary_name}"
+            elif receiver_name:
+                return f"{receiver_phone} - {receiver_name}"
+            else:
+                return receiver_phone
         else:
             # For received transactions, counterparty is the sender
-            return (
-                tx.get('sender_name') or 
-                tx.get('customer_name') or 
-                tx.get('sender_phone') or 
-                "Unknown Sender"
-            )
+            sender_phone = tx.get('sender_phone') or "Unknown"
+            
+            # Use available name fields
+            sender_name = tx.get('sender_name')
+            customer_name = tx.get('customer_name')
+            
+            if sender_name:
+                return f"{sender_phone} - {sender_name}"
+            elif customer_name:
+                return f"{sender_phone} - {customer_name}"
+            else:
+                return sender_phone
     
     def _build_counterparty_structure(
         self, 

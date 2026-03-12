@@ -99,6 +99,20 @@ services:
     networks:
       - lebe_network
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: lebe_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@lebe.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-pgadmin123}
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    networks:
+      - lebe_network
+
 volumes:
   postgres_data:
     driver: local

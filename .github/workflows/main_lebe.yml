@@ -65,13 +65,12 @@ jobs:
         uses: appleboy/ssh-action@v1.2.0
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          SSH_PASSWORD_SECRET: ${{ secrets.SSH_PASSWORD }}
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
-          envs: DEPLOY_PATH,SSH_PASSWORD_SECRET
+          envs: DEPLOY_PATH
           script_stop: true
           script: |
             set -e
@@ -89,8 +88,8 @@ jobs:
               exit 1
             fi
 
-            printf '%s\n' "$SSH_PASSWORD_SECRET" | sudo -S git config --global --add safe.directory "$DEPLOY_DIR"
-            printf '%s\n' "$SSH_PASSWORD_SECRET" | sudo -S git -C "$DEPLOY_DIR" pull
-            printf '%s\n' "$SSH_PASSWORD_SECRET" | sudo -S docker compose down || true
-            printf '%s\n' "$SSH_PASSWORD_SECRET" | sudo -S docker compose up -d --build --remove-orphans
-            printf '%s\n' "$SSH_PASSWORD_SECRET" | sudo -S docker compose ps
+            git config --global --add safe.directory "$DEPLOY_DIR"
+            git -C "$DEPLOY_DIR" pull
+            docker compose down || true
+            docker compose up -d --build --remove-orphans
+            docker compose ps

@@ -100,7 +100,8 @@ class SlotManager:
             "beneficiary_name": "What is the name of the beneficiary (from your saved contacts)?",
             "update_field": "What would you like to update? (name, number)",
             "new_beneficiary_name": "What should the new beneficiary name be?",
-            "customer_number": "Beneficiary mobile number?"
+            "customer_number": "Beneficiary mobile number?",
+            "airtime_receiver_name": "What is the name of the person receiving the airtime?",
         }
 
         prompts = []

@@ -91,8 +91,8 @@ INTENTS = {
     },
     "buy_airtime": {
         "description": "Purchase airtime credit",
-        "slots": ["phone_number", "amount", "beneficiary_name"],
-        "required_slots": ["amount"],
+        "slots": ["phone_number", "amount", "beneficiary_name", "receiver_name"],
+        "required_slots": ["amount", "receiver_name"],
         "category": "transactional"
     },
     "pay_bill": {

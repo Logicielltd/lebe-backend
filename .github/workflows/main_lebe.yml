@@ -88,6 +88,7 @@ jobs:
               exit 1
             fi
 
+            git config --global --add safe.directory "$DEPLOY_DIR"
             git pull
             docker compose down || true
             docker compose up -d --build --remove-orphans

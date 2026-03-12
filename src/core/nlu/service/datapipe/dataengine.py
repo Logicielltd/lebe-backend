@@ -18,21 +18,26 @@ class TransactionSummary:
     """Data class for transaction summaries at any level"""
     total_amount: Decimal = Decimal('0')
     total_transactions: int = 0
+    successful_transactions: int = 0
     
-    def add_transaction(self, amount: Decimal):
+    def add_transaction(self, amount: Decimal, is_successful: bool = False):
         self.total_amount += amount
         self.total_transactions += 1
+        if is_successful:
+            self.successful_transactions += 1
     
     def to_dict(self, direction_prefix: str = "") -> Dict[str, str]:
         """Convert to dictionary with optional direction prefix"""
         if direction_prefix:
             return {
                 f"Total Amount {direction_prefix}": f"{self.total_amount:.2f}",
-                f"Total Transactions {direction_prefix}": str(self.total_transactions)
+                f"Total Transactions {direction_prefix}": str(self.total_transactions),
+                f"Successful Transactions {direction_prefix}": str(self.successful_transactions)
             }
         return {
             "Total Amount": f"{self.total_amount:.2f}",
-            "Total Transactions": str(self.total_transactions)
+            "Total Transactions": str(self.total_transactions),
+            "Successful Transactions": str(self.successful_transactions)
         }
 
 class FinancialDataQueryEngine:
@@ -104,17 +109,20 @@ class FinancialDataQueryEngine:
         for tx in transactions:
             amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
+            is_successful = tx.get('status') == 'SUCCESS'
             
             if direction == TransactionDirection.SENT:
-                sent_summary.add_transaction(amount)
+                sent_summary.add_transaction(amount, is_successful)
             else:
-                received_summary.add_transaction(amount)
+                received_summary.add_transaction(amount, is_successful)
         
         return {
             "Total Amount Sent": f"{sent_summary.total_amount:.2f}",
             "Total Amount Received": f"{received_summary.total_amount:.2f}",
             "Total Transactions Sent": str(sent_summary.total_transactions),
-            "Total Transactions Received": str(received_summary.total_transactions)
+            "Total Transactions Received": str(received_summary.total_transactions),
+            "Successful Transactions Sent": str(sent_summary.successful_transactions),
+            "Successful Transactions Received": str(received_summary.successful_transactions)
         }
     
     def _group_by_counterparty(
@@ -247,17 +255,20 @@ class FinancialDataQueryEngine:
         for tx in transactions:
             amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
+            is_successful = tx.get('status') == 'SUCCESS'
             
             if direction == TransactionDirection.SENT:
-                sent_summary.add_transaction(amount)
+                sent_summary.add_transaction(amount, is_successful)
             else:
-                received_summary.add_transaction(amount)
+                received_summary.add_transaction(amount, is_successful)
         
         return {
             "Total Amount Sent to Receiver": f"{sent_summary.total_amount:.2f}",
             "Total Amount Received from Receiver": f"{received_summary.total_amount:.2f}",
             "Total Transactions Sent to Receiver": str(sent_summary.total_transactions),
-            "Total Transactions Received from Receiver": str(received_summary.total_transactions)
+            "Total Transactions Received from Receiver": str(received_summary.total_transactions),
+            "Successful Transactions Sent to Receiver": str(sent_summary.successful_transactions),
+            "Successful Transactions Received from Receiver": str(received_summary.successful_transactions)
         }
     
     def _group_by_service(self, transactions: List[Dict]) -> Dict[str, List[Dict]]:
@@ -283,17 +294,20 @@ class FinancialDataQueryEngine:
         for tx in transactions:
             amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
+            is_successful = tx.get('status') == 'SUCCESS'
             
             if direction == TransactionDirection.SENT:
-                sent_summary.add_transaction(amount)
+                sent_summary.add_transaction(amount, is_successful)
             else:
-                received_summary.add_transaction(amount)
+                received_summary.add_transaction(amount, is_successful)
         
         return {
             "Total Amount Sent for Service": f"{sent_summary.total_amount:.2f}",
             "Total Amount Received for Service": f"{received_summary.total_amount:.2f}",
             "Total Transactions Sent for Service": str(sent_summary.total_transactions),
-            "Total Transactions Received for Service": str(received_summary.total_transactions)
+            "Total Transactions Received for Service": str(received_summary.total_transactions),
+            "Successful Transactions Sent for Service": str(sent_summary.successful_transactions),
+            "Successful Transactions Received for Service": str(received_summary.successful_transactions)
         }
     
     def _group_by_reference(self, transactions: List[Dict]) -> Dict[str, List[Dict]]:
@@ -318,17 +332,20 @@ class FinancialDataQueryEngine:
         for tx in transactions:
             amount = self._safe_decimal(tx.get('amount_paid', 0))
             direction = self._get_transaction_direction(tx, user_identifier)
+            is_successful = tx.get('status') == 'SUCCESS'
             
             if direction == TransactionDirection.SENT:
-                sent_summary.add_transaction(amount)
+                sent_summary.add_transaction(amount, is_successful)
             else:
-                received_summary.add_transaction(amount)
+                received_summary.add_transaction(amount, is_successful)
         
         return {
             "Total Amount Sent for Reference": f"{sent_summary.total_amount:.2f}",
             "Total Amount Received for Reference": f"{received_summary.total_amount:.2f}",
             "Total Transactions Sent for Reference": str(sent_summary.total_transactions),
-            "Total Transactions Received for Reference": str(received_summary.total_transactions)
+            "Total Transactions Received for Reference": str(received_summary.total_transactions),
+            "Successful Transactions Sent for Reference": str(sent_summary.successful_transactions),
+            "Successful Transactions Received for Reference": str(received_summary.successful_transactions)
         }
     
     def _format_transaction(self, tx: Dict, user_identifier: str) -> Dict[str, str]:
@@ -402,7 +419,9 @@ class FinancialDataQueryEngine:
                     "Total Amount Sent": "0.00",
                     "Total Amount Received": "0.00",
                     "Total Transactions Sent": "0",
-                    "Total Transactions Received": "0"
+                    "Total Transactions Received": "0",
+                    "Successful Transactions Sent": "0",
+                    "Successful Transactions Received": "0"
                 }
             }
         }

@@ -122,51 +122,52 @@ class FinancialDataQueryEngine:
         transactions: List[Dict], 
         user_identifier: str
     ) -> Dict[str, List[Dict]]:
-        """Group transactions by counterparty (who the user transacted with)"""
+        """Group transactions by counterparty phone number (who the user transacted with)"""
         counterparty_groups = defaultdict(list)
         
         for tx in transactions:
-            counterparty = self._extract_counterparty(tx, user_identifier)
-            counterparty_groups[counterparty].append(tx)
+            # Group by phone number only, not by name
+            counterparty_phone = self._extract_counterparty_phone(tx, user_identifier)
+            counterparty_groups[counterparty_phone].append(tx)
         
         return dict(counterparty_groups)
     
-    def _extract_counterparty(self, tx: Dict, user_identifier: str) -> str:
-        """Extract the counterparty identifier from a transaction
-        
-        Primary identifier is phone number, concatenated with name if available.
-        Priority order: beneficiary_name > receiver_name for sent transactions
-        """
+    def _extract_counterparty_phone(self, tx: Dict, user_identifier: str) -> str:
+        """Extract just the phone number of the counterparty from a transaction"""
         direction = self._get_transaction_direction(tx, user_identifier)
         
         if direction == TransactionDirection.SENT:
-            # For sent transactions, counterparty is the receiver
-            receiver_phone = tx.get('receiver_phone') or "Unknown"
-            
-            # Determine which name to concatenate
-            beneficiary_name = tx.get('beneficiary_name')
-            receiver_name = tx.get('receiver_name')
-            
-            if beneficiary_name:
-                return f"{receiver_phone} - {beneficiary_name}"
-            elif receiver_name:
-                return f"{receiver_phone} - {receiver_name}"
-            else:
-                return receiver_phone
+            return tx.get('receiver_phone') or "Unknown"
         else:
-            # For received transactions, counterparty is the sender
-            sender_phone = tx.get('sender_phone') or "Unknown"
+            return tx.get('sender_phone') or "Unknown"
+    
+    def _get_counterparty_display_name(self, counterparty_phone: str, transactions: List[Dict], user_identifier: str) -> str:
+        """Get the display name for a counterparty (phone + best available name)
+        
+        Priority order: beneficiary_name > receiver_name for sent, sender_name for received
+        """
+        best_name = None
+        
+        for tx in transactions:
+            direction = self._get_transaction_direction(tx, user_identifier)
             
-            # Use available name fields
-            sender_name = tx.get('sender_name')
-            customer_name = tx.get('customer_name')
-            
-            if sender_name:
-                return f"{sender_phone} - {sender_name}"
-            elif customer_name:
-                return f"{sender_phone} - {customer_name}"
+            if direction == TransactionDirection.SENT:
+                # For sent transactions, prefer beneficiary_name over receiver_name
+                if tx.get('beneficiary_name'):
+                    best_name = tx.get('beneficiary_name')
+                    break  # Found best, stop searching
+                elif not best_name and tx.get('receiver_name'):
+                    best_name = tx.get('receiver_name')
             else:
-                return sender_phone
+                # For received transactions, use sender_name
+                if tx.get('sender_name'):
+                    best_name = tx.get('sender_name')
+                    break  # Found it, stop searching
+        
+        if best_name:
+            return f"{counterparty_phone} - {best_name}"
+        else:
+            return counterparty_phone
     
     def _build_counterparty_structure(
         self, 
@@ -176,7 +177,12 @@ class FinancialDataQueryEngine:
         """Build the nested structure for each counterparty"""
         result = {}
         
-        for counterparty, transactions in counterparty_groups.items():
+        for counterparty_phone, transactions in counterparty_groups.items():
+            # Get the best display name for this counterparty
+            counterparty_display = self._get_counterparty_display_name(
+                counterparty_phone, transactions, user_identifier
+            )
+            
             # Calculate counterparty-level summary
             counterparty_summary = self._calculate_counterparty_summary(
                 transactions, user_identifier
@@ -221,8 +227,8 @@ class FinancialDataQueryEngine:
                     **reference_structure
                 }
             
-            # Build counterparty node
-            result[f"Receiver {counterparty}"] = {
+            # Build counterparty node - use display name
+            result[f"Receiver {counterparty_display}"] = {
                 "Receiver Summary": counterparty_summary,
                 **service_structure
             }

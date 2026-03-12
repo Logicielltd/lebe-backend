@@ -937,6 +937,35 @@ class PaymentService:
             .filter(Payment.customer_name.ilike(f"%{customer_name}%"))\
             .all()
     
+    def get_pending_payments_by_sender(self, sender_phone: str) -> List[Payment]:
+        """
+        Get all pending payments for a sender (user).
+        
+        This checks for transactions in progress (PENDING, CTM_PROCESSING, MTC_PROCESSING, etc.)
+        
+        Args:
+            sender_phone: Phone number of the sender/user
+            
+        Returns:
+            List of pending Payment records
+        """
+        pending_statuses = [
+            PaymentStatus.PENDING,
+            PaymentStatus.CTM_PROCESSING,
+            PaymentStatus.MTC_PROCESSING,
+            PaymentStatus.ATP_PROCESSING,
+            PaymentStatus.BLP_PROCESSING,
+            PaymentStatus.REVERSAL_PROCESSING,
+        ]
+        
+        return self.db.query(Payment)\
+            .filter(
+                Payment.sender_phone == sender_phone,
+                Payment.status.in_(pending_statuses)
+            )\
+            .order_by(desc(Payment.date_paid))\
+            .all()
+    
     # Helper Methods
     def _validate_payment(self, payment: Payment) -> None:
         if not payment.payment_method:

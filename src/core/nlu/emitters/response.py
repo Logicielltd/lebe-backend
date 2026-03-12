@@ -46,5 +46,8 @@ class ResponseFormatter:
         elif message_type == "processing":
             return kwargs.get('message', 'Your payment is being processed.')
 
+        elif message_type == "transaction_in_progress":
+            return "I am currently fulfilling a transaction for you. Please wait a moment, I'll let you know when I'm done."
+
         else:
             return f"💬 {kwargs.get('message', '')}"

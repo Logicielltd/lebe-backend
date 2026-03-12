@@ -111,6 +111,57 @@ class LebeNLUSystem:
             logger.error(f"[PAYFLOW_MATCH_ERROR] Error checking payflow match for user {user_id}: {str(e)}", exc_info=True)
             return None
     
+    def _check_pending_transaction(self, user_id: str, db: Session) -> Optional[Dict[str, Any]]:
+        """
+        Check if the user has any pending transactions in progress.
+        This prevents the user from initiating additional transactions while one is in progress.
+        
+        Args:
+            user_id: User identifier (phone number)
+            db: Database session
+            
+        Returns:
+            Dict with pending transaction info or None if no pending transactions:
+            {
+                'has_pending': bool,
+                'pending_count': int,
+                'most_recent': Payment object
+            }
+        """
+        try:
+            from core.payments.service.paymentservice import PaymentService
+            
+            payment_service = PaymentService(db)
+            pending_payments = payment_service.get_pending_payments_by_sender(user_id)
+            
+            if pending_payments:
+                logger.info(
+                    f"[PENDING_TRANSACTION_CHECK] User {user_id} has {len(pending_payments)} "
+                    f"pending transaction(s)"
+                )
+                return {
+                    'has_pending': True,
+                    'pending_count': len(pending_payments),
+                    'most_recent': pending_payments[0]  # Most recent is first due to ordering
+                }
+            else:
+                return {
+                    'has_pending': False,
+                    'pending_count': 0,
+                    'most_recent': None
+                }
+                
+        except Exception as e:
+            logger.error(
+                f"[PENDING_TRANSACTION_CHECK_ERROR] Error checking pending transactions for user {user_id}: {str(e)}", 
+                exc_info=True
+            )
+            return {
+                'has_pending': False,
+                'pending_count': 0,
+                'most_recent': None
+            }
+
     def _resolve_beneficiary(self, user_id: str, beneficiary_name: str, db: Session) -> Optional[Dict]:
         """
         Lookup a beneficiary by name and extract the customer number.
@@ -231,6 +282,19 @@ class LebeNLUSystem:
         """
         # Get conversation state
         state = self.conversation_manager.get_conversation_state(user_id)
+        
+        # CHECK FOR PENDING TRANSACTIONS
+        # If user has a transaction in progress, let them know Lebe is fulfilling it
+        db = SessionLocal()
+        try:
+            pending_check = self._check_pending_transaction(user_id, db)
+            if pending_check['has_pending']:
+                logger.info(f"[PROCESS_MESSAGE] User {user_id} has pending transaction(s). Notifying user.")
+                response = self.response_formatter.format_response("", "transaction_in_progress")
+                self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+                return response
+        finally:
+            db.close()
         
         # CHECK FOR PAYFLOW MATCH BEFORE INTENT DETECTION
         # This allows quick execution of saved payflows without AI processing

@@ -286,7 +286,7 @@ class IntentProcessor:
             account_number=slots.get("account_number"),
             bill_provider=slots.get("bill_provider"),
             last_amount=slots.get("amount") or slots.get("last_amount"),
-            requires_confirmation=slots.get("requires_confirmation", True)
+            requires_confirmation=slots.get("requires_confirmation", False)
         )
         
         return message

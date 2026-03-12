@@ -129,7 +129,7 @@ class PayflowService:
         bill_provider: Optional[str] = None,
         last_amount: Optional[str] = None,
         description: Optional[str] = None,
-        requires_confirmation: bool = True
+        requires_confirmation: bool = False
     ) -> Tuple[bool, Optional[Payflow], str]:
         """
         Save a new payflow for the user.

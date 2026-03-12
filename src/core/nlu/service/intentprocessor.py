@@ -4,7 +4,7 @@ from typing import Dict, List, Any, Optional
 from core.beneficiaries.service.beneficiary_service import BeneficiaryService
 from core.nlu.service.llmclient import LLMClient
 from core.nlu.config import SYSTEM_PROMPTS, RESPONSE_TEMPLATES
-from core.nlu.service.datapipe.dataconfig import FINANCIAL_INSIGHTS_SYSTEM_PROMPT
+from core.nlu.service.datapipe.dataconfig import FINANCIAL_INSIGHTS_SYSTEM_PROMPT, INSIGHTS_SYSTEM_PROMPT
 from core.nlu.service.datapipe.user_rag import UserRAGManager
 from core.user.controller.usercontroller import get_db
 from core.beneficiaries.service.beneficiary_service import BeneficiaryService
@@ -34,7 +34,6 @@ class IntentProcessor:
         # Prepare enhanced system prompt with user context
         system_prompt = self._build_enhanced_system_prompt(
             base_prompt=SYSTEM_PROMPTS["conversational"],
-            conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,
             slots=slots
@@ -63,7 +62,6 @@ class IntentProcessor:
         # Prepare enhanced system prompt with user context
         system_prompt = self._build_enhanced_system_prompt(
             base_prompt=SYSTEM_PROMPTS["financial_tips"],
-            conversation_history=conversation_history,
             user_data=user_data,
             intent=intent,
             slots=slots
@@ -89,56 +87,18 @@ class IntentProcessor:
         """
         Process expense report with enhanced financial insights
         """
-        # Get user name
-        user_name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
-        if not user_name:
-            user_name = user_data.get('username', 'User')
-        
-        # Get time frame from slots or default
-        time_frame = slots.get('time_period', 'the selected period')
-        
-        # Fetch transactions using your existing method
-        transactions = self.rag_manager.get_transaction_history(
-            user_id=user_data.get('user_id'),
-            intent=intent,
-            slots=slots
-        )
-        
-        # Use the enhanced query engine
-        
-        
-        rag_manager = EnhancedUserRAGManager()
-        
-        financial_context = rag_manager.get_financial_insights_context(
-            user_name=user_name,
-            user_id=user_data.get('user_id'),
-            transactions=transactions,
-            time_frame=time_frame,
-            user_phone=user_data.get('phone_number')
-        )
         
         # Build enhanced system prompt
         system_prompt = self._build_enhanced_system_prompt(
-            base_prompt=FINANCIAL_INSIGHTS_SYSTEM_PROMPT,
-            conversation_history=conversation_history,
+            base_prompt=SYSTEM_PROMPTS["expense_report"],
             user_data=user_data,
             intent=intent,
             slots=slots
         )
         
-        # Add the financial context to the user message
-        enhanced_user_message = f"""
-        User Query: {user_message}
-        
-        Financial Data Context:
-        {json.dumps(financial_context, indent=2, default=str)}
-        
-        Please provide insights based on this data.
-        """
-        
         response = self.llm_client.chat_completion(
             system_prompt=system_prompt,
-            user_message=enhanced_user_message,
+            user_message=user_message,
             conversation_history=conversation_history,
             temperature=0.4
         )
@@ -260,7 +220,6 @@ class IntentProcessor:
     def _build_enhanced_system_prompt(
         self,
         base_prompt: str,
-        conversation_history: List[Dict],
         user_data: Optional[Dict],
         intent: str,
         slots: Dict
@@ -270,31 +229,43 @@ class IntentProcessor:
         """
         # Add user context if available
         user_context_section = ""
-        if user_data:
+        if user_data and intent == "expense_report":
             # user_data produced by NLU uses the key 'user_id' (not 'id')
             # Ensure we pass a string user_id to the RAG manager so it matches
             # the History.user_id column (which is stored as string).
-            user_id_for_rag = str(user_data.get("user_id"))
+            # Get user name
+            user_name = f"{user_data.get('first_name', '')} {user_data.get('last_name', '')}".strip()
+            if not user_name:
+                user_name = user_data.get('username', 'User')
             
-            user_context = self.rag_manager.get_extracted_user_context(
-                user_id=user_id_for_rag,
+            # Get time frame from slots or default
+            time_frame = slots.get('time_period', 'the selected period')
+            
+            # Fetch transactions using your existing method
+            transactions = self.rag_manager.get_transaction_history(
+                user_id=user_data.get('user_id'),
                 intent=intent,
-                current_slots=slots,
-                full_user_data=user_data
+                slots=slots
             )
-        
-        
+            
+            rag_manager = EnhancedUserRAGManager()
+            
+            user_financial_context = rag_manager.get_financial_insights_context(
+                user_name=user_name,
+                user_id=user_data.get('user_id'),
+                transactions=transactions,
+                time_frame=time_frame,
+                user_phone=user_data.get('phone_number')
+            )
+            user_context_section = f"User Transaction Data:\n{json.dumps(user_financial_context, indent=2)}"
+            print(f"[ENHANCED_SYSTEM_PROMPT] User Transaction Data for {user_name}:\n{json.dumps(user_financial_context, indent=2)}")
         # Build the enhanced prompt
         enhanced_prompt = base_prompt.format(
-            context=user_context,
+            context=user_context_section,
             missing_slots="",
             category=slots.get('category', 'general')
         )
-        
-        # Append user context if available
-        if user_context:
-            enhanced_prompt += f"\n\n{user_context}\n\nIMPORTANT: Use the above user context to personalize your response. Consider their financial situation, goals, and history when providing advice."
-        
+             
         return enhanced_prompt
 
     def _format_conversational_response(self, intent: str, response: str, slots: Dict) -> str:

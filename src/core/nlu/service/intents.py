@@ -155,6 +155,7 @@ class IntentDetector:
         
         intent_guidelines = """
         INTENT DETECTION GUIDELINES:
+        0. The moment a user send Hello, Hi, Hey or similar greeting, it should be classified as a greeting intent, regardless of any current intent. This is a clear signal of a new conversation flow.
         1. Be precise - read the exact words and phrasing in the user message
         2. If the message continues the current conversation flow, maintain the same intent
         3. Only change intent if the user clearly introduces a new topic or request
@@ -165,7 +166,7 @@ class IntentDetector:
         - If user provides additional information for current intent: KEEP SAME INTENT
         - If user corrects or modifies previous information: KEEP SAME INTENT  
         - If user asks clarifying questions about current task: KEEP SAME INTENT
-        - Only switch intent for completely new, unrelated requests
+        - Only switch intent for completely new, unrelated user text
         
         TEMPORAL AND ACTION DISTINCTION:
         - Past tense queries with "how much", "how many", "have I", "did I send", "have I sent" → expense_report
@@ -174,11 +175,33 @@ class IntentDetector:
         - Time references like "today", "this week", "last month" in a query context → expense_report
         
         EXAMPLES OF DISTINCTION:
+        - "Hello" → greeting (informational)
         - "Send 50 cedis to John" → send_money (action)
         - "How much have I sent to John today?" → expense_report (query)
         - "Buy airtime for mom" → buy_airtime (action)
         - "How much airtime have I bought today?" → expense_report (query)
         - "How much airtime have I sent to wifey?" → expense_report (query about past transactions)
+        
+        TIME PERIOD EXTRACTION GUIDANCE:
+        When extracting the "time_period" slot, use one of these standardized codes:
+        - TODAY: for "today", "current day", "right now"
+        - YESTERDAY: for "yesterday", "last day"
+        - WEEK_1: for "last week", "7 days", "this week", "past week"
+        - WEEK_2: for "2 weeks", "14 days", "past 2 weeks"
+        - MONTH_1: for "last month", "30 days", "this month", "past month"
+        - MONTH_3: for "last 3 months", "90 days", "past 3 months", "quarter"
+        - MONTH_6: for "last 6 months", "180 days", "past 6 months"
+        - YEAR_1: for "last year", "12 months", "this year", "annual", "yearly"
+        - ALL_TIME: for "all time", "everything", "entire history", "since creation"
+        
+        IMPORTANT: Prefer the standardized codes above over natural language variations.
+        If the user provides a time period that doesn't exactly match, convert it to the appropriate code.
+        Examples:
+        - "last 3 months" → "MONTH_3"
+        - "for the past week" → "WEEK_1"
+        - "this month's spending" → "MONTH_1"
+        - "all my transactions" → "ALL_TIME"
+        - "over the last 6 months" → "MONTH_6"
         """
         
         current_intent_context = f"CURRENT_INTENT: {current_intent if current_intent else 'Intent Extraction'}"
@@ -223,12 +246,12 @@ class IntentDetector:
 
         User queries expense report: "How much airtime have I sent to wifey today?"
         INTENT: expense_report
-        SLOTS: {{"category": "airtime", "time_period": "today"}}
+        SLOTS: {{"category": "airtime", "time_period": "TODAY"}}
         MISSING:
 
         User queries expense report: "How much money did I send this week?"
         INTENT: expense_report
-        SLOTS: {{"category": "money_transfer", "time_period": "this week"}}
+        SLOTS: {{"category": "money_transfer", "time_period": "WEEK_1"}}
         MISSING:
 
         User starts bill payment: "Make bill payment of 1 cedi to 95200204493"
@@ -258,7 +281,7 @@ class IntentDetector:
 
         User queries expense: "How much airtime did I buy last month?"
         INTENT: expense_report
-        SLOTS: {{"category": "airtime", "time_period": "last month"}}
+        SLOTS: {{"category": "airtime", "time_period": "MONTH_1"}}
         MISSING:
 
         User continues current intent: "Actually, make it 100 cedis instead"

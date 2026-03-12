@@ -366,8 +366,19 @@ class PayflowService:
             if not payflow:
                 return False, {}, "Payflow not found or inactive"
 
-            # Prepare slots for execution
-            slots = dict(payflow.slot_values)  # Copy saved slots
+            # Prepare slots for execution - safely handle slot_values
+            if isinstance(payflow.slot_values, dict):
+                slots = payflow.slot_values.copy()
+            elif payflow.slot_values is None:
+                slots = {}
+            else:
+                logger.warning(f"[PAYFLOW_SERVICE] Invalid slot_values type for payflow {payflow_id}: {type(payflow.slot_values)}")
+                return False, {}, f"Payflow has corrupted slot data. Please recreate it."
+            
+            # Ensure slots is a valid dictionary
+            if not isinstance(slots, dict):
+                logger.error(f"[PAYFLOW_SERVICE] slot_values conversion failed for payflow {payflow_id}")
+                return False, {}, "Error preparing payflow data"
             
             # Override amount if provided
             if override_amount:

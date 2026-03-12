@@ -546,7 +546,19 @@ class LebeNLUSystem:
             payflow = payflow_match['payflow']
             requires_confirmation = payflow_match['requires_confirmation']
             intent = payflow.intent_name
-            slots = dict(payflow.slot_values)
+            
+            # Safely handle slot_values which may be malformed
+            if isinstance(payflow.slot_values, dict):
+                slots = payflow.slot_values.copy()
+            elif payflow.slot_values is None:
+                slots = {}
+            else:
+                logger.error(f"[PAYFLOW_HANDLER] Invalid slot_values type for payflow {payflow.id}: {type(payflow.slot_values)}")
+                return f"Error: Payflow '{payflow.name}' has corrupted data. Please recreate it."
+            
+            if not isinstance(slots, dict):
+                logger.error(f"[PAYFLOW_HANDLER] Failed to extract slots from payflow {payflow.id}")
+                return f"Error processing payflow '{payflow.name}'. Please try again."
             
             logger.info(
                 f"[PAYFLOW_HANDLER] Processing payflow {payflow.id} (name='{payflow.name}') "

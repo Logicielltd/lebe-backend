@@ -81,14 +81,13 @@ jobs:
       - name: Deploy with Docker Compose over SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
-          APP_ENV_FILE: ${{ secrets.APP_ENV_FILE }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
-          envs: APP_ENV_FILE,DEPLOY_PATH
+          envs: DEPLOY_PATH
           script_stop: true
           script: |
             set -e
@@ -96,9 +95,10 @@ jobs:
             mkdir -p "$DEPLOY_DIR"
             cd "$DEPLOY_DIR"
 
-            cat > .env <<'EOF'
-            ${APP_ENV_FILE}
-            EOF
+            if [ ! -f .env ]; then
+              echo "Missing $DEPLOY_DIR/.env on server"
+              exit 1
+            fi
 
             docker compose down || true
             docker compose up -d --build --remove-orphans

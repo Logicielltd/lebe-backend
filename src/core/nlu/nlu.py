@@ -227,6 +227,9 @@ class LebeNLUSystem:
             audio_media_id: WhatsApp media ID for audio
             audio_url: Direct URL to audio
         """
+        # Get conversation state
+        state = self.conversation_manager.get_conversation_state(user_id)
+        
         # CHECK FOR PAYFLOW MATCH BEFORE INTENT DETECTION
         # This allows quick execution of saved payflows without AI processing
         db = SessionLocal()
@@ -237,9 +240,6 @@ class LebeNLUSystem:
                 return self._handle_payflow_match(user_id, payflow_match, user_message, state)
         finally:
             db.close()
-
-        # Get conversation state
-        state = self.conversation_manager.get_conversation_state(user_id)
         
         # Add user message to history
         logger.info("Received message from %s: %s", user_id, (user_message or '')[:200])

@@ -102,6 +102,8 @@ class LebeNLUSystem:
                     'requires_confirmation': matched_payflow.requires_confirmation,
                     'message': f"Executing payflow: {matched_payflow.name}"
                 }
+            else:
+                logger.info(f"[PAYFLOW_MATCH] No payflow match for user {user_id} with message: {user_message}")
             
             return None
             
@@ -234,6 +236,7 @@ class LebeNLUSystem:
         # This allows quick execution of saved payflows without AI processing
         db = SessionLocal()
         try:
+            print(f"[PROCESS_MESSAGE] Checking for payflow match for user {user_id} with message: {user_message}")
             payflow_match = self._check_payflow_match(user_id, user_message, db)
             if payflow_match:
                 # Payflow matched! Handle it

@@ -1,86 +1,102 @@
 # App Backend
 
-This project is a project aimed at [brief project description]. This README provides instructions for developers to set up the project locally using a virtual environment (venv).
+This repository contains the backend for the **Lebe project**. This
+README provides instructions for developers to set up the project
+locally using a virtual environment, configure PostgreSQL, run the
+application using Docker, and manage database migrations with Alembic.
 
-## Prerequisites
+------------------------------------------------------------------------
 
-- Python 3.x
-- Git
+# Prerequisites
 
-# App Backend
+Before setting up the project, ensure you have the following installed:
 
-This repository contains the backend for the ACET project. The instructions below cover local development, PostgreSQL database setup, Docker usage, and Alembic migrations.
+-   Python **3.8+**
+-   Git
+-   Docker
+-   Docker Compose
 
-## Prerequisites
+------------------------------------------------------------------------
 
-- Python 3.8+ or compatible
-- Git
-- Docker & Docker Compose (for containerized setup)
+# Local Development (Virtual Environment)
 
-## Local development (virtualenv)
+## 1. Clone the Repository
 
-1. Clone the repository:
-
-    ```sh
-    git clone git@bitbucket.org:LogicielEngineer/acet-backend.git
-    cd acet-backend
-    ```
-
-2. Create and activate a virtual environment:
-
-    Windows:
-
-    ```powershell
-    python -m venv venv
-    .\venv\Scripts\Activate.ps1
-    ```
-
-    macOS / Linux:
-
-    ```sh
-    python -m venv venv
-    source venv/bin/activate
-    ```
-
-3. Install Python dependencies:
-
-    ```sh
-    pip install -r src/requirements.txt
-    ```
-
-4. Configure environment variables (see Postgres section below).
-
-5. Run the application:
-
-    ```sh
-    python src/main.py
-    ```
-
-## PostgreSQL database setup
-
-You can run Postgres locally (installed on host) or via Docker. The app expects a `DATABASE_URL` environment variable in the standard SQLAlchemy format, e.g.: 
-
-```
-postgresql://<user>:<password>@<host>:<port>/<database>
+``` sh
+git clone https://github.com/Logicielltd/lebe-backend
+cd lebe-backend
 ```
 
-Example `.env` values:
+## 2. Create and Activate a Virtual Environment
 
+### Windows
+
+``` powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 ```
-DATABASE_URL=postgresql://acet_user:secret@localhost:5432/acet_db
+
+### macOS / Linux
+
+``` sh
+python -m venv venv
+source venv/bin/activate
 ```
 
-Start Postgres with Docker Compose (example):
+## 3. Install Dependencies
 
-```yaml
+``` sh
+pip install -r src/requirements.txt
+```
+
+## 4. Configure Environment Variables
+
+Create a `.env` file and configure your environment variables.
+
+Example:
+
+    DATABASE_URL=postgresql://lebe_user:secret@localhost:5432/lebe_db
+    FLASK_ENV=development
+    SECRET_KEY=replace-with-secure-value
+
+## 5. Run the Application
+
+``` sh
+python src/main.py
+```
+
+------------------------------------------------------------------------
+
+# PostgreSQL Database Setup
+
+Database connection format:
+
+    postgresql://<user>:<password>@<host>:<port>/<database>
+
+Example:
+
+    DATABASE_URL=postgresql://lebe_user:secret@localhost:5432/lebe_db
+
+------------------------------------------------------------------------
+
+# Running PostgreSQL with Docker
+
+Create a file named:
+
+    docker-compose.db.yml
+
+Example configuration:
+
+``` yaml
 version: '3.8'
+
 services:
   db:
     image: postgres:15
     environment:
-      POSTGRES_USER: acet_user
+      POSTGRES_USER: lebe_user
       POSTGRES_PASSWORD: secret
-      POSTGRES_DB: acet_db
+      POSTGRES_DB: lebe_db
     ports:
       - "5432:5432"
     volumes:
@@ -90,108 +106,244 @@ volumes:
   pgdata:
 ```
 
-Save that snippet as `docker-compose.db.yml` and start the DB with:
+Start PostgreSQL:
 
-```sh
+``` sh
 docker compose -f docker-compose.db.yml up -d
 ```
 
-After Postgres is running, set `DATABASE_URL` accordingly and the app will connect.
+------------------------------------------------------------------------
 
-## Docker (app container)
+# Running the Application with Docker
 
-There is a `Dockerfile` and a `docker-compose.yml` in the repository. Typical usage to build and run the app with the DB from above:
+Build the application:
 
-```sh
-# build the app image
+``` sh
 docker compose build
+```
 
-# start db + app (if docker-compose.yml links services)
+Run the services:
+
+``` sh
 docker compose up -d
 ```
 
-If you run the DB separately, ensure the app service's `DATABASE_URL` env var points at the running Postgres.
+Ensure the `DATABASE_URL` environment variable points to the running
+PostgreSQL service.
 
-## Alembic migrations
+------------------------------------------------------------------------
 
-Alembic is configured in this repository (see `alembic.ini` and `alembic/`). Use the following commands to manage migrations locally or inside the container.
+# Docker Development & Debugging
 
-Ensure `DATABASE_URL` is set before running these commands.
+Docker Compose commands must be run from the directory containing
+`docker-compose.yml`.
 
-Create a new revision (auto-generate migration from models):
+Example:
 
-Generate initial migration (if not done yet):
+``` sh
+cd /var/www/lebe-backend
+```
 
-```sh
-alembic revision --autogenerate -m "Initial"
+## Viewing Docker Logs
 
-```sh
+Follow backend logs in real-time:
+
+``` sh
+docker compose logs -f backend
+```
+
+View last 100 lines:
+
+``` sh
+docker compose logs --tail=100 backend
+```
+
+View logs for all services:
+
+``` sh
+docker compose logs -f
+```
+
+## Rebuilding Containers
+
+If dependencies or Docker configuration change:
+
+``` sh
+docker compose down
+docker compose up -d --build
+```
+
+Rebuild only backend:
+
+``` sh
+docker compose up -d --build backend
+```
+
+## Restart Backend Container
+
+If code changes but image rebuild is not needed:
+
+``` sh
+docker compose restart backend
+```
+
+Then check logs:
+
+``` sh
+docker compose logs -f backend
+```
+
+## Check Running Containers
+
+``` sh
+docker ps
+```
+
+Formatted output:
+
+``` sh
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
+## Inspect Environment Variables
+
+``` sh
+docker exec lebe_backend printenv
+```
+
+``` sh
+docker inspect lebe_backend | grep -A 20 '"Env"'
+```
+
+------------------------------------------------------------------------
+
+# Typical Deployment Workflow
+
+``` sh
+cd /var/www/lebe-backend
+git pull
+docker compose down
+docker compose up -d --build
+docker compose logs -f backend
+```
+
+------------------------------------------------------------------------
+
+# Optional Deployment Shortcut
+
+Edit bash configuration:
+
+``` sh
+nano ~/.bashrc
+```
+
+Add:
+
+``` sh
+alias lebedeploy="cd /var/www/lebe-backend && git pull && docker compose down && docker compose up -d --build && docker compose logs -f backend"
+```
+
+Reload bash:
+
+``` sh
+source ~/.bashrc
+```
+
+Deploy using:
+
+``` sh
+lebedeploy
+```
+
+------------------------------------------------------------------------
+
+# Alembic Migrations
+
+Create migration:
+
+``` sh
 alembic revision --autogenerate -m "describe changes"
 ```
 
-Apply migrations (upgrade to latest):
+Apply migrations:
 
-```sh
+``` sh
 alembic upgrade head
 ```
 
 Downgrade one revision:
 
-```sh
+``` sh
 alembic downgrade -1
 ```
 
-Running Alembic via Docker Compose (if Alembic is available in the container):
+Run migrations via Docker:
 
-```sh
-# open a shell in the app service and run alembic commands
+``` sh
 docker compose run --rm app sh -c "alembic upgrade head"
 ```
 
-Notes:
+------------------------------------------------------------------------
 
-- Alembic's env is configured under `alembic/env.py` and should read the `DATABASE_URL` environment variable. If you need a different env var name, update `alembic/env.py` accordingly.
-- Keep model changes and generated migration messages clear and focused.
+# Reset Database and Migrations
 
-## Example environment variables
+Access container:
 
-```
-DATABASE_URL=postgresql://acet_user:secret@db:5432/acet_db
-FLASK_ENV=development
-SECRET_KEY=replace-with-secure-value
-```
-
-## Running migrations during CI / Production deploy
-
-- In CI: set `DATABASE_URL` and run `alembic upgrade head` as part of the deploy pipeline.
-- In Docker-based deploys: either run Alembic as an init job or as a one-off container step before starting the app.
-
-## Contributing
-
-Please read `CONTRIBUTING.md` for details on our code of conduct and the process for submitting pull requests.
-
-## License
-
-This project is licensed under the MIT License - see the `LICENSE` file for details.
-
-## Acknowledgments
-
-- [List of contributors or resources]
-
-
-# 1. Drop and recreate the database
+``` sh
 docker exec -it autobus_backend bash
+```
 
-# Inside container
+Drop and recreate database:
+
+``` sh
 psql -U your_user -d postgres -c "DROP DATABASE your_db;"
 psql -U your_user -d postgres -c "CREATE DATABASE your_db;"
+```
 
-# 2. Remove all migration files except __init__.py
+Remove old migrations:
+
+``` sh
 rm -rf alembic/versions/*.py
 touch alembic/versions/__init__.py
+```
 
-# 3. Create fresh migration
+Create fresh migration:
+
+``` sh
 alembic revision --autogenerate -m "initial_migration"
+```
 
-# 4. Apply it
+Apply migration:
+
+``` sh
 alembic upgrade head
+```
+
+------------------------------------------------------------------------
+
+# Running Migrations in CI / Production
+
+Run during deployment:
+
+``` sh
+alembic upgrade head
+```
+
+------------------------------------------------------------------------
+
+# Contributing
+
+Please read `CONTRIBUTING.md` for contribution guidelines.
+
+------------------------------------------------------------------------
+
+# License
+
+This project is licensed under the **MIT License**.
+
+------------------------------------------------------------------------
+
+# Acknowledgments
+
+-   Contributors to the LEBE project
+-   Open-source tools used in this project

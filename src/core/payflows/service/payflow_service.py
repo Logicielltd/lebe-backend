@@ -45,7 +45,8 @@ class PayflowService:
 
     def match_payflow_by_regex(self, user_id: str, user_message: str) -> Optional[Payflow]:
         """
-        Match a payflow by exact case-insensitive name match.
+        Match a payflow by case-insensitive regex pattern matching.
+        Uses word boundaries for more accurate matching and supports case-insensitive input.
         """
         if not user_message or not user_message.strip():
             return None
@@ -57,19 +58,35 @@ class PayflowService:
                 logger.warning(f"[PAYFLOW_MATCH] No user found with phone {user_id}")
                 return None
             
-            # Find payflow with exact name match (case insensitive)
-            selected_payflow = self.db.query(Payflow).filter(
+            # Get all active payflows for the user
+            payflows = self.db.query(Payflow).filter(
                 Payflow.user_id == user.id,
-                Payflow.is_active == True,
-                func.lower(Payflow.name) == user_message.lower().strip()
-            ).first()
+                Payflow.is_active == True
+            ).all()
             
-            if selected_payflow:
-                logger.info(f"[PAYFLOW_MATCH] Found exact match: {selected_payflow.id}")
-                return selected_payflow
+            if not payflows:
+                logger.info(f"[PAYFLOW_MATCH] No active payflows found for user {user_id}")
+                return None
             
-            logger.info(f"[PAYFLOW_MATCH] No exact match found for: {user_message}")
-            return None
+            # Find matching payflows using case-insensitive regex
+            matches = []
+            for payflow in payflows:
+                # Escape special regex characters and create pattern with word boundaries
+                escaped_name = re.escape(payflow.name)
+                pattern = rf"\b{escaped_name}\b"
+                
+                # Search case-insensitive
+                if re.search(pattern, user_message, re.IGNORECASE):
+                    matches.append(payflow)
+            
+            if not matches:
+                logger.info(f"[PAYFLOW_MATCH] No regex match found for: {user_message}")
+                return None
+            
+            # If multiple matches, return the longest name (most specific match)
+            selected_payflow = max(matches, key=lambda p: len(p.name))
+            logger.info(f"[PAYFLOW_MATCH] Found match: {selected_payflow.id} ({selected_payflow.name})")
+            return selected_payflow
             
         except Exception as e:
             logger.error(f"[PAYFLOW_MATCH] Error: {str(e)}")

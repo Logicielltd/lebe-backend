@@ -88,14 +88,6 @@ class LebeNLUSystem:
             return None
         
         try:
-            # For payflow DB operations we need the internal `users.id` (FK target).
-            user = db.query(UserService.user_model).filter(UserService.user_model.phone == user_id).first()
-            if not user:
-                logger.warning(f"[PAYFLOW_MATCH] No user found with phone {user_id}")
-                return None
-            
-            user_id = user.id
-            
             payflow_service = PayflowService(db)
             matched_payflow = payflow_service.match_payflow_by_regex(user_id, user_message)
             

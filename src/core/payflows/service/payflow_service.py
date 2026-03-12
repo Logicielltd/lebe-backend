@@ -67,6 +67,15 @@ class PayflowService:
         
         try:
             # Get all active payflows for the user
+            # For payflow DB operations we need the internal `users.id` (FK target).
+            user = self.db.query(User).filter(User.phone == user_id).first()
+                    
+            if not user:
+                logger.warning(f"[PAYFLOW_MATCH] No user found with phone {user_id}")
+                return None
+            
+            user_id = user.id
+            
             payflows = self.db.query(Payflow).filter(
                 Payflow.user_id == user_id,
                 Payflow.is_active == True

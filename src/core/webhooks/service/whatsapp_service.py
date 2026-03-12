@@ -5,7 +5,6 @@ from pathlib import Path
 import requests
 import logging
 from typing import Optional
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -200,35 +199,21 @@ class WhatsAppService:
             "Content-Type": "application/json"
         }
 
-        # Step 1: Mark message as read
-        read_payload = {
-            "messaging_product": "whatsapp",
-            "status": "read",
-            "message_id": message_id
-        }
-
-        try:
-            response = requests.post(url, headers=headers, json=read_payload)
-            response.raise_for_status()
-            logger.info(f"Marked message {message_id} as read")
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"Failed to mark message as read: {e}")
-
-        # Step 2: Send typing indicator
         typing_payload = {
             "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": recipient_phone,
-            "type": "typing",
-            "typing": {
-                "status": "start"
+            "status": "read",
+            "message_id": message_id,
+            "typing_indicator": {
+                "type": "text"
             }
         }
 
         try:
             response = requests.post(url, headers=headers, json=typing_payload)
             response.raise_for_status()
-            logger.info(f"Typing indicator sent to {recipient_phone}")
+            logger.info(
+                f"Typing indicator sent to {recipient_phone} for message {message_id}"
+            )
             return True
         except requests.exceptions.RequestException as e:
             logger.warning(f"Failed to send typing indicator: {e}")

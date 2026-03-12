@@ -33,6 +33,14 @@ from core.user.controller.usercontroller import validate_token, get_db
 # Controller (Router)
 webhooks_routes = APIRouter()
 
+
+def normalize_whatsapp_phone(phone: str) -> str:
+    """Normalize inbound WhatsApp IDs before database lookups."""
+    normalized_phone = normalize_ghana_phone_number(phone)
+    if normalized_phone != phone:
+        logger.info(f"Normalized inbound WhatsApp phone: {phone} -> {normalized_phone}")
+    return normalized_phone
+
 @webhooks_routes.get("/start-dialog")
 def verify_webhook(
     mode: Optional[str] = Query(None, alias="hub.mode"),
@@ -147,11 +155,12 @@ def handle_incoming_message(value: dict, db: Session):
             logger.error("Missing contacts in webhook payload")
             return {"status": "error", "message": "Missing contacts"}
 
-        phone = contacts[0].get("wa_id")
-        if not phone:
+        raw_phone = contacts[0].get("wa_id")
+        if not raw_phone:
             logger.error("Missing wa_id in contacts")
             return {"status": "error", "message": "Missing wa_id"}
 
+        phone = normalize_whatsapp_phone(raw_phone)
         logger.info(f"Extracted phone number: {phone}")
 
         # Get the message

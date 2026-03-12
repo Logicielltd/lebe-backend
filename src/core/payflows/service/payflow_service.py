@@ -367,10 +367,21 @@ class PayflowService:
                 return False, {}, "Payflow not found or inactive"
 
             # Prepare slots for execution - safely handle slot_values
+            slots = {}
             if isinstance(payflow.slot_values, dict):
                 slots = payflow.slot_values.copy()
             elif payflow.slot_values is None:
                 slots = {}
+            elif isinstance(payflow.slot_values, str):
+                # Handle case where slot_values was stored as a string (corrupted data)
+                logger.warning(f"[PAYFLOW_SERVICE] slot_values is a string for payflow {payflow_id}, attempting recovery...")
+                try:
+                    import ast
+                    slots = ast.literal_eval(payflow.slot_values) if payflow.slot_values else {}
+                    logger.info(f"[PAYFLOW_SERVICE] Successfully recovered slot_values from string for payflow {payflow_id}")
+                except (ValueError, SyntaxError):
+                    logger.error(f"[PAYFLOW_SERVICE] Failed to recover slot_values from string for payflow {payflow_id}")
+                    return False, {}, f"Payflow has corrupted slot data. Please recreate it."
             else:
                 logger.warning(f"[PAYFLOW_SERVICE] Invalid slot_values type for payflow {payflow_id}: {type(payflow.slot_values)}")
                 return False, {}, f"Payflow has corrupted slot data. Please recreate it."

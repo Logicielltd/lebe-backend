@@ -261,6 +261,16 @@ class IntentProcessor:
         intent_name = slots.get("intent_name")
         slot_values = slots.get("slot_values", {})
         
+        # Safely handle slot_values if it's a string (from corrupted data)
+        if isinstance(slot_values, str):
+            logger.warning(f"[SAVE_PAYFLOW] slot_values is a string, expected dict. Attempting to evaluate...")
+            try:
+                import ast
+                slot_values = ast.literal_eval(slot_values) if slot_values else {}
+            except (ValueError, SyntaxError):
+                logger.error(f"[SAVE_PAYFLOW] Failed to parse slot_values string: {slot_values}")
+                return "Error: Invalid payflow data format. Please complete a full transaction first."
+        
         if not intent_name or not slot_values:
             return "Unable to save payflow: incomplete transaction data. Please complete a full transaction first."
         

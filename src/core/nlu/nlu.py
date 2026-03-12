@@ -367,20 +367,28 @@ class LebeNLUSystem:
 
         else:
             # All slots collected, execute action directly (PIN verification commented out for testing)
+            # For save_payflow intent, enrich slots with last successful transaction data
+            slots_to_execute = state.collected_slots.copy()
+            if intent == "save_payflow" and state.last_successful_transaction:
+                # Add intent_name and slot_values from the last successful transaction
+                slots_to_execute["intent_name"] = state.last_successful_transaction.get("intent")
+                slots_to_execute["slot_values"] = state.last_successful_transaction.get("slots", {})
+                logger.info(f"[SAVE_PAYFLOW_ENRICHMENT] Enriched slots with last_successful_transaction for user {user_id}")
+            
             # TODO: Re-enable PIN verification after payment flow is working
             # if self.security_manager.is_pin_required(intent):
             #     # Set pending action using ConversationManager method
             #     self.conversation_manager.set_pending_action(
             #         user_id,
             #         intent,
-            #         state.collected_slots.copy()
+            #         slots_to_execute.copy()
             #     )
             #     response = self.response_formatter.format_response(
-            #         intent, "confirm_action", **state.collected_slots
+            #         intent, "confirm_action", **slots_to_execute
             #     )
             # else:
             #     # Execute non-secure action directly
-            response = self._execute_action(user_id, intent, state.collected_slots, user_message, state.conversation_history)
+            response = self._execute_action(user_id, intent, slots_to_execute, user_message, state.conversation_history)
         
         # Add assistant response to history
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)

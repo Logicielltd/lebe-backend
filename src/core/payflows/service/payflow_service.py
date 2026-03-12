@@ -45,13 +45,15 @@ class PayflowService:
     def match_payflow_by_regex(self, user_id: str, user_message: str) -> Optional[Payflow]:
         """
         Match a payflow by checking if the user message contains or matches a payflow name.
-        Uses case-insensitive regex pattern matching.
+        Uses case-insensitive regex pattern matching with two strategies:
+        1. Strict: Word boundary matching (preferred for exact payflow names)
+        2. Loose: Substring matching (fallback for partial/context-based matches)
         
         The matching strategy:
         1. Get all active payflows for the user
-        2. For each payflow name, create a word-boundary regex pattern
-        3. Try to match against the user message (case-insensitive)
-        4. Return the first matching payflow (if multiple match, prefer longer names)
+        2. For each payflow name, try strict word-boundary regex match first
+        3. If no strict matches, try loose substring matches
+        4. Return the longest match to avoid false positives
         
         Args:
             user_id: User ID
@@ -75,36 +77,50 @@ class PayflowService:
                 return None
             
             message_lower = user_message.lower()
-            matches = []
+            strict_matches = []  # Word boundary matches
+            loose_matches = []   # Substring matches (fallback)
             
             for payflow in payflows:
                 payflow_name = (payflow.name or "").strip()
                 if not payflow_name:
                     continue
                 
-                # Create regex pattern with word boundaries (case-insensitive)
-                # Escape special regex characters and allow fuzzy matching
                 escaped_name = re.escape(payflow_name)
-                pattern = r"\b" + escaped_name + r"\b"
+                payflow_name_lower = payflow_name.lower()
                 
+                # Strategy 1: Try strict word boundary matching first
+                strict_pattern = r"\b" + escaped_name + r"\b"
                 try:
-                    if re.search(pattern, message_lower, re.IGNORECASE):
-                        matches.append((payflow, len(payflow_name)))  # Store with name length for sorting
+                    if re.search(strict_pattern, message_lower, re.IGNORECASE):
+                        strict_matches.append((payflow, len(payflow_name)))
                         logger.info(
-                            f"[PAYFLOW_REGEX_MATCH] Found regex match: payflow_id={payflow.id}, "
+                            f"[PAYFLOW_REGEX_MATCH] Found STRICT match: payflow_id={payflow.id}, "
                             f"name='{payflow_name}' in message: {user_message[:100]}"
                         )
+                        continue
                 except re.error as e:
                     logger.warning(f"[PAYFLOW_REGEX_MATCH] Invalid regex pattern for payflow name '{payflow_name}': {e}")
+                
+                # Strategy 2: If no strict match, try loose substring matching (fallback)
+                if payflow_name_lower in message_lower:
+                    loose_matches.append((payflow, len(payflow_name)))
+                    logger.info(
+                        f"[PAYFLOW_REGEX_MATCH] Found LOOSE match: payflow_id={payflow.id}, "
+                        f"name='{payflow_name}' (substring) in message: {user_message[:100]}"
+                    )
+            
+            # Prefer strict matches, fall back to loose matches
+            matches = strict_matches if strict_matches else loose_matches
             
             if not matches:
                 logger.debug(f"[PAYFLOW_REGEX_MATCH] No payflow matched for message: {user_message[:100]}")
                 return None
             
-            # If multiple matches, prefer the one with the longest name to avoid partial matches
+            # If multiple matches, prefer the one with the longest name to avoid false positives
             selected_payflow = max(matches, key=lambda x: x[1])[0]
+            match_type = "STRICT" if matches == strict_matches else "LOOSE"
             logger.info(
-                f"[PAYFLOW_REGEX_MATCH] Selected payflow: {selected_payflow.id} "
+                f"[PAYFLOW_REGEX_MATCH] Selected payflow ({match_type}): {selected_payflow.id} "
                 f"(name='{selected_payflow.name}') from {len(matches)} matches"
             )
             return selected_payflow

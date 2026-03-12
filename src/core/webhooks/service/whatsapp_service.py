@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from pathlib import Path
 
 import requests
@@ -7,6 +8,50 @@ import logging
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+class TypingIndicatorLoop:
+    """Keep WhatsApp typing active while a long-running operation completes."""
+
+    def __init__(
+        self,
+        service: "WhatsAppService",
+        phone_number_id: str,
+        recipient_phone: str,
+        message_id: str,
+        refresh_interval_seconds: float = 4.0
+    ):
+        self.service = service
+        self.phone_number_id = phone_number_id
+        self.recipient_phone = recipient_phone
+        self.message_id = message_id
+        self.refresh_interval_seconds = refresh_interval_seconds
+        self._stop_event = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def _run(self) -> None:
+        self.service.send_typing_indicator(
+            phone_number_id=self.phone_number_id,
+            recipient_phone=self.recipient_phone,
+            message_id=self.message_id
+        )
+
+        while not self._stop_event.wait(self.refresh_interval_seconds):
+            self.service.send_typing_indicator(
+                phone_number_id=self.phone_number_id,
+                recipient_phone=self.recipient_phone,
+                message_id=self.message_id
+            )
+
+    def __enter__(self) -> "TypingIndicatorLoop":
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join(timeout=1.0)
 
 
 class WhatsAppService:
@@ -275,3 +320,18 @@ class WhatsAppService:
             if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"Response content: {e.response.text}")
             return False
+
+    def typing_indicator_loop(
+        self,
+        phone_number_id: str,
+        recipient_phone: str,
+        message_id: str,
+        refresh_interval_seconds: float = 4.0
+    ) -> TypingIndicatorLoop:
+        return TypingIndicatorLoop(
+            service=self,
+            phone_number_id=phone_number_id,
+            recipient_phone=recipient_phone,
+            message_id=message_id,
+            refresh_interval_seconds=refresh_interval_seconds
+        )

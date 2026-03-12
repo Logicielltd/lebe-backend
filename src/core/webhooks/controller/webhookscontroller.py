@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from contextlib import nullcontext
 import json
 from datetime import datetime
 from typing import List, Optional
@@ -40,6 +41,22 @@ def normalize_whatsapp_phone(phone: str) -> str:
     if normalized_phone != phone:
         logger.info(f"Normalized inbound WhatsApp phone: {phone} -> {normalized_phone}")
     return normalized_phone
+
+
+def typing_indicator_context(
+    whatsapp_service: WhatsAppService,
+    phone_number_id: str,
+    recipient_phone: str,
+    message_id: Optional[str]
+):
+    if not message_id:
+        return nullcontext()
+
+    return whatsapp_service.typing_indicator_loop(
+        phone_number_id=phone_number_id,
+        recipient_phone=recipient_phone,
+        message_id=message_id
+    )
 
 @webhooks_routes.get("/start-dialog")
 def verify_webhook(
@@ -266,28 +283,26 @@ def handle_text_message(message: dict, phone: str, phone_number_id: str, db: Ses
         # Existing user - process message through NLU
         logger.info(f"Existing user detected: {phone}. Processing message through NLU.")
 
-        # Show typing indicator while processing
         message_id = message.get("id")
-        if message_id:
-            whatsapp_service.send_typing_indicator(
-                phone_number_id=phone_number_id,
-                recipient_phone=phone,
-                message_id=message_id
+        with typing_indicator_context(
+            whatsapp_service=whatsapp_service,
+            phone_number_id=phone_number_id,
+            recipient_phone=phone,
+            message_id=message_id
+        ):
+            # Initialize NLU system and subscription service
+            nlu_system = LebeNLUSystem()
+            subscription_service = SubscriptionService(db)
+
+            # Get user subscription status
+            result = subscription_service.get_user_subscription_status_by_phone(phone)
+
+            # Process the message
+            response_message = nlu_system.process_message(
+                phone,
+                message_text,
+                result["has_active_subscription"]
             )
-
-        # Initialize NLU system and subscription service
-        nlu_system = LebeNLUSystem()
-        subscription_service = SubscriptionService(db)
-
-        # Get user subscription status
-        result = subscription_service.get_user_subscription_status_by_phone(phone)
-
-        # Process the message
-        response_message = nlu_system.process_message(
-            phone,
-            message_text,
-            result["has_active_subscription"]
-        )
 
         logger.info(f"Generated response: {response_message}")
 
@@ -531,41 +546,39 @@ def handle_image_message(message: dict, phone: str, phone_number_id: str, db: Se
             # Existing user - process image through NLU
             logger.info(f"Processing image for existing user: {phone}")
 
-            # Show typing indicator while processing
             message_id = message.get("id")
-            if message_id:
-                whatsapp_service.send_typing_indicator(
-                    phone_number_id=phone_number_id,
-                    recipient_phone=phone,
-                    message_id=message_id
+            with typing_indicator_context(
+                whatsapp_service=whatsapp_service,
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_id=message_id
+            ):
+                # Initialize NLU system
+                nlu_system = LebeNLUSystem()
+                subscription_service = SubscriptionService(db)
+                
+                # Get user subscription status
+                result = subscription_service.get_user_subscription_status_by_phone(phone)
+                
+                # Check if image has a caption
+                caption = image_data.get("caption", "").strip()
+                
+                if caption:
+                    # Use the caption as the user message
+                    user_message = caption
+                    logger.info(f"Image caption found: {caption}")
+                else:
+                    # Default message if no caption provided
+                    user_message = ""
+                    logger.info("No caption provided with image, using default message")
+                
+                # Process the message with image
+                response_message = nlu_system.process_message(
+                    phone,
+                    user_message,
+                    result["has_active_subscription"],
+                    image_media_id=media_id
                 )
-
-            # Initialize NLU system
-            nlu_system = LebeNLUSystem()
-            subscription_service = SubscriptionService(db)
-            
-            # Get user subscription status
-            result = subscription_service.get_user_subscription_status_by_phone(phone)
-            
-            # Check if image has a caption
-            caption = image_data.get("caption", "").strip()
-            
-            if caption:
-                # Use the caption as the user message
-                user_message = caption
-                logger.info(f"Image caption found: {caption}")
-            else:
-                # Default message if no caption provided
-                user_message = ""
-                logger.info("No caption provided with image, using default message")
-            
-            # Process the message with image
-            response_message = nlu_system.process_message(
-                phone,
-                user_message,
-                result["has_active_subscription"],
-                image_media_id=media_id
-            )
             
             logger.info(f"Generated response for image message: {response_message}")
             
@@ -630,41 +643,39 @@ def handle_audio_message(message: dict, phone: str, phone_number_id: str, db: Se
             # Existing user - process audio through NLU
             logger.info(f"Processing audio for existing user: {phone}")
 
-            # Show typing indicator while processing
             message_id = message.get("id")
-            if message_id:
-                whatsapp_service.send_typing_indicator(
-                    phone_number_id=phone_number_id,
-                    recipient_phone=phone,
-                    message_id=message_id
+            with typing_indicator_context(
+                whatsapp_service=whatsapp_service,
+                phone_number_id=phone_number_id,
+                recipient_phone=phone,
+                message_id=message_id
+            ):
+                # Initialize NLU system
+                nlu_system = LebeNLUSystem()
+                subscription_service = SubscriptionService(db)
+                
+                # Get user subscription status
+                result = subscription_service.get_user_subscription_status_by_phone(phone)
+                
+                # Check if audio has a caption
+                caption = audio_data.get("caption", "").strip()
+                
+                if caption:
+                    # Use the caption as the user message
+                    user_message = caption
+                    logger.info(f"Audio caption found: {caption}")
+                else:
+                    # Default message (will be enhanced with transcription in NLU)
+                    user_message = ""
+                    logger.info("No caption provided with audio, using default message")
+                
+                # Process the message with audio
+                response_message = nlu_system.process_message(
+                    phone,
+                    user_message,
+                    result["has_active_subscription"],
+                    audio_media_id=media_id
                 )
-
-            # Initialize NLU system
-            nlu_system = LebeNLUSystem()
-            subscription_service = SubscriptionService(db)
-            
-            # Get user subscription status
-            result = subscription_service.get_user_subscription_status_by_phone(phone)
-            
-            # Check if audio has a caption
-            caption = audio_data.get("caption", "").strip()
-            
-            if caption:
-                # Use the caption as the user message
-                user_message = caption
-                logger.info(f"Audio caption found: {caption}")
-            else:
-                # Default message (will be enhanced with transcription in NLU)
-                user_message = ""
-                logger.info("No caption provided with audio, using default message")
-            
-            # Process the message with audio
-            response_message = nlu_system.process_message(
-                phone,
-                user_message,
-                result["has_active_subscription"],
-                audio_media_id=media_id
-            )
             
             logger.info(f"Generated response for audio message: {response_message}")
             

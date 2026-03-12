@@ -1,4 +1,5 @@
 from typing import List, Optional, Tuple, Dict, Any
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from datetime import datetime
 import logging
@@ -44,101 +45,34 @@ class PayflowService:
 
     def match_payflow_by_regex(self, user_id: str, user_message: str) -> Optional[Payflow]:
         """
-        Match a payflow by checking if the user message contains or matches a payflow name.
-        Uses case-insensitive regex pattern matching with two strategies:
-        1. Strict: Word boundary matching (preferred for exact payflow names)
-        2. Loose: Substring matching (fallback for partial/context-based matches)
-        
-        The matching strategy:
-        1. Get all active payflows for the user
-        2. For each payflow name, try strict word-boundary regex match first
-        3. If no strict matches, try loose substring matches
-        4. Return the longest match to avoid false positives
-        
-        Args:
-            user_id: User ID
-            user_message: User's message to check
-            
-        Returns:
-            Matching Payflow object or None if no match found
+        Match a payflow by exact case-insensitive name match.
         """
         if not user_message or not user_message.strip():
             return None
         
         try:
-            # Get all active payflows for the user
-            # For payflow DB operations we need the internal `users.id` (FK target).
+            # Get user
             user = self.db.query(User).filter(User.phone == user_id).first()
-                    
             if not user:
                 logger.warning(f"[PAYFLOW_MATCH] No user found with phone {user_id}")
                 return None
             
-            user_id = user.id
+            # Find payflow with exact name match (case insensitive)
+            selected_payflow = self.db.query(Payflow).filter(
+                Payflow.user_id == user.id,
+                Payflow.is_active == True,
+                func.lower(Payflow.name) == user_message.lower().strip()
+            ).first()
             
-            payflows = self.db.query(Payflow).filter(
-                Payflow.user_id == user_id,
-                Payflow.is_active == True
-            ).all()
+            if selected_payflow:
+                logger.info(f"[PAYFLOW_MATCH] Found exact match: {selected_payflow.id}")
+                return selected_payflow
             
-            if not payflows:
-                logger.debug(f"[PAYFLOW_REGEX_MATCH] No active payflows found for user {user_id}")
-                return None
-            
-            message_lower = user_message.lower()
-            strict_matches = []  # Word boundary matches
-            loose_matches = []   # Substring matches (fallback)
-            
-            for payflow in payflows:
-                payflow_name = (payflow.name or "").strip()
-                if not payflow_name:
-                    continue
-                
-                escaped_name = re.escape(payflow_name)
-                payflow_name_lower = payflow_name.lower()
-                
-                # Strategy 1: Try strict word boundary matching first
-                strict_pattern = r"\b" + escaped_name + r"\b"
-                try:
-                    if re.search(strict_pattern, message_lower, re.IGNORECASE):
-                        strict_matches.append((payflow, len(payflow_name)))
-                        logger.info(
-                            f"[PAYFLOW_REGEX_MATCH] Found STRICT match: payflow_id={payflow.id}, "
-                            f"name='{payflow_name}' in message: {user_message[:100]}"
-                        )
-                        continue
-                except re.error as e:
-                    logger.warning(f"[PAYFLOW_REGEX_MATCH] Invalid regex pattern for payflow name '{payflow_name}': {e}")
-                
-                # Strategy 2: If no strict match, try loose substring matching (fallback)
-                if payflow_name_lower in message_lower:
-                    loose_matches.append((payflow, len(payflow_name)))
-                    logger.info(
-                        f"[PAYFLOW_REGEX_MATCH] Found LOOSE match: payflow_id={payflow.id}, "
-                        f"name='{payflow_name}' (substring) in message: {user_message[:100]}"
-                    )
-            
-            # Prefer strict matches, fall back to loose matches
-            matches = strict_matches if strict_matches else loose_matches
-            
-            if not matches:
-                logger.debug(f"[PAYFLOW_REGEX_MATCH] No payflow matched for message: {user_message[:100]}")
-                return None
-            
-            # If multiple matches, prefer the one with the longest name to avoid false positives
-            selected_payflow = max(matches, key=lambda x: x[1])[0]
-            match_type = "STRICT" if matches == strict_matches else "LOOSE"
-            logger.info(
-                f"[PAYFLOW_REGEX_MATCH] Selected payflow ({match_type}): {selected_payflow.id} "
-                f"(name='{selected_payflow.name}') from {len(matches)} matches"
-            )
-            return selected_payflow
+            logger.info(f"[PAYFLOW_MATCH] No exact match found for: {user_message}")
+            return None
             
         except Exception as e:
-            logger.error(
-                f"[PAYFLOW_REGEX_MATCH] Error matching payflow by regex for user {user_id}: {str(e)}",
-                exc_info=True
-            )
+            logger.error(f"[PAYFLOW_MATCH] Error: {str(e)}")
             return None
 
     def save_payflow(

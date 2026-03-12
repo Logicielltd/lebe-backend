@@ -89,7 +89,7 @@ jobs:
             fi
 
             git config --global --add safe.directory "$DEPLOY_DIR"
-            git pull
+            git -C "$DEPLOY_DIR" pull
             docker compose down || true
             docker compose up -d --build --remove-orphans
             docker compose ps

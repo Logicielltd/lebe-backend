@@ -42,6 +42,80 @@ class PayflowService:
 
         return SequenceMatcher(None, left_n, right_n).ratio() >= 0.86
 
+    def match_payflow_by_regex(self, user_id: str, user_message: str) -> Optional[Payflow]:
+        """
+        Match a payflow by checking if the user message contains or matches a payflow name.
+        Uses case-insensitive regex pattern matching.
+        
+        The matching strategy:
+        1. Get all active payflows for the user
+        2. For each payflow name, create a word-boundary regex pattern
+        3. Try to match against the user message (case-insensitive)
+        4. Return the first matching payflow (if multiple match, prefer longer names)
+        
+        Args:
+            user_id: User ID
+            user_message: User's message to check
+            
+        Returns:
+            Matching Payflow object or None if no match found
+        """
+        if not user_message or not user_message.strip():
+            return None
+        
+        try:
+            # Get all active payflows for the user
+            payflows = self.db.query(Payflow).filter(
+                Payflow.user_id == user_id,
+                Payflow.is_active == True
+            ).all()
+            
+            if not payflows:
+                logger.debug(f"[PAYFLOW_REGEX_MATCH] No active payflows found for user {user_id}")
+                return None
+            
+            message_lower = user_message.lower()
+            matches = []
+            
+            for payflow in payflows:
+                payflow_name = (payflow.name or "").strip()
+                if not payflow_name:
+                    continue
+                
+                # Create regex pattern with word boundaries (case-insensitive)
+                # Escape special regex characters and allow fuzzy matching
+                escaped_name = re.escape(payflow_name)
+                pattern = r"\b" + escaped_name + r"\b"
+                
+                try:
+                    if re.search(pattern, message_lower, re.IGNORECASE):
+                        matches.append((payflow, len(payflow_name)))  # Store with name length for sorting
+                        logger.info(
+                            f"[PAYFLOW_REGEX_MATCH] Found regex match: payflow_id={payflow.id}, "
+                            f"name='{payflow_name}' in message: {user_message[:100]}"
+                        )
+                except re.error as e:
+                    logger.warning(f"[PAYFLOW_REGEX_MATCH] Invalid regex pattern for payflow name '{payflow_name}': {e}")
+            
+            if not matches:
+                logger.debug(f"[PAYFLOW_REGEX_MATCH] No payflow matched for message: {user_message[:100]}")
+                return None
+            
+            # If multiple matches, prefer the one with the longest name to avoid partial matches
+            selected_payflow = max(matches, key=lambda x: x[1])[0]
+            logger.info(
+                f"[PAYFLOW_REGEX_MATCH] Selected payflow: {selected_payflow.id} "
+                f"(name='{selected_payflow.name}') from {len(matches)} matches"
+            )
+            return selected_payflow
+            
+        except Exception as e:
+            logger.error(
+                f"[PAYFLOW_REGEX_MATCH] Error matching payflow by regex for user {user_id}: {str(e)}",
+                exc_info=True
+            )
+            return None
+
     def save_payflow(
         self,
         user_id: str,

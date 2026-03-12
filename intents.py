@@ -131,10 +131,12 @@ class IntentDetector:
         - If name matches known payflow patterns, prefer execute_payflow
         - Payflow names typically describe the transaction type + recipient/purpose
         
-        4. **Payflow Action Pattern Recognition**:
-        - "Use [Name]" → execute_payflow (highest confidence)
-        - "Send using [Name]" → execute_payflow (highest confidence)
-        - "Pay with [Name]" → execute_payflow (highest confidence)
+        4. **Payflow Action Pattern Recognition** (PRIORITY ORDER):
+        - "[Amount] using [Name]" → execute_payflow with amount override (HIGHEST priority)
+        - "Using [Name]" → execute_payflow (HIGHEST priority)
+        - "Use [Name]" → execute_payflow (high confidence)
+        - "Send using [Name]" → execute_payflow (high confidence)
+        - "Pay with [Name]" → execute_payflow (high confidence)
         - "[Payflow Name] of [Amount]" → execute_payflow with amount override
         - "View/Show templates/payflows" → view_payflows
         - "Delete [Payflow Name]" → delete_payflow
@@ -232,8 +234,21 @@ class IntentDetector:
         MISSING: time_period
         
         PAYFLOW MANAGEMENT - EXECUTION (THE KEY DISTINCTION):
-        *** CRITICAL: Action verbs "Use", "Send using", "Pay with" + NAME = PAYFLOW EXECUTION ***
+        *** CRITICAL: Action verbs "Using", "Use", "Send using", "Pay with" + NAME = PAYFLOW EXECUTION ***
+        *** "USING" keyword = HIGHEST priority for payflow detection ***
         *** Names WITHOUT action verbs alone = Could be beneficiary or need more context ***
+        
+        User: "50 using Mom Payment"
+        INTENT: execute_payflow
+        SLOTS: {"payflow_name": "Mom Payment", "amount": "50"}
+        MISSING: 
+        REASONING: "using" verb + payflow name + amount is HIGHEST PRIORITY payflow execution with amount override
+        
+        User: "Using Get Manager Airtime"
+        INTENT: execute_payflow
+        SLOTS: {"payflow_name": "Get Manager Airtime"}
+        MISSING: 
+        REASONING: "Using" verb + descriptive name "Get Manager Airtime" clearly indicates using a saved payflow template (HIGHEST PRIORITY)
         
         User: "Use Get Manager Airtime"
         INTENT: execute_payflow
@@ -264,6 +279,12 @@ class IntentDetector:
         SLOTS: {"payflow_name": "John Airtime", "amount": "20"}
         MISSING: 
         REASONING: Payflow name "John Airtime" (compound, descriptive) + amount override = payflow execution
+        
+        User: "Save as Mom Weekly Payment of 100"
+        INTENT: save_payflow
+        SLOTS: {"payflow_name": "Mom Weekly Payment", "amount": "100"}
+        MISSING: 
+        REASONING: After successful transaction, amount is captured and saved with the payflow template
         
         User: "View my payment templates"
         INTENT: view_payflows
@@ -359,7 +380,8 @@ class IntentDetector:
         
         CONFIDENCE SCORING WITH PAYFLOW PRIORITY:
         - HIGH: 
-          * User message contains "Use [Name]", "Send using [Name]", "Pay with [Name]" → execute_payflow (highest)
+          * User message contains "Using [Name]", "[Amount] using [Name]" → execute_payflow (HIGHEST PRIORITY)
+          * User message contains "Use [Name]", "Send using [Name]", "Pay with [Name]" → execute_payflow
           * User clearly expresses specific intent with unambiguous language
           * Payflow-specific action verbs detected with identifiable payflow name
         - MEDIUM: 
@@ -371,7 +393,9 @@ class IntentDetector:
           * User message is vague or could refer to multiple intents
           * Insufficient information to determine payflow vs beneficiary
         
-        PAYFLOW DETECTION CONFIDENCE RULES:
+        PAYFLOW DETECTION CONFIDENCE RULES (PRIORITY ORDER):
+        - "Using" + name = HIGHEST confidence for execute_payflow
+        - "[Amount] using" + name = HIGHEST confidence for execute_payflow with amount extraction
         - "Use" + name = HIGH confidence for execute_payflow
         - "Send using" + name = HIGH confidence for execute_payflow
         - "Pay with" + name = HIGH confidence for execute_payflow
@@ -392,24 +416,31 @@ class IntentDetector:
         - The system will look up the saved beneficiary by name and extract the phone number automatically
         
         IMPORTANT RULE FOR PAYFLOW DETECTION (OVERRIDES BENEFICIARY WHEN ACTION VERB PRESENT):
+        - When user says "Using [Name]" or "[Amount] using [Name]" → This is ALWAYS execute_payflow (HIGHEST PRIORITY)
         - When user says "Use [Name]", "Send using [Name]", or "Pay with [Name]" → This is ALWAYS execute_payflow, NOT a beneficiary lookup
         - The name in payflow context is payflow_name, not beneficiary_name
         - Payflows are saved TEMPLATES with specific names created by the user (e.g., "Mom Payment", "Get Manager Airtime")
-        - If you see action verbs like "Use", "Send using", "Pay with", "pay using", "execute" + a name → extract as payflow_name, NOT beneficiary_name
-        - Example: "Use Get Manager Airtime" → execute_payflow with payflow_name="Get Manager Airtime", NOT buy_airtime with beneficiary_name="Get Manager Airtime"
+        - If you see action verbs like "Using", "Use", "Send using", "Pay with", "pay using", "execute" + a name → extract as payflow_name, NOT beneficiary_name
+        - Example: "Using Get Manager Airtime" → execute_payflow with payflow_name="Get Manager Airtime", NOT buy_airtime with beneficiary_name
+        - Example: "Use Get Manager Airtime" → execute_payflow with payflow_name="Get Manager Airtime", NOT buy_airtime with beneficiary_name
+        - Example: "50 using Mom Payment" → execute_payflow with payflow_name="Mom Payment", amount="50"
+        - AMOUNT HANDLING: When "Using" pattern includes amount, extract both payflow_name AND amount for override
 
         FINAL ACCURACY CHECK:
         - If the user's message clarifies or adds to the current active intent, do not change it.
         - Only switch to a new intent if the user message explicitly refers to a different goal or action.
         - Always ensure `SLOTS` is valid JSON.
         
-        PAYFLOW-SPECIFIC FINAL CHECKS:
-        - If message contains action verbs "Use", "Send using", or "Pay with" + name → MUST be execute_payflow (not the regular intent)
+        PAYFLOW-SPECIFIC FINAL CHECKS (PRIORITY ORDER):
+        - If message contains "Using" + name OR "[Amount] using" + name → MUST be execute_payflow (HIGHEST PRIORITY)
+        - If message contains "Use", "Send using", "Pay with" + name → MUST be execute_payflow (not the regular intent)
         - If message is "[Descriptive Name] of [Amount]" → Treat as execute_payflow with amount override
         - If previous context shows user has saved payflows and mentions a payflow-like name → Prefer execute_payflow
         - If unsure between generic beneficiary name vs payflow name → Ask for clarification or check saved payflows first
         - Single generic names (John, Mary) mentioned alone = beneficiary lookup, NOT payflow
         - Compound/descriptive names (Mom Payment, Get Manager Airtime, Electricity Bill) = payflow names
+        - Amount is automatically captured when saving payflows (follows after successful transaction)
+        - Amount can be overridden when executing: "using" keyword + amount = execute with new amount
         """
     
     def _prepare_context(self, conversation_history: List[Dict]) -> str:

@@ -30,6 +30,7 @@ from core.payments.model.paymentmethod import PaymentMethod
 from core.payments.model.paymentstatus import PaymentStatus
 from core.payments.model.paynetwork import Network
 from core.payments.service.paymentservice import PaymentService
+from core.payflows.service.payflow_service import PayflowService
 from utilities.uniqueidgenerator import UniqueIdGenerator
 from decimal import Decimal
 from core.beneficiaries.utility.network_detector import NetworkDetector
@@ -62,6 +63,51 @@ class LebeNLUSystem:
         self.security_manager = SecurityManager()
         self.response_formatter = ResponseFormatter()
         self.intent_processor = IntentProcessor()
+    
+    def _check_payflow_match(self, user_id: str, user_message: str, db: Session) -> Optional[Dict[str, Any]]:
+        """
+        Check if the user message matches a saved payflow using regex pattern matching.
+        
+        This method is called BEFORE AI intent detection to allow quick payflow execution.
+        If a payflow matches, it bypasses the expensive intent detection.
+        
+        Args:
+            user_id: User identifier
+            user_message: Raw user message text
+            db: Database session
+            
+        Returns:
+            Dict with matched payflow info or None if no match:
+            {
+                'payflow': Payflow object,
+                'requires_confirmation': bool,
+                'message': str (user-friendly message about the matched payflow)
+            }
+        """
+        if not user_message or not user_message.strip():
+            return None
+        
+        try:
+            payflow_service = PayflowService(db)
+            matched_payflow = payflow_service.match_payflow_by_regex(user_id, user_message)
+            
+            if matched_payflow:
+                logger.info(
+                    f"[PAYFLOW_MATCH] Matched payflow for user {user_id}: "
+                    f"name='{matched_payflow.name}', intent={matched_payflow.intent_name}, "
+                    f"requires_confirmation={matched_payflow.requires_confirmation}"
+                )
+                return {
+                    'payflow': matched_payflow,
+                    'requires_confirmation': matched_payflow.requires_confirmation,
+                    'message': f"Executing payflow: {matched_payflow.name}"
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"[PAYFLOW_MATCH_ERROR] Error checking payflow match for user {user_id}: {str(e)}", exc_info=True)
+            return None
     
     def _resolve_beneficiary(self, user_id: str, beneficiary_name: str, db: Session) -> Optional[Dict]:
         """
@@ -181,6 +227,16 @@ class LebeNLUSystem:
             audio_media_id: WhatsApp media ID for audio
             audio_url: Direct URL to audio
         """
+        # CHECK FOR PAYFLOW MATCH BEFORE INTENT DETECTION
+        # This allows quick execution of saved payflows without AI processing
+        db = SessionLocal()
+        try:
+            payflow_match = self._check_payflow_match(user_id, user_message, db)
+            if payflow_match:
+                # Payflow matched! Handle it
+                return self._handle_payflow_match(user_id, payflow_match, user_message, state)
+        finally:
+            db.close()
 
         # Get conversation state
         state = self.conversation_manager.get_conversation_state(user_id)
@@ -469,6 +525,83 @@ class LebeNLUSystem:
 
         self.conversation_manager.update_conversation_history(user_id, "assistant", response)
         return response
+
+    def _handle_payflow_match(self, user_id: str, payflow_match: Dict[str, Any], user_message: str, state: Any) -> str:
+        """
+        Handle execution of a matched payflow.
+        
+        If requires_confirmation is True, ask user to confirm before execution.
+        If requires_confirmation is False, execute directly.
+        
+        Args:
+            user_id: User identifier
+            payflow_match: Dict with 'payflow', 'requires_confirmation', 'message'
+            user_message: Original user message
+            state: Conversation state
+            
+        Returns:
+            Response string
+        """
+        try:
+            payflow = payflow_match['payflow']
+            requires_confirmation = payflow_match['requires_confirmation']
+            intent = payflow.intent_name
+            slots = dict(payflow.slot_values)
+            
+            logger.info(
+                f"[PAYFLOW_HANDLER] Processing payflow {payflow.id} (name='{payflow.name}') "
+                f"for user {user_id}, intent={intent}, requires_confirmation={requires_confirmation}"
+            )
+            
+            if requires_confirmation:
+                # Ask user to confirm payflow execution
+                confirmation_msg = (
+                    f"I found a saved payflow: {payflow.name}\n"
+                    f"Would you like me to execute it? Please reply 'yes' to confirm or 'no' to cancel."
+                )
+                
+                # Store payflow info in pending payment DTO for confirmation
+                state.pending_payment_dto = {
+                    'payflow_id': payflow.id,
+                    'payflow_name': payflow.name,
+                    'intent': intent,
+                    'slots': slots,
+                    'is_payflow': True  # Flag to indicate this is a payflow
+                }
+                state.waiting_for_payment_confirmation = True
+                state.current_intent = intent
+                self.conversation_manager._save_conversation_state(state)
+                
+                logger.info(f"[PAYFLOW_HANDLER] Waiting for user confirmation for payflow {payflow.id}")
+                response = self.response_formatter.format_response(
+                    intent, 
+                    "confirm_action",
+                    message=confirmation_msg,
+                    **slots
+                )
+                self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+                return response
+            else:
+                # Execute payflow directly without confirmation
+                logger.info(f"[PAYFLOW_HANDLER] Executing payflow {payflow.id} without confirmation")
+                response = self._execute_action(user_id, intent, slots, user_message, state.conversation_history)
+                
+                # Clear collected slots after execution
+                state.collected_slots = {}
+                self.conversation_manager._save_conversation_state(state)
+                
+                self.conversation_manager.update_conversation_history(user_id, "assistant", response)
+                return response
+                
+        except Exception as e:
+            logger.error(f"[PAYFLOW_HANDLER_ERROR] Error handling payflow match for user {user_id}: {str(e)}", exc_info=True)
+            error_response = self.response_formatter.format_response(
+                "",
+                "error",
+                message=f"Error executing payflow: {str(e)}"
+            )
+            self.conversation_manager.update_conversation_history(user_id, "assistant", error_response)
+            return error_response
 
     def _execute_action(self, user_id: str, intent: str, slots: Dict, user_message: str = "", conversation_history: List[Dict] = None) -> str:
         """Execute the actual financial action through payment service"""

@@ -350,14 +350,16 @@ SYSTEM_PROMPTS = {
     - When user mentions a SPECIFIC NAME like "Get Manager Airtime" or "Mom Payment", this is likely a PAYFLOW
     - When user mentions a GENERIC NAME like "John" or "Mom" alone without action verb, this might be a beneficiary
     
-    KEY PAYFLOW RECOGNITION PATTERNS:
-    1. "Use [Name]" → Execute payflow with name [Name]
-    2. "Send using [Name]" → Execute payflow with name [Name]  
-    3. "Pay with [Name]" → Execute payflow with name [Name]
-    4. "[Name] of [Amount]" where [Name] is descriptive → Execute payflow, amount override
-    5. "View my templates" / "Show payflows" → View payflows
-    6. "Save as [Name]" (after successful transaction) → Save payflow
-    7. "Delete [Name]" when [Name] is a payflow → Delete payflow
+    KEY PAYFLOW RECOGNITION PATTERNS (PRIORITY ORDER):
+    1. "[Amount] using [Name]" → Execute payflow with amount override (HIGHEST PRIORITY)
+    2. "Using [Name]" → Execute payflow (HIGHEST PRIORITY)
+    3. "Use [Name]" → Execute payflow 
+    4. "Send using [Name]" → Execute payflow
+    5. "Pay with [Name]" → Execute payflow
+    6. "[Name] of [Amount]" where [Name] is descriptive → Execute payflow, amount override
+    7. "View my templates" / "Show payflows" → View payflows
+    8. "Save as [Name]" (after successful transaction) → Save payflow with captured amount
+    9. "Delete [Name]" when [Name] is a payflow → Delete payflow
     
     EXAMPLES OF PAYFLOW NAMES:
     - "Mom Payment" - specific, descriptive payflow name
@@ -366,11 +368,20 @@ SYSTEM_PROMPTS = {
     - "John Airtime" - specific, descriptive payflow name
     - "Rent Payment" - specific, descriptive payflow name
     
+    AMOUNT SAVING & EDITING:
+    - When saving a payflow (after successful transaction), the AMOUNT is automatically captured and stored
+    - When executing a payflow, the amount can be OVERRIDDEN by specifying a new amount:
+      * "50 using Mom Payment" → Execute with 50 GHS
+      * "Mom Payment of 75" → Execute with 75 GHS
+    - Saved amount can be updated later using update operations
+    - If no amount is specified in execution, the last saved amount is used
+    
     PAYFLOW vs BENEFICIARY EXAMPLE FLOW:
     User: "Send to John" → This is likely send_money with beneficiary_name="John", missing recipient/amount
     User: "Use John Airtime" → This is execute_payflow with payflow_name="John Airtime"
     User: "Buy airtime for John" → This is buy_airtime with beneficiary_name="John", missing amount
     User: "John Airtime of 50" → This is execute_payflow with payflow_name="John Airtime", amount override="50"
+    User: "50 using John Airtime" → This is execute_payflow with payflow_name="John Airtime", amount override="50"
     
     Focus on:
     - Recognizing payflow names when preceded by action verbs: "Use", "Send using", "Pay with"

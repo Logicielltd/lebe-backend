@@ -931,7 +931,26 @@ class LebeNLUSystem:
                 return self.response_formatter.format_response(intent, message_type="processing", message=message)
             elif result.status == PaymentStatus.SUCCESS:
                 message = self._get_success_message(intent, slots, result)
-                return self.response_formatter.format_response(intent, message_type="success", message=message)
+                
+                # Store successful transaction for potential payflow saving
+                state = self.conversation_manager.get_conversation_state(user_id)
+                state.last_successful_transaction = {
+                    "intent": intent,
+                    "slots": slots,
+                    "transaction_id": result.transactionId,
+                    "amount": slots.get('amount') or slots.get('loan_amount'),
+                    "timestamp": datetime.now().isoformat()
+                }
+                self.conversation_manager._save_conversation_state(state)
+                
+                # Add payflow saving suggestion to the success message
+                payflow_suggestion = (
+                    "\n\n💾 Would you like to save this as a payment template for quick reuse? "
+                    "Just say 'Save as [template name]' (e.g., 'Save as Mom Payment')"
+                )
+                
+                full_message = message + payflow_suggestion
+                return self.response_formatter.format_response(intent, message_type="success", message=full_message)
             else:
                 error_msg = result.responseDescription or "Payment processing failed"
                 return self.response_formatter.format_response(intent, message_type="error", message=error_msg)
@@ -946,6 +965,7 @@ class LebeNLUSystem:
         financial_tips_intents = INTENT_CATEGORIES["financial_tips"]
         expense_report_intents = INTENT_CATEGORIES["expense_report"]
         beneficiaries_intents = INTENT_CATEGORIES["beneficiaries"]
+        payflows_intents = INTENT_CATEGORIES.get("payflows", [])
         user_management_intents = INTENT_CATEGORIES.get("user_management", [])
 
         user_data = self._get_user_data(user_id)
@@ -976,6 +996,14 @@ class LebeNLUSystem:
             )
         elif intent in beneficiaries_intents:
             return self.intent_processor.process_beneficiaries_intent(
+                intent,
+                user_message,
+                conversation_history,
+                slots,
+                user_data
+            )
+        elif intent in payflows_intents:
+            return self.intent_processor.process_payflows_intent(
                 intent,
                 user_message,
                 conversation_history,

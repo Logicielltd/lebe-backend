@@ -21,6 +21,7 @@ class ConversationState:
     conversation_date: date = None
     waiting_for_payment_confirmation: bool = False
     pending_payment_dto: Dict = None
+    last_successful_transaction: Dict = None
 
     def __post_init__(self):
         if self.collected_slots is None:
@@ -31,6 +32,8 @@ class ConversationState:
             self.conversation_date = date.today()
         if self.pending_payment_dto is None:
             self.pending_payment_dto = {}
+        if self.last_successful_transaction is None:
+            self.last_successful_transaction = {}
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
@@ -43,7 +46,8 @@ class ConversationState:
             'conversation_history': self.conversation_history,
             'conversation_date': self.conversation_date.isoformat(),
             'waiting_for_payment_confirmation': self.waiting_for_payment_confirmation,
-            'pending_payment_dto': self.pending_payment_dto
+            'pending_payment_dto': self.pending_payment_dto,
+            'last_successful_transaction': self.last_successful_transaction
         }
     
     @classmethod

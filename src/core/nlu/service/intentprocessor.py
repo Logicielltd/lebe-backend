@@ -216,6 +216,169 @@ class IntentProcessor:
             bank_code=bank_code
         )
         return message
+
+    def process_payflows_intent(
+        self,
+        intent: str,
+        user_message: str,
+        conversation_history: List[Dict],
+        slots: Dict[str, Any],
+        user_data: Optional[Dict] = None
+    ) -> str:
+        """
+        Process payflows management using PayflowService.
+        Payflows are saved snapshots of successful payment transactions.
+        """
+        db = next(get_db())
+        
+        from core.payflows.service.payflow_service import PayflowService
+        payflow_service = PayflowService(db)
+        
+        # For payflow DB operations we need the internal `users.id` (FK target).
+        user_id = (user_data or {}).get("db_user_id") or (user_data or {}).get("user_id") or "unknown"
+        
+        if intent == "save_payflow":
+            return self._handle_save_payflow(payflow_service, user_id, slots)
+        elif intent == "view_payflows":
+            return self._handle_view_payflows(payflow_service, user_id, slots)
+        elif intent == "execute_payflow":
+            return self._handle_execute_payflow(payflow_service, user_id, slots)
+        elif intent == "delete_payflow":
+            return self._handle_delete_payflow(payflow_service, user_id, slots)
+        elif intent == "update_payflow":
+            return self._handle_update_payflow(payflow_service, user_id, slots)
+        else:
+            return "Payflow intent not supported"
+
+    def _handle_save_payflow(self, payflow_service, user_id: str, slots: Dict) -> str:
+        """Handle saving a new payflow after successful transaction"""
+        payflow_name = slots.get("payflow_name")
+        
+        if not payflow_name:
+            return "Please provide a name for this payment template."
+        
+        # Get the saved payflow data from slots
+        intent_name = slots.get("intent_name")
+        slot_values = slots.get("slot_values", {})
+        
+        if not intent_name or not slot_values:
+            return "Unable to save payflow: incomplete transaction data. Please complete a full transaction first."
+        
+        success, payflow, message = payflow_service.save_payflow(
+            user_id=user_id,
+            name=payflow_name,
+            description=slots.get("description"),
+            intent_name=intent_name,
+            slot_values=slot_values,
+            payment_method=slots.get("payment_method"),
+            recipient_phone=slots.get("recipient_phone"),
+            recipient_name=slots.get("recipient_name"),
+            account_number=slots.get("account_number"),
+            bill_provider=slots.get("bill_provider"),
+            last_amount=slots.get("amount") or slots.get("last_amount"),
+            requires_confirmation=slots.get("requires_confirmation", True)
+        )
+        
+        return message
+
+    def _handle_view_payflows(self, payflow_service, user_id: str, slots: Dict) -> str:
+        """Handle viewing all payflows"""
+        intent_filter = slots.get("intent_filter")
+        payflows = payflow_service.list_payflows(user_id, intent_filter=intent_filter)
+        
+        if not payflows:
+            return "You don't have any saved payment templates yet. Save one after completing a payment!"
+        
+        # Format payflow list
+        payflow_list = "\n".join([
+            f"✅ {pf.name}: {pf.intent_name.replace('_', ' ').title()} "
+            f"({'Requires confirmation' if pf.requires_confirmation else 'Quick pay'}) - "
+            f"Used {pf.transaction_count} times"
+            for pf in payflows
+        ])
+        
+        return f"Your saved payment templates:\n{payflow_list}"
+
+    def _handle_execute_payflow(self, payflow_service, user_id: str, slots: Dict) -> str:
+        """Handle executing a saved payflow"""
+        payflow_name = slots.get("payflow_name")
+        
+        if not payflow_name:
+            return "Please specify which payment template you want to use."
+        
+        # Lookup payflow by name
+        payflow = payflow_service.get_payflow_by_name(user_id, payflow_name)
+        
+        if not payflow:
+            return f"Payment template '{payflow_name}' not found. Would you like to view your saved templates?"
+        
+        # Prepare execution
+        override_amount = slots.get("amount")
+        success, prepared_slots, message = payflow_service.execute_payflow(
+            user_id=user_id,
+            payflow_id=payflow.id,
+            override_amount=override_amount
+        )
+        
+        if not success:
+            return message
+        
+        # Return execution response - in real flow, this would trigger payment processing
+        intent_display = payflow.intent_name.replace('_', ' ').title()
+        amount = prepared_slots.get('amount', 'N/A')
+        requires_confirmation = payflow.requires_confirmation
+        
+        if requires_confirmation:
+            return f"Ready to replay your '{payflow_name}' template ({intent_display}, Amount: {amount}). Please confirm with your PIN to proceed."
+        else:
+            return f"Initiating direct payment using '{payflow_name}' template..."
+
+    def _handle_delete_payflow(self, payflow_service, user_id: str, slots: Dict) -> str:
+        """Handle deleting a payflow"""
+        payflow_name = slots.get("payflow_name")
+        
+        if not payflow_name:
+            return "Please specify which payment template you want to remove."
+        
+        # Lookup payflow by name
+        payflow = payflow_service.get_payflow_by_name(user_id, payflow_name)
+        
+        if not payflow:
+            return f"Payment template '{payflow_name}' not found."
+        
+        success, message = payflow_service.delete_payflow(user_id, payflow.id)
+        return message
+
+    def _handle_update_payflow(self, payflow_service, user_id: str, slots: Dict) -> str:
+        """Handle updating a payflow"""
+        payflow_name = slots.get("payflow_name")
+        
+        if not payflow_name:
+            return "Please specify which payment template you want to edit."
+        
+        # Lookup payflow by name
+        payflow = payflow_service.get_payflow_by_name(user_id, payflow_name)
+        
+        if not payflow:
+            return f"Payment template '{payflow_name}' not found."
+        
+        # Prepare updates
+        updates = {}
+        if slots.get("new_payflow_name"):
+            updates["name"] = slots.get("new_payflow_name")
+        if "last_amount" in slots:
+            updates["last_amount"] = slots.get("last_amount")
+        
+        if not updates:
+            return "What would you like to update? You can change the template name or amount."
+        
+        success, updated_payflow, message = payflow_service.update_payflow(
+            user_id=user_id,
+            payflow_id=payflow.id,
+            **updates
+        )
+        
+        return message
     
     def _build_enhanced_system_prompt(
         self,

@@ -147,6 +147,38 @@ INTENTS = {
         "required_slots": ["beneficiary_name", "update_field"]
     },
     
+    # ===== PAYFLOW MANAGEMENT INTENTS =====
+    "save_payflow": {
+        "description": "Save a payment snapshot/template for quick reuse (only after successful transaction)",
+        "slots": ["payflow_name", "intent_name", "slot_values"],
+        "required_slots": ["payflow_name"],
+        "category": "payflows"
+    },
+    "view_payflows": {
+        "description": "View saved payflows",
+        "slots": ["intent_filter"],
+        "required_slots": [],
+        "category": "payflows"
+    },
+    "execute_payflow": {
+        "description": "Execute a saved payflow (repeat a previous payment transaction)",
+        "slots": ["payflow_name", "amount"],
+        "required_slots": ["payflow_name"],
+        "category": "payflows"
+    },
+    "delete_payflow": {
+        "description": "Remove a saved payflow",
+        "slots": ["payflow_name"],
+        "required_slots": ["payflow_name"],
+        "category": "payflows"
+    },
+    "update_payflow": {
+        "description": "Edit a saved payflow",
+        "slots": ["payflow_name", "update_field", "new_payflow_name"],
+        "required_slots": ["payflow_name", "update_field"],
+        "category": "payflows"
+    },
+    
     # ===== USER PROFILE MANAGEMENT INTENTS =====
     "update_username": {
         "description": "Update user username",
@@ -306,6 +338,27 @@ SYSTEM_PROMPTS = {
 
     Current User Context: {context}
     Missing slots: {missing_slots}
+    """,
+    
+    "payflows": """
+    You are Lebe, a financial assistant for users in Ghana. You help users with managing payflows (saved payment templates).
+    Payflows are snapshots of successful payment sessions that can be quickly repeated.
+    
+    Focus on:
+    - Recognizing payflow names mentioned by users
+    - Saving payflows after successful transactions (with all slot values available)
+    - Executing/repeating saved payflows
+    - Managing payflows (viewing, updating, deleting)
+    
+    IMPORTANT:
+    - Payflows can ONLY be saved after a complete, successful transaction where all intent slots are populated
+    - When a user mentions a payflow name, first verify if it exists in their saved payflows
+    - When executing a payflow, pass the saved slot values to initiate payment
+    - If user confirmation is required for the intent, ask before proceeding
+    - For direct payments, initiate them automatically with the saved slots
+
+    Current User Context: {context}
+    Missing slots: {missing_slots}
     """
 }
 
@@ -342,6 +395,16 @@ RESPONSE_TEMPLATES = {
         "delete_beneficiary": "The beneficiary {beneficiary_name} has been removed successfully.",
         "update_beneficiary": "The beneficiary {beneficiary_name} has been updated successfully."
     },
+    "payflows": {
+        "save_payflow": "Your payment template '{payflow_name}' has been saved successfully! ✅ You can repeat this payment anytime by saying 'Send using {payflow_name}'.",
+        "view_payflows": "Here are your saved payment templates: {payflows_list}",
+        "execute_payflow": "Great! I'm executing your '{payflow_name}' payment template. {confirmation_message}",
+        "delete_payflow": "Your payment template '{payflow_name}' has been removed successfully.",
+        "update_payflow": "Your payment template '{payflow_name}' has been updated successfully.",
+        "payflow_not_found": "I couldn't find a payment template named '{payflow_name}'. Would you like to view your saved templates?",
+        "confirm_payflow_execution": "I'm about to process {payflow_name} ({intent_details}). Please confirm with your PIN to proceed.",
+        "insufficient_slots": "I cannot save this as a payment template yet. The transaction needs to be completed successfully first with all details."
+    },
     "system": {
         "intent_not_clear": "I'm not quite sure what you're asking. Could you please rephrase or provide more details? I can help you with: sending money, buying airtime, paying bills, tracking expenses, managing beneficiaries, or getting financial tips."
     },
@@ -363,6 +426,7 @@ INTENT_CATEGORIES = {
     "transactional": ["send_money", "buy_airtime", "pay_bill", "check_balance", "get_loan", "track_expenses", "set_budget"],
     "expense_report": ["expense_report", "generate_expense_report", "monthly_expense_summary",  "annual_expense_report", "daily_expense_report","transaction_info"],
     "beneficiaries": ["add_beneficiary", "view_beneficiaries", "delete_beneficiary", "update_beneficiary"],
+    "payflows": ["save_payflow", "view_payflows", "execute_payflow", "delete_payflow", "update_payflow"],
     "user_management": ["update_user_details", "update_username", "update_phone_number", "view_user_profile"],
     "system": ["intent_not_clear"]
 }

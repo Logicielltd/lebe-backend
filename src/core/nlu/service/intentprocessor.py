@@ -302,8 +302,7 @@ class IntentProcessor:
         # Format payflow list
         payflow_list = "\n".join([
             f"✅ {pf.name}: {pf.intent_name.replace('_', ' ').title()} "
-            f"({'Requires confirmation' if pf.requires_confirmation else 'Quick pay'}) - "
-            f"Used {pf.transaction_count} times"
+            f"({'Requires confirmation' if pf.requires_confirmation else 'Quick pay'})"
             for pf in payflows
         ])
         

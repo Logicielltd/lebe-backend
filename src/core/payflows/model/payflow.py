@@ -39,7 +39,6 @@ class Payflow(Base):
     is_active = Column(Boolean, default=True, nullable=False)  # Whether this payflow can be used
 
     # Metadata
-    transaction_count = Column(Integer, default=0, nullable=False)  # How many times this payflow was used
     last_used_at = Column(DateTime, nullable=True)  # Last execution timestamp
     created_at = Column(DateTime, default=datetime.now, nullable=False)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)

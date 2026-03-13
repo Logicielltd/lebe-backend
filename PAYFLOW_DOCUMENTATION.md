@@ -178,7 +178,6 @@ Response:
       "recipient_phone": "0541234567",
       "recipient_name": "Ama Boateng",
       "requires_confirmation": true,
-      "transaction_count": 5,
       "last_used_at": "2025-03-10T14:30:00",
       "created_at": "2025-02-15T10:20:00"
     },
@@ -251,7 +250,6 @@ class Payflow(Base):
     last_amount: Optional[str]
     requires_confirmation: bool
     is_active: bool
-    transaction_count: int
     last_used_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime

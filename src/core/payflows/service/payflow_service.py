@@ -157,8 +157,7 @@ class PayflowService:
                 bill_provider=bill_provider,
                 last_amount=last_amount,
                 requires_confirmation=requires_confirmation,
-                is_active=True,
-                transaction_count=0
+                is_active=True
             )
 
             self.db.add(payflow)
@@ -372,7 +371,6 @@ class PayflowService:
                 slots['amount'] = override_amount
 
             # Update execution stats
-            payflow.transaction_count += 1
             payflow.last_used_at = datetime.now()
             self.db.commit()
 

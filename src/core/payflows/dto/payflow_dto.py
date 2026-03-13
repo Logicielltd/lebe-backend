@@ -52,7 +52,6 @@ class PayflowResponse(BaseModel):
     last_amount: Optional[str]
     requires_confirmation: bool
     is_active: bool
-    transaction_count: int
     last_used_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
@@ -78,7 +77,6 @@ class PayflowResponse(BaseModel):
             last_amount=payflow.last_amount,
             requires_confirmation=payflow.requires_confirmation,
             is_active=payflow.is_active,
-            transaction_count=payflow.transaction_count,
             last_used_at=payflow.last_used_at,
             created_at=payflow.created_at,
             updated_at=payflow.updated_at
